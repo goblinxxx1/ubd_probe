@@ -10,5 +10,8 @@ venv/
 .env
 *.local
 
+# Superpowers SDD scratch (ledger, briefs, review packages)
+.superpowers/
+
 # SQLite (not used, just in case)
 *.db
