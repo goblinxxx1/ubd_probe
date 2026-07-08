@@ -5,8 +5,8 @@ from sqlalchemy.orm import sessionmaker
 
 from app.core.config import settings
 from app.core.db import Base, get_db
+import app.models  # noqa: F401 — ensures all models are registered on Base
 from app.main import app
-# import app.models  # noqa: F401 — ensures all models are registered on Base
 
 _engine = create_engine(settings.test_database_url, pool_pre_ping=True)
 
