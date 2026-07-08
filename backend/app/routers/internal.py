@@ -4,10 +4,12 @@ from sqlalchemy.orm import Session
 
 from app.crud import offer as offer_crud
 from app.crud import source as source_crud
+from app.crud import suggested_source as suggestion_crud
 from app.deps import get_db, require_api_key
 from app.models.enums import CreatedBy, OfferStatus
 from app.schemas.offer import OfferCreate, OfferOut
 from app.schemas.source import SourceOut
+from app.schemas.suggested_source import SuggestedSourceCreate, SuggestedSourceOut
 
 router = APIRouter(prefix="/api/internal", tags=["internal"],
                    dependencies=[Depends(require_api_key)])
@@ -27,3 +29,8 @@ def create_offer(data: InternalOfferCreate, db: Session = Depends(get_db)):
     payload = OfferCreate(**data.model_dump(exclude={"source_id"}))
     return offer_crud.create_offer(db, payload, CreatedBy.crawler,
                                    OfferStatus.pending_review, source_id=data.source_id)
+
+
+@router.post("/suggested-sources", response_model=SuggestedSourceOut)
+def submit_suggested_source(data: SuggestedSourceCreate, db: Session = Depends(get_db)):
+    return suggestion_crud.create_suggestion(db, data)

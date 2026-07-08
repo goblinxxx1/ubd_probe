@@ -4,13 +4,15 @@ from sqlalchemy.orm import Session
 from app.crud import category as category_crud
 from app.crud import offer as offer_crud
 from app.crud import source as source_crud
+from app.crud import suggested_source as suggestion_crud
 from app.deps import get_current_admin, get_db, require_super_admin
 from app.models import OfferCategory, TargetCategory
-from app.models.enums import CreatedBy, OfferStatus, OfferType
+from app.models.enums import CreatedBy, OfferStatus, OfferType, SuggestionStatus
 from app.schemas.category import CategoryCreate, CategoryOut, CategoryUpdate
 from app.schemas.common import Page
 from app.schemas.offer import OfferCreate, OfferOut, OfferUpdate
 from app.schemas.source import SourceCreate, SourceOut, SourceUpdate
+from app.schemas.suggested_source import SuggestedSourceOut
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -101,3 +103,21 @@ def reject_offer(offer_id: int, db: Session = Depends(get_db),
 @router.delete("/offers/{offer_id}", status_code=204)
 def delete_offer(offer_id: int, db: Session = Depends(get_db), _=Depends(get_current_admin)):
     offer_crud.delete_offer(db, offer_id)
+
+
+@router.get("/suggested-sources", response_model=list[SuggestedSourceOut])
+def list_suggestions(status: SuggestionStatus | None = None, db: Session = Depends(get_db),
+                     _=Depends(get_current_admin)):
+    return suggestion_crud.list_suggestions(db, status)
+
+
+@router.post("/suggested-sources/{suggestion_id}/approve", response_model=SourceOut)
+def approve_suggestion(suggestion_id: int, db: Session = Depends(get_db),
+                       admin=Depends(get_current_admin)):
+    return suggestion_crud.approve(db, suggestion_id, admin.id)
+
+
+@router.post("/suggested-sources/{suggestion_id}/reject", response_model=SuggestedSourceOut)
+def reject_suggestion(suggestion_id: int, db: Session = Depends(get_db),
+                      admin=Depends(get_current_admin)):
+    return suggestion_crud.reject(db, suggestion_id, admin.id)
