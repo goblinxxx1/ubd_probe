@@ -34,10 +34,13 @@ a **new Source** (a monitoring target), not as an offer.
 
 - **Framework:** FastAPI
 - **ORM / migrations:** SQLAlchemy + Alembic
-- **Database:** MySQL
+- **Database:** MySQL (local). App uses the `ubd` schema; the test suite uses a
+  separate `ubd_test` schema. No SQLite.
 - **Validation:** Pydantic (separate input/output schemas)
 - **Auth:** JWT access tokens (admin), bcrypt password hashing, API key (crawler)
-- **Tests:** pytest + FastAPI `TestClient`
+- **Tests:** pytest + FastAPI `TestClient`, against the `ubd_test` MySQL schema
+- **Config:** credentials in `backend/.env` (gitignored); `backend/.env.example`
+  documents variable names
 - **Environment:** local development for now (no deployment target yet)
 
 ## Data Model
