@@ -2,11 +2,14 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.crud import category as category_crud
+from app.crud import offer as offer_crud
 from app.crud import source as source_crud
 from app.deps import get_current_admin, get_db, require_super_admin
 from app.models import OfferCategory, TargetCategory
-from app.models.enums import CreatedBy
+from app.models.enums import CreatedBy, OfferStatus, OfferType
 from app.schemas.category import CategoryCreate, CategoryOut, CategoryUpdate
+from app.schemas.common import Page
+from app.schemas.offer import OfferCreate, OfferOut, OfferUpdate
 from app.schemas.source import SourceCreate, SourceOut, SourceUpdate
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -56,3 +59,45 @@ def update_source(source_id: int, data: SourceUpdate, db: Session = Depends(get_
 def delete_source(source_id: int, db: Session = Depends(get_db),
                   _=Depends(get_current_admin)):
     source_crud.delete_source(db, source_id)
+
+
+@router.post("/offers", response_model=OfferOut)
+def create_offer(data: OfferCreate, db: Session = Depends(get_db),
+                 _=Depends(get_current_admin)):
+    return offer_crud.create_offer(db, data, CreatedBy.admin, OfferStatus.published)
+
+
+@router.get("/offers", response_model=Page[OfferOut])
+def list_offers(status: OfferStatus | None = None, type: OfferType | None = None,
+                page: int = 1, size: int = 20, db: Session = Depends(get_db),
+                _=Depends(get_current_admin)):
+    items, total = offer_crud.list_offers(db, status=status, type=type, page=page, size=size)
+    return Page(items=items, total=total, page=page, size=size)
+
+
+@router.get("/offers/{offer_id}", response_model=OfferOut)
+def get_offer(offer_id: int, db: Session = Depends(get_db), _=Depends(get_current_admin)):
+    return offer_crud.get_offer(db, offer_id)
+
+
+@router.patch("/offers/{offer_id}", response_model=OfferOut)
+def update_offer(offer_id: int, data: OfferUpdate, db: Session = Depends(get_db),
+                 _=Depends(get_current_admin)):
+    return offer_crud.update_offer(db, offer_id, data)
+
+
+@router.post("/offers/{offer_id}/publish", response_model=OfferOut)
+def publish_offer(offer_id: int, db: Session = Depends(get_db),
+                  admin=Depends(get_current_admin)):
+    return offer_crud.set_status(db, offer_id, OfferStatus.published, admin.id)
+
+
+@router.post("/offers/{offer_id}/reject", response_model=OfferOut)
+def reject_offer(offer_id: int, db: Session = Depends(get_db),
+                 admin=Depends(get_current_admin)):
+    return offer_crud.set_status(db, offer_id, OfferStatus.rejected, admin.id)
+
+
+@router.delete("/offers/{offer_id}", status_code=204)
+def delete_offer(offer_id: int, db: Session = Depends(get_db), _=Depends(get_current_admin)):
+    offer_crud.delete_offer(db, offer_id)
