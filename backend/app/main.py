@@ -4,6 +4,8 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.errors import AppError
+from app.routers import admin as admin_router
+from app.routers import public as public_router
 
 app = FastAPI(title="UBD Discounts API")
 
@@ -29,3 +31,7 @@ def handle_validation_error(request: Request, exc: RequestValidationError) -> JS
 @app.get("/api/health")
 def health() -> dict:
     return {"status": "ok"}
+
+
+app.include_router(public_router.router)
+app.include_router(admin_router.router)
