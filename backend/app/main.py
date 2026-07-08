@@ -5,6 +5,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.errors import AppError
 from app.routers import admin as admin_router
+from app.routers import auth as auth_router
 from app.routers import public as public_router
 
 app = FastAPI(title="UBD Discounts API")
@@ -35,3 +36,4 @@ def health() -> dict:
 
 app.include_router(public_router.router)
 app.include_router(admin_router.router)
+app.include_router(auth_router.router)
