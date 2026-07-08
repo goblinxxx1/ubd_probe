@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app.crud import admin_user as admin_user_crud
 from app.crud import category as category_crud
 from app.crud import offer as offer_crud
 from app.crud import source as source_crud
@@ -8,6 +9,7 @@ from app.crud import suggested_source as suggestion_crud
 from app.deps import get_current_admin, get_db, require_super_admin
 from app.models import OfferCategory, TargetCategory
 from app.models.enums import CreatedBy, OfferStatus, OfferType, SuggestionStatus
+from app.schemas.admin_user import AdminUserCreate, AdminUserOut
 from app.schemas.category import CategoryCreate, CategoryOut, CategoryUpdate
 from app.schemas.common import Page
 from app.schemas.offer import OfferCreate, OfferOut, OfferUpdate
@@ -121,3 +123,20 @@ def approve_suggestion(suggestion_id: int, db: Session = Depends(get_db),
 def reject_suggestion(suggestion_id: int, db: Session = Depends(get_db),
                       admin=Depends(get_current_admin)):
     return suggestion_crud.reject(db, suggestion_id, admin.id)
+
+
+@router.post("/users", response_model=AdminUserOut)
+def create_admin_user(data: AdminUserCreate, db: Session = Depends(get_db),
+                      _=Depends(require_super_admin)):
+    return admin_user_crud.create_admin(db, data)
+
+
+@router.get("/users", response_model=list[AdminUserOut])
+def list_admin_users(db: Session = Depends(get_db), _=Depends(require_super_admin)):
+    return admin_user_crud.list_admins(db)
+
+
+@router.delete("/users/{admin_id}", status_code=204)
+def delete_admin_user(admin_id: int, db: Session = Depends(get_db),
+                      _=Depends(require_super_admin)):
+    admin_user_crud.delete_admin(db, admin_id)
