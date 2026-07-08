@@ -39,3 +39,18 @@ def test_double_approve_conflicts(client, db_session):
     client.post(f"/api/admin/suggested-sources/{sid}/approve", headers=h)
     again = client.post(f"/api/admin/suggested-sources/{sid}/approve", headers=h)
     assert again.status_code == 409
+
+
+def test_reject_then_double_reject_conflicts(client, db_session):
+    key = {"X-API-Key": settings.crawler_api_key}
+    sid = client.post("/api/internal/suggested-sources",
+                      json={"name": "Rejectable", "type": "website", "url_or_handle": "https://y"},
+                      headers=key).json()["id"]
+    h = {"Authorization": f"Bearer {_token(db_session)}"}
+    rejected = client.post(f"/api/admin/suggested-sources/{sid}/reject", headers=h)
+    assert rejected.status_code == 200
+    assert rejected.json()["status"] == "rejected"
+
+    again = client.post(f"/api/admin/suggested-sources/{sid}/reject", headers=h)
+    assert again.status_code == 409
+    assert again.json()["code"] == "conflict"

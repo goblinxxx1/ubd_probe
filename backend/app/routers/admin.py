@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.crud import admin_user as admin_user_crud
@@ -73,8 +73,8 @@ def create_offer(data: OfferCreate, db: Session = Depends(get_db),
 
 @router.get("/offers", response_model=Page[OfferOut])
 def list_offers(status: OfferStatus | None = None, type: OfferType | None = None,
-                page: int = 1, size: int = 20, db: Session = Depends(get_db),
-                _=Depends(get_current_admin)):
+                page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100),
+                db: Session = Depends(get_db), _=Depends(get_current_admin)):
     items, total = offer_crud.list_offers(db, status=status, type=type, page=page, size=size)
     return Page(items=items, total=total, page=page, size=size)
 

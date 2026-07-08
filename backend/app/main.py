@@ -30,6 +30,12 @@ def handle_validation_error(request: Request, exc: RequestValidationError) -> JS
                         content={"detail": str(exc.errors()), "code": "validation_error"})
 
 
+@app.exception_handler(Exception)
+def handle_unexpected_error(request: Request, exc: Exception) -> JSONResponse:
+    return JSONResponse(status_code=500,
+                        content={"detail": "Internal Server Error", "code": "internal_error"})
+
+
 @app.get("/api/health")
 def health() -> dict:
     return {"status": "ok"}

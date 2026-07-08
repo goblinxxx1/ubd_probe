@@ -53,3 +53,15 @@ def test_get_real_pending_offer_returns_404(client, db_session):
     resp = client.get(f"/api/offers/{pending.id}")
     assert resp.status_code == 404
     assert resp.json()["code"] == "not_found"
+
+
+def test_page_zero_rejected(client, db_session):
+    _seed(db_session)
+    resp = client.get("/api/offers?page=0")
+    assert resp.status_code == 422
+
+
+def test_size_too_large_rejected(client, db_session):
+    _seed(db_session)
+    resp = client.get("/api/offers?size=1000")
+    assert resp.status_code == 422

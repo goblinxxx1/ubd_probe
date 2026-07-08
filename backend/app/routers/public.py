@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.crud import category as category_crud
@@ -26,7 +26,7 @@ def list_offer_categories(db: Session = Depends(get_db)):
 @router.get("/offers", response_model=Page[OfferOut])
 def list_offers(type: OfferType | None = None, target_category: int | None = None,
                 offer_category: int | None = None, location: str | None = None,
-                q: str | None = None, page: int = 1, size: int = 20,
+                q: str | None = None, page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100),
                 db: Session = Depends(get_db)):
     items, total = offer_crud.list_offers(
         db, status=OfferStatus.published, type=type, target_category_id=target_category,

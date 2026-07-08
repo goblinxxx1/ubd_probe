@@ -1,8 +1,8 @@
 from sqlalchemy.orm import Session
 
-from app.core.errors import not_found
+from app.core.errors import not_found, validation_error
 from app.models import Offer, OfferCategory, TargetCategory
-from app.models.enums import CreatedBy, OfferStatus, OfferType
+from app.models.enums import CreatedBy, DiscountType, OfferStatus, OfferType
 from app.schemas.offer import OfferCreate, OfferUpdate
 
 
@@ -70,6 +70,14 @@ def update_offer(db: Session, offer_id: int, data: OfferUpdate) -> Offer:
         obj.target_categories = _load_categories(db, target_ids, [])[0]
     if offer_ids is not None:
         obj.offer_categories = _load_categories(db, [], offer_ids)[1]
+    if obj.valid_from and obj.valid_until and obj.valid_until < obj.valid_from:
+        raise validation_error("valid_until must be on or after valid_from")
+    if obj.discount_type in (DiscountType.percent, DiscountType.fixed):
+        if obj.discount_value is None:
+            raise validation_error("discount_value required for percent/fixed discounts")
+    else:
+        if obj.discount_value is not None:
+            raise validation_error("discount_value must be empty unless discount_type is percent/fixed")
     db.commit()
     db.refresh(obj)
     return obj

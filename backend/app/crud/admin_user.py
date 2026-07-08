@@ -3,7 +3,6 @@ from sqlalchemy.orm import Session
 from app.core.errors import conflict, not_found, unauthorized
 from app.core.security import hash_password, verify_password
 from app.models import AdminUser
-from app.models.enums import AdminRole
 from app.schemas.admin_user import AdminUserCreate
 
 

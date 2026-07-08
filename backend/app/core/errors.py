@@ -19,3 +19,7 @@ def forbidden(detail: str = "Forbidden") -> AppError:
 
 def unauthorized(detail: str = "Not authenticated") -> AppError:
     return AppError(401, "unauthorized", detail)
+
+
+def validation_error(detail: str) -> AppError:
+    return AppError(422, "validation_error", detail)

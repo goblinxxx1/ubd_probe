@@ -32,3 +32,23 @@ def test_moderation_queue_and_publish(client, db_session):
 
 def test_admin_offers_requires_auth(client):
     assert client.get("/api/admin/offers").status_code == 401
+
+
+def test_update_offer_rejects_invalid_dates_and_discount(client, db_session):
+    token = _admin_token(db_session)
+    h = {"Authorization": f"Bearer {token}"}
+    published = offer_crud.create_offer(
+        db_session, OfferCreate(type=OfferType.discount, title="Deal", provider="P"),
+        created_by=CreatedBy.admin, status=OfferStatus.published)
+
+    bad_dates = client.patch(f"/api/admin/offers/{published.id}",
+                             json={"valid_from": "2026-08-01", "valid_until": "2026-07-01"},
+                             headers=h)
+    assert bad_dates.status_code == 422
+    assert bad_dates.json()["code"] == "validation_error"
+
+    bad_discount = client.patch(f"/api/admin/offers/{published.id}",
+                                json={"discount_type": "free", "discount_value": 10},
+                                headers=h)
+    assert bad_discount.status_code == 422
+    assert bad_discount.json()["code"] == "validation_error"

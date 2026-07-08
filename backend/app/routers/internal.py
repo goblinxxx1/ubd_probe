@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.crud import offer as offer_crud
@@ -26,6 +25,8 @@ class InternalOfferCreate(OfferCreate):
 
 @router.post("/offers", response_model=OfferOut)
 def create_offer(data: InternalOfferCreate, db: Session = Depends(get_db)):
+    if data.source_id is not None:
+        source_crud.get_source(db, data.source_id)
     payload = OfferCreate(**data.model_dump(exclude={"source_id"}))
     return offer_crud.create_offer(db, payload, CreatedBy.crawler,
                                    OfferStatus.pending_review, source_id=data.source_id)

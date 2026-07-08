@@ -16,3 +16,11 @@ def test_internal_offer_requires_api_key(client):
     resp = client.post("/api/internal/offers",
                        json={"type": "discount", "title": "x", "provider": "y"})
     assert resp.status_code == 401
+
+
+def test_internal_offer_rejects_unknown_source_id(client, db_session):
+    resp = client.post("/api/internal/offers",
+                       json={"type": "discount", "title": "x", "provider": "y", "source_id": 9999},
+                       headers={"X-API-Key": settings.crawler_api_key})
+    assert resp.status_code == 404
+    assert resp.json()["code"] == "not_found"
