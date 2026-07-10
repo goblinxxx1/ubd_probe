@@ -35,7 +35,7 @@ defineExpose({ submit, form });
       <el-form-item label="Пароль">
         <el-input v-model="form.password" type="password" autocomplete="current-password" />
       </el-form-item>
-      <el-button type="primary" :loading="loading" native-type="submit" @click="submit">Увійти</el-button>
+      <el-button type="primary" :loading="loading" native-type="submit">Увійти</el-button>
     </el-form>
   </div>
 </template>
