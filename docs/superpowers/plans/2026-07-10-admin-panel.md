@@ -2348,6 +2348,16 @@ const showValue = computed(
   () => isDiscount.value && (form.discount_type === "percent" || form.discount_type === "fixed")
 );
 
+// Clear a stale discount_value when the value field stops applying (e.g. type
+// switches to event, or discount_type changes to free / is cleared) — otherwise
+// the hidden value fails validation with no visible field to fix it.
+watch(
+  () => [form.type, form.discount_type],
+  () => {
+    if (!showValue.value) form.discount_value = null;
+  }
+);
+
 function submit() {
   const errors = validateOffer(form);
   if (errors.length) {
