@@ -44,4 +44,12 @@ describe("CategoriesView", () => {
     await flushPromises();
     expect(categories.removeOffer).toHaveBeenCalledWith(2);
   });
+
+  it("updates a target category via startEdit + save", async () => {
+    const wrapper = mount(CategoriesView, { global: { plugins: [ElementPlus] } });
+    await flushPromises();
+    await wrapper.vm.save("target", { name: "УБД+", slug: "ubd" }, 1);
+    await flushPromises();
+    expect(categories.updateTarget).toHaveBeenCalledWith(1, { name: "УБД+", slug: "ubd" });
+  });
 });

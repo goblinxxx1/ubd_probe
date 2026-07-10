@@ -19,6 +19,20 @@ const drafts = reactive({
   offer: { name: "", slug: "" },
 });
 
+const editingId = reactive({ target: null, offer: null });
+
+function startEdit(kind, row) {
+  editingId[kind] = row.id;
+  drafts[kind].name = row.name;
+  drafts[kind].slug = row.slug;
+}
+
+function cancelEdit(kind) {
+  editingId[kind] = null;
+  drafts[kind].name = "";
+  drafts[kind].slug = "";
+}
+
 async function save(kind, form, id = null) {
   if (!form.name || !form.slug) {
     ElMessage.error("Вкажіть назву та slug");
@@ -35,7 +49,8 @@ async function save(kind, form, id = null) {
 }
 
 async function addDraft(kind) {
-  await save(kind, drafts[kind]);
+  await save(kind, drafts[kind], editingId[kind]);
+  editingId[kind] = null;
   drafts[kind].name = "";
   drafts[kind].slug = "";
 }
@@ -55,7 +70,7 @@ async function remove(kind, id) {
   }
 }
 
-defineExpose({ save, remove });
+defineExpose({ save, remove, startEdit, editingId });
 </script>
 
 <template>
@@ -68,6 +83,7 @@ defineExpose({ save, remove });
           <el-table-column prop="slug" label="Slug" />
           <el-table-column label="Дії" width="140">
             <template #default="{ row }">
+              <el-button size="small" @click="startEdit('target', row)">Редагувати</el-button>
               <el-button size="small" type="danger" @click="remove('target', row.id)">Видалити</el-button>
             </template>
           </el-table-column>
@@ -75,7 +91,8 @@ defineExpose({ save, remove });
         <div class="add-row">
           <el-input v-model="drafts.target.name" placeholder="Назва" style="width: 200px" />
           <el-input v-model="drafts.target.slug" placeholder="slug" style="width: 200px" />
-          <el-button type="primary" @click="addDraft('target')">Додати</el-button>
+          <el-button type="primary" @click="addDraft('target')">{{ editingId.target ? "Зберегти" : "Додати" }}</el-button>
+          <el-button v-if="editingId.target" @click="cancelEdit('target')">Скасувати</el-button>
         </div>
       </el-tab-pane>
 
@@ -85,6 +102,7 @@ defineExpose({ save, remove });
           <el-table-column prop="slug" label="Slug" />
           <el-table-column label="Дії" width="140">
             <template #default="{ row }">
+              <el-button size="small" @click="startEdit('offer', row)">Редагувати</el-button>
               <el-button size="small" type="danger" @click="remove('offer', row.id)">Видалити</el-button>
             </template>
           </el-table-column>
@@ -92,7 +110,8 @@ defineExpose({ save, remove });
         <div class="add-row">
           <el-input v-model="drafts.offer.name" placeholder="Назва" style="width: 200px" />
           <el-input v-model="drafts.offer.slug" placeholder="slug" style="width: 200px" />
-          <el-button type="primary" @click="addDraft('offer')">Додати</el-button>
+          <el-button type="primary" @click="addDraft('offer')">{{ editingId.offer ? "Зберегти" : "Додати" }}</el-button>
+          <el-button v-if="editingId.offer" @click="cancelEdit('offer')">Скасувати</el-button>
         </div>
       </el-tab-pane>
     </el-tabs>
