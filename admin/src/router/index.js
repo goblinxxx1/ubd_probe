@@ -1,18 +1,31 @@
 import { createRouter, createWebHistory } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
-
-const Placeholder = { template: "<div />" };
+import AdminLayout from "@/layouts/AdminLayout.vue";
+import LoginView from "@/views/LoginView.vue";
+import OffersListView from "@/views/OffersListView.vue";
+import ModerationQueueView from "@/views/ModerationQueueView.vue";
+import OfferFormView from "@/views/OfferFormView.vue";
+import SourcesView from "@/views/SourcesView.vue";
+import SuggestedSourcesView from "@/views/SuggestedSourcesView.vue";
+import CategoriesView from "@/views/CategoriesView.vue";
+import AdminUsersView from "@/views/AdminUsersView.vue";
 
 const routes = [
-  { path: "/login", name: "login", meta: { public: true }, component: Placeholder },
-  { path: "/", name: "offers", component: Placeholder },
-  { path: "/moderation", name: "moderation", component: Placeholder },
-  { path: "/offers/new", name: "offer-new", component: Placeholder },
-  { path: "/offers/:id/edit", name: "offer-edit", component: Placeholder },
-  { path: "/sources", name: "sources", component: Placeholder },
-  { path: "/suggested-sources", name: "suggested-sources", component: Placeholder },
-  { path: "/categories", name: "categories", meta: { superAdmin: true }, component: Placeholder },
-  { path: "/users", name: "users", meta: { superAdmin: true }, component: Placeholder },
+  { path: "/login", name: "login", meta: { public: true }, component: LoginView },
+  {
+    path: "/",
+    component: AdminLayout,
+    children: [
+      { path: "", name: "offers", component: OffersListView },
+      { path: "moderation", name: "moderation", component: ModerationQueueView },
+      { path: "offers/new", name: "offer-new", component: OfferFormView },
+      { path: "offers/:id/edit", name: "offer-edit", component: OfferFormView },
+      { path: "sources", name: "sources", component: SourcesView },
+      { path: "suggested-sources", name: "suggested-sources", component: SuggestedSourcesView },
+      { path: "categories", name: "categories", meta: { superAdmin: true }, component: CategoriesView },
+      { path: "users", name: "users", meta: { superAdmin: true }, component: AdminUsersView },
+    ],
+  },
 ];
 
 export function navigationGuard(to) {
