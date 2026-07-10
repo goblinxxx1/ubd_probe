@@ -1,4 +1,7 @@
-<script setup></script>
+<script setup>
+import OffersListView from "@/views/OffersListView.vue";
+</script>
+
 <template>
-  <div class="view">Черга модерації</div>
+  <OffersListView fixed-status="pending_review" />
 </template>
