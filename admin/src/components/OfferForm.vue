@@ -39,6 +39,13 @@ const showValue = computed(
   () => isDiscount.value && (form.discount_type === "percent" || form.discount_type === "fixed")
 );
 
+watch(
+  () => [form.type, form.discount_type],
+  () => {
+    if (!showValue.value) form.discount_value = null;
+  }
+);
+
 function submit() {
   const errors = validateOffer(form);
   if (errors.length) {
