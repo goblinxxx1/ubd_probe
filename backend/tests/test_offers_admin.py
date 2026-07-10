@@ -34,6 +34,23 @@ def test_admin_offers_requires_auth(client):
     assert client.get("/api/admin/offers").status_code == 401
 
 
+def test_list_offers_search_by_q(client, db_session):
+    token = _admin_token(db_session)
+    h = {"Authorization": f"Bearer {token}"}
+    offer_crud.create_offer(
+        db_session, OfferCreate(type=OfferType.discount, title="Кава знижка", provider="Coffee House"),
+        created_by=CreatedBy.admin, status=OfferStatus.published)
+    offer_crud.create_offer(
+        db_session, OfferCreate(type=OfferType.discount, title="Спортзал", provider="Gym Co"),
+        created_by=CreatedBy.admin, status=OfferStatus.published)
+
+    resp = client.get("/api/admin/offers?q=Кава", headers=h)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 1
+    assert data["items"][0]["title"] == "Кава знижка"
+
+
 def test_update_offer_rejects_invalid_dates_and_discount(client, db_session):
     token = _admin_token(db_session)
     h = {"Authorization": f"Bearer {token}"}
