@@ -40,5 +40,6 @@ describe("SuggestedSourcesView", () => {
     await wrapper.vm.onReject(3);
     await flushPromises();
     expect(suggested.reject).toHaveBeenCalledWith(3);
+    expect(suggested.list).toHaveBeenCalledTimes(2);
   });
 });

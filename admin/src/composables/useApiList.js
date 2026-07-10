@@ -1,4 +1,6 @@
 import { ref, reactive } from "vue";
+import { ElMessage } from "element-plus";
+import { extractError } from "@/utils/errors";
 
 export function useApiList(loader, initialFilters = {}) {
   const items = ref([]);
@@ -15,10 +17,15 @@ export function useApiList(loader, initialFilters = {}) {
       if (Array.isArray(result)) {
         items.value = result;
         total.value = result.length;
-      } else {
+      } else if (result) {
         items.value = result.items;
         total.value = result.total;
+      } else {
+        items.value = [];
+        total.value = 0;
       }
+    } catch (e) {
+      ElMessage.error(extractError(e));
     } finally {
       loading.value = false;
     }

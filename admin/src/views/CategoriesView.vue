@@ -36,23 +36,27 @@ function cancelEdit(kind) {
 async function save(kind, form, id = null) {
   if (!form.name || !form.slug) {
     ElMessage.error("Вкажіть назву та slug");
-    return;
+    return false;
   }
   try {
     if (id) await api[kind].update(id, { name: form.name, slug: form.slug });
     else await api[kind].create({ name: form.name, slug: form.slug });
     ElMessage.success("Збережено");
     await dictionaries.reload();
+    return true;
   } catch (e) {
     ElMessage.error(extractError(e));
+    return false;
   }
 }
 
 async function addDraft(kind) {
-  await save(kind, drafts[kind], editingId[kind]);
-  editingId[kind] = null;
-  drafts[kind].name = "";
-  drafts[kind].slug = "";
+  const ok = await save(kind, drafts[kind], editingId[kind]);
+  if (ok) {
+    editingId[kind] = null;
+    drafts[kind].name = "";
+    drafts[kind].slug = "";
+  }
 }
 
 async function remove(kind, id) {
@@ -81,7 +85,7 @@ defineExpose({ save, remove, startEdit, editingId });
         <el-table :data="dictionaries.targetCategories" style="width: 100%">
           <el-table-column prop="name" label="Назва" />
           <el-table-column prop="slug" label="Slug" />
-          <el-table-column label="Дії" width="140">
+          <el-table-column label="Дії" width="200">
             <template #default="{ row }">
               <el-button size="small" @click="startEdit('target', row)">Редагувати</el-button>
               <el-button size="small" type="danger" @click="remove('target', row.id)">Видалити</el-button>
@@ -100,7 +104,7 @@ defineExpose({ save, remove, startEdit, editingId });
         <el-table :data="dictionaries.offerCategories" style="width: 100%">
           <el-table-column prop="name" label="Назва" />
           <el-table-column prop="slug" label="Slug" />
-          <el-table-column label="Дії" width="140">
+          <el-table-column label="Дії" width="200">
             <template #default="{ row }">
               <el-button size="small" @click="startEdit('offer', row)">Редагувати</el-button>
               <el-button size="small" type="danger" @click="remove('offer', row.id)">Видалити</el-button>

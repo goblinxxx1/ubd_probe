@@ -18,7 +18,8 @@ client.interceptors.request.use((config) => {
 client.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error?.response?.status === 401 && unauthorizedHandler) {
+    const isLoginRequest = error?.config?.url?.endsWith("/auth/login");
+    if (error?.response?.status === 401 && unauthorizedHandler && !isLoginRequest) {
       unauthorizedHandler();
     }
     return Promise.reject(error);

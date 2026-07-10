@@ -1,10 +1,12 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { mount } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { createRouter, createMemoryHistory } from "vue-router";
 import ElementPlus from "element-plus";
 import AdminLayout from "@/layouts/AdminLayout.vue";
 import { useAuthStore } from "@/stores/auth";
+
+vi.mock("@/api/offers", () => ({ list: vi.fn(() => Promise.resolve({ items: [], total: 0 })) }));
 
 function makeRouter() {
   const stub = { template: "<div/>" };

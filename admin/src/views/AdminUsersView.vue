@@ -28,6 +28,10 @@ async function create() {
     ElMessage.error("Вкажіть email і пароль");
     return;
   }
+  if (form.password.length < 8) {
+    ElMessage.error("Пароль має містити щонайменше 8 символів");
+    return;
+  }
   try {
     await users.create({ email: form.email, password: form.password, role: form.role });
     ElMessage.success("Створено");

@@ -1,11 +1,22 @@
 <script setup>
-import { computed } from "vue";
+import { computed, ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
+import * as offers from "@/api/offers";
 
 const auth = useAuthStore();
 const router = useRouter();
 const isSuperAdmin = computed(() => auth.isSuperAdmin);
+const pendingCount = ref(0);
+
+onMounted(async () => {
+  try {
+    const result = await offers.list({ status: "pending_review", size: 1 });
+    pendingCount.value = result?.total ?? 0;
+  } catch {
+    // badge is non-critical — ignore errors silently
+  }
+});
 
 function logout() {
   auth.logout();
@@ -19,7 +30,9 @@ function logout() {
       <h1 class="logo">UBD</h1>
       <nav>
         <router-link :to="{ name: 'offers' }">Оффери</router-link>
-        <router-link :to="{ name: 'moderation' }">Черга модерації</router-link>
+        <router-link :to="{ name: 'moderation' }">
+          <el-badge :value="pendingCount" :hidden="!pendingCount">Черга модерації</el-badge>
+        </router-link>
         <router-link :to="{ name: 'sources' }">Джерела</router-link>
         <router-link :to="{ name: 'suggested-sources' }">Запропоновані джерела</router-link>
         <router-link v-if="isSuperAdmin" :to="{ name: 'categories' }">Категорії</router-link>

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { mount } from "@vue/test-utils";
-import ElementPlus from "element-plus";
+import ElementPlus, { ElSelect } from "element-plus";
 import CategoryMultiSelect from "@/components/CategoryMultiSelect.vue";
 
 describe("CategoryMultiSelect", () => {
@@ -9,7 +9,7 @@ describe("CategoryMultiSelect", () => {
       props: { modelValue: [], options: [{ id: 1, name: "УБД" }] },
       global: { plugins: [ElementPlus] },
     });
-    wrapper.vm.$emit("update:modelValue", [1]);
+    wrapper.findComponent(ElSelect).vm.$emit("update:modelValue", [1]);
     await wrapper.vm.$nextTick();
     expect(wrapper.emitted()["update:modelValue"][0]).toEqual([[1]]);
   });
