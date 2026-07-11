@@ -685,6 +685,9 @@ export function useDictionaries() {
         offerCategories.value = o;
         loaded = true;
       })
+      .catch(() => {
+        // dictionaries are non-critical (filter options only) — leave lists empty, allow retry
+      })
       .finally(() => {
         inflight = null;
       });
