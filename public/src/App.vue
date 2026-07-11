@@ -1,6 +1,10 @@
-<script setup></script>
+<script setup>
+import SiteHeader from "@/components/SiteHeader.vue";
+import SiteFooter from "@/components/SiteFooter.vue";
+</script>
 
 <template>
-  <router-view v-if="$route" />
-  <div v-else class="container">UBD Public</div>
+  <SiteHeader />
+  <main><router-view /></main>
+  <SiteFooter />
 </template>
