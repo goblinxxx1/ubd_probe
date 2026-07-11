@@ -11,6 +11,13 @@ import { listTarget, listOffer } from "@/api/categories";
 describe("useDictionaries", () => {
   beforeEach(() => vi.clearAllMocks());
 
+  it("degrades silently when a dictionary endpoint fails", async () => {
+    listTarget.mockRejectedValueOnce(new Error("boom"));
+    const d = useDictionaries();
+    await expect(d.load()).resolves.toBeUndefined();
+    expect(d.targetCategories.value).toEqual([]);
+  });
+
   it("loads both lists once and caches", async () => {
     const d = useDictionaries();
     await d.load();
