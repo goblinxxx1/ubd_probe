@@ -1,11 +1,14 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { mount } from "@vue/test-utils";
 import { createRouter, createMemoryHistory } from "vue-router";
 import OfferGrid from "@/components/OfferGrid.vue";
 
 const router = createRouter({
   history: createMemoryHistory(),
-  routes: [{ path: "/offers/:id", name: "offer", component: { template: "<div/>" } }],
+  routes: [
+    { path: "/", name: "home", component: { template: "<div/>" } },
+    { path: "/offers/:id", name: "offer", component: { template: "<div/>" } },
+  ],
 });
 
 function mountGrid(props) {
@@ -13,6 +16,11 @@ function mountGrid(props) {
 }
 
 describe("OfferGrid", () => {
+  beforeEach(async () => {
+    router.push("/");
+    await router.isReady();
+  });
+
   it("shows loading state", () => {
     const w = mountGrid({ offers: [], loading: true, error: null });
     expect(w.text()).toContain("Завантаження");

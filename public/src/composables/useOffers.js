@@ -15,7 +15,7 @@ export function useOffers() {
   const page = computed(() => Number(route.query.page) || 1);
 
   function paramsFromQuery(query) {
-    const params = { page: Number(query.page) || 1, size: SIZE };
+    const params = { page: page.value, size: SIZE };
     for (const key of FILTER_KEYS) {
       if (query[key]) params[key] = query[key];
     }

@@ -23,7 +23,7 @@ defineProps({
 @import "@/styles/variables.less";
 .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
 .state { color: @muted; padding: 32px 0; text-align: center; }
-.state--error { color: #b00020; }
+.state--error { color: @danger; }
 @media (max-width: 900px) { .grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: @bp-mobile) { .grid { grid-template-columns: 1fr; } }
 </style>

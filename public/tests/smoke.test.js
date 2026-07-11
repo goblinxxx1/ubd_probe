@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
-import { createRouter, createMemoryHistory } from "vue-router";
 import App from "@/App.vue";
 import router from "@/router";
 
