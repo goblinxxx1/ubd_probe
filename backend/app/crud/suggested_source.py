@@ -11,6 +11,12 @@ from app.schemas.suggested_source import SuggestedSourceCreate
 
 
 def create_suggestion(db: Session, data: SuggestedSourceCreate) -> SuggestedSource:
+    existing = (db.query(SuggestedSource)
+                .filter(SuggestedSource.type == data.type,
+                        SuggestedSource.url_or_handle == data.url_or_handle)
+                .first())
+    if existing is not None:
+        return existing
     obj = SuggestedSource(
         name=data.name, type=data.type, url_or_handle=data.url_or_handle,
         discovered_from_source_id=data.discovered_from_source_id,

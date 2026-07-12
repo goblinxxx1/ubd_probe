@@ -42,3 +42,12 @@ def test_crawler_offer_dedup_is_idempotent(client, db_session):
     assert r1.status_code == 200 and r2.status_code == 200
     assert r1.json()["id"] == r2.json()["id"]  # same row, not a duplicate
     assert client.get("/api/offers").json()["total"] == 0  # still pending
+
+
+def test_suggested_source_is_idempotent(client, db_session):
+    body = {"name": "New Chan", "type": "telegram", "url_or_handle": "t.me/newchan"}
+    h = {"X-API-Key": settings.crawler_api_key}
+    r1 = client.post("/api/internal/suggested-sources", json=body, headers=h)
+    r2 = client.post("/api/internal/suggested-sources", json=body, headers=h)
+    assert r1.status_code == 200 and r2.status_code == 200
+    assert r1.json()["id"] == r2.json()["id"]
