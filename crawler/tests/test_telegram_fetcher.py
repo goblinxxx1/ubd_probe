@@ -1,4 +1,5 @@
 from pathlib import Path
+from unittest import mock
 
 import httpx
 
@@ -35,4 +36,14 @@ def test_telegram_never_raises():
         raise httpx.ConnectError("down")
     f = TelegramFetcher(httpx.Client(transport=httpx.MockTransport(boom)))
     items, key = f.fetch({"id": 5, "url_or_handle": "@chan"}, "prev")
+    assert items == [] and key == "prev"
+
+
+def test_telegram_never_raises_on_parse_error():
+    # The HTTP request/status succeed cleanly (real MockTransport response,
+    # so client.get()/raise_for_status() don't themselves raise); the failure
+    # is forced downstream, in HTML parsing. The fetcher must still swallow
+    # it and preserve the previous cursor key rather than propagating.
+    with mock.patch("crawler.fetchers.telegram.HTMLParser", side_effect=RuntimeError("boom")):
+        items, key = _fetcher().fetch({"id": 5, "url_or_handle": "@chan"}, "prev")
     assert items == [] and key == "prev"
