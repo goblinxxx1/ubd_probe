@@ -1,11 +1,13 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app.crud import crawl_state as crawl_state_crud
 from app.crud import offer as offer_crud
 from app.crud import source as source_crud
 from app.crud import suggested_source as suggestion_crud
 from app.deps import get_db, require_api_key
 from app.models.enums import CreatedBy, OfferStatus
+from app.schemas.crawl_state import CrawlStateOut, CrawlStateUpdate
 from app.schemas.offer import OfferCreate, OfferOut
 from app.schemas.source import SourceOut
 from app.schemas.suggested_source import SuggestedSourceCreate, SuggestedSourceOut
@@ -37,3 +39,16 @@ def create_offer(data: InternalOfferCreate, db: Session = Depends(get_db)):
 @router.post("/suggested-sources", response_model=SuggestedSourceOut)
 def submit_suggested_source(data: SuggestedSourceCreate, db: Session = Depends(get_db)):
     return suggestion_crud.create_suggestion(db, data)
+
+
+@router.get("/sources/{source_id}/crawl-state", response_model=CrawlStateOut)
+def get_crawl_state(source_id: int, db: Session = Depends(get_db)):
+    state = crawl_state_crud.get_crawl_state(db, source_id)
+    if state is None:
+        return CrawlStateOut(last_seen_key=None, last_crawled_at=None)
+    return state
+
+
+@router.post("/sources/{source_id}/crawl-state", response_model=CrawlStateOut)
+def set_crawl_state(source_id: int, data: CrawlStateUpdate, db: Session = Depends(get_db)):
+    return crawl_state_crud.upsert_crawl_state(db, source_id, data.last_seen_key)

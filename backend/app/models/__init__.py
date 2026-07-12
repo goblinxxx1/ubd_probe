@@ -4,9 +4,10 @@ from app.models.categories import (
 )
 from app.models.offer import Offer
 from app.models.source import Source
+from app.models.source_crawl_state import SourceCrawlState
 from app.models.suggested_source import SuggestedSource
 
 __all__ = [
     "AdminUser", "Source", "Offer", "TargetCategory", "OfferCategory",
-    "SuggestedSource", "offer_target_categories", "offer_offer_categories",
+    "SuggestedSource", "SourceCrawlState", "offer_target_categories", "offer_offer_categories",
 ]
