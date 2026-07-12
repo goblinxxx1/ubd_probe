@@ -1,12 +1,14 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app.crud import bot_account as bot_account_crud
 from app.crud import crawl_state as crawl_state_crud
 from app.crud import offer as offer_crud
 from app.crud import source as source_crud
 from app.crud import suggested_source as suggestion_crud
 from app.deps import get_db, require_api_key
 from app.models.enums import CreatedBy, OfferStatus
+from app.schemas.bot_account import BotAccountOut, BotAccountStateUpdate
 from app.schemas.crawl_state import CrawlStateOut, CrawlStateUpdate
 from app.schemas.offer import OfferCreate, OfferOut
 from app.schemas.source import SourceOut
@@ -52,3 +54,15 @@ def get_crawl_state(source_id: int, db: Session = Depends(get_db)):
 @router.post("/sources/{source_id}/crawl-state", response_model=CrawlStateOut)
 def set_crawl_state(source_id: int, data: CrawlStateUpdate, db: Session = Depends(get_db)):
     return crawl_state_crud.upsert_crawl_state(db, source_id, data.last_seen_key)
+
+
+@router.get("/bot-accounts", response_model=list[BotAccountOut])
+def list_bot_accounts(platform: str | None = None, db: Session = Depends(get_db)):
+    return bot_account_crud.list_bot_accounts(db, platform=platform)
+
+
+@router.post("/bot-accounts/{platform}/{username}/state", response_model=BotAccountOut)
+def set_bot_account_state(platform: str, username: str, data: BotAccountStateUpdate,
+                          db: Session = Depends(get_db)):
+    return bot_account_crud.upsert_state(db, platform, username, data.state,
+                                         cooldown_until=data.cooldown_until, note=data.note)

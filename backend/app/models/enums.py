@@ -41,3 +41,9 @@ class SuggestionStatus(str, enum.Enum):
     pending = "pending"
     approved = "approved"
     rejected = "rejected"
+
+
+class BotAccountState(str, enum.Enum):
+    active = "active"
+    cooldown = "cooldown"
+    banned = "banned"

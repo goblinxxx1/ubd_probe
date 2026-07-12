@@ -1,4 +1,5 @@
 from app.models.admin_user import AdminUser
+from app.models.bot_account import BotAccount
 from app.models.categories import (
     OfferCategory, TargetCategory, offer_offer_categories, offer_target_categories,
 )
@@ -9,5 +10,6 @@ from app.models.suggested_source import SuggestedSource
 
 __all__ = [
     "AdminUser", "Source", "Offer", "TargetCategory", "OfferCategory",
-    "SuggestedSource", "SourceCrawlState", "offer_target_categories", "offer_offer_categories",
+    "SuggestedSource", "SourceCrawlState", "BotAccount", "offer_target_categories",
+    "offer_offer_categories",
 ]
