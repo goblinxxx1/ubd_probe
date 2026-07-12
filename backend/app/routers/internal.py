@@ -21,15 +21,17 @@ def list_sources(is_active: bool | None = True, db: Session = Depends(get_db)):
 
 class InternalOfferCreate(OfferCreate):
     source_id: int | None = None
+    content_hash: str | None = None
 
 
 @router.post("/offers", response_model=OfferOut)
 def create_offer(data: InternalOfferCreate, db: Session = Depends(get_db)):
     if data.source_id is not None:
         source_crud.get_source(db, data.source_id)
-    payload = OfferCreate(**data.model_dump(exclude={"source_id"}))
+    payload = OfferCreate(**data.model_dump(exclude={"source_id", "content_hash"}))
     return offer_crud.create_offer(db, payload, CreatedBy.crawler,
-                                   OfferStatus.pending_review, source_id=data.source_id)
+                                   OfferStatus.pending_review, source_id=data.source_id,
+                                   content_hash=data.content_hash)
 
 
 @router.post("/suggested-sources", response_model=SuggestedSourceOut)

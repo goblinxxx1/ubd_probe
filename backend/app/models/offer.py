@@ -2,7 +2,7 @@ from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import (
-    Date, DateTime, Enum, ForeignKey, Integer, Numeric, String, Text, func,
+    Date, DateTime, Enum, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -29,6 +29,7 @@ class Offer(Base):
     contacts: Mapped[str | None] = mapped_column(String(512), nullable=True)
     image_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     source_id: Mapped[int | None] = mapped_column(ForeignKey("sources.id"), nullable=True)
+    content_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     status: Mapped[OfferStatus] = mapped_column(Enum(OfferStatus), nullable=False)
     created_by: Mapped[CreatedBy] = mapped_column(Enum(CreatedBy), nullable=False)
     reviewed_by: Mapped[int | None] = mapped_column(ForeignKey("admin_users.id"), nullable=True)
@@ -42,4 +43,8 @@ class Offer(Base):
     )
     offer_categories: Mapped[list[OfferCategory]] = relationship(
         secondary=offer_offer_categories, lazy="selectin"
+    )
+
+    __table_args__ = (
+        UniqueConstraint("source_id", "content_hash", name="uq_offer_source_content_hash"),
     )

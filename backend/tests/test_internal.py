@@ -24,3 +24,21 @@ def test_internal_offer_rejects_unknown_source_id(client, db_session):
                        headers={"X-API-Key": settings.crawler_api_key})
     assert resp.status_code == 404
     assert resp.json()["code"] == "not_found"
+
+
+def test_crawler_offer_dedup_is_idempotent(client, db_session):
+    from app.models import Source
+    from app.models.enums import CreatedBy, SourceType
+    src = Source(name="Shop", type=SourceType.website, url_or_handle="http://x",
+                 is_active=True, created_by=CreatedBy.admin)
+    db_session.add(src); db_session.commit()
+
+    body = {"type": "discount", "title": "20% off", "provider": "Shop",
+            "source_id": src.id, "content_hash": "abc123"}
+    h = {"X-API-Key": settings.crawler_api_key}
+
+    r1 = client.post("/api/internal/offers", json=body, headers=h)
+    r2 = client.post("/api/internal/offers", json=body, headers=h)
+    assert r1.status_code == 200 and r2.status_code == 200
+    assert r1.json()["id"] == r2.json()["id"]  # same row, not a duplicate
+    assert client.get("/api/offers").json()["total"] == 0  # still pending
