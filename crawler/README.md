@@ -6,6 +6,8 @@ API (`X-API-Key`). See `docs/superpowers/specs/2026-07-12-crawler-design.md`.
 
 ## Setup
 
+**Note:** run all commands below from this `crawler/` directory — the config loads `.env` relative to your current working directory, so running from elsewhere silently falls back to placeholder defaults.
+
     python -m venv .venv
     .venv/Scripts/python.exe -m pip install -e ".[dev]"
     copy .env.example .env   # then edit .env
