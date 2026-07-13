@@ -54,3 +54,15 @@ def test_all_unavailable_returns_none():
                    {"username": "bot_b", "state": "banned", "cooldown_until": None}])
     pool = AccountPool("instagram", _creds(), api)
     assert pool.acquire() is None
+
+
+def test_acquire_handles_naive_cooldown_until():
+    """Reproduce bug: cooldown_until from backend is naive ISO string (no tzinfo).
+    Should normalize to UTC and compare correctly, not raise TypeError."""
+    now = datetime(2026, 7, 12, 12, 0, tzinfo=timezone.utc)
+    # Naive ISO string (offset-less), as returned from MySQL via BotAccountOut
+    naive_future = (now.replace(tzinfo=None) + timedelta(hours=1)).isoformat()
+    api = FakeApi([{"username": "bot_a", "state": "cooldown", "cooldown_until": naive_future}])
+    pool = AccountPool("instagram", _creds(), api, now=lambda: now)
+    # Should return bot_b (bot_a is in cooldown), not raise TypeError
+    assert pool.acquire().username == "bot_b"

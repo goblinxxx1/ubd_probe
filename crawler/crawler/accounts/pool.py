@@ -41,8 +41,12 @@ class AccountPool:
                 continue
             if state == "cooldown":
                 cu = st.get("cooldown_until")
-                if cu and datetime.fromisoformat(cu) > now:
-                    continue
+                if cu:
+                    until = datetime.fromisoformat(cu)
+                    if until.tzinfo is None:
+                        until = until.replace(tzinfo=timezone.utc)
+                    if until > now:
+                        continue
             return self._creds[username]
         return None
 
