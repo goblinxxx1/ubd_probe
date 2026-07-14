@@ -13,5 +13,19 @@ services:
       retries: 20
     # NOTE: 3306 intentionally NOT published (clashes with external mysql-container)
 
+  backend:
+    build: ./backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: mysql+pymysql://root:${MYSQL_ROOT_PASSWORD}@db:3306/ubd
+      JWT_SECRET: ${JWT_SECRET}
+      CRAWLER_API_KEY: ${CRAWLER_API_KEY}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD}
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+
 volumes:
   ubd-db-data:

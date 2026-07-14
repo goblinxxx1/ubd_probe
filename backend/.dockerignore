@@ -1,0 +1,7 @@
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+ubd_backend.egg-info
+.env
+tests
