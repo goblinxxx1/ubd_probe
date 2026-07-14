@@ -1,4 +1,5 @@
 import re
+from urllib.parse import urlsplit
 
 from crawler.dedup import content_hash
 from crawler.extract.base import CategoryIndex
@@ -69,6 +70,10 @@ class HeuristicExtractor:
             discount_value=discount_value,
             valid_until=valid_until,
             content_hash=content_hash(title, provider, text),
+            site_url=(f"{urlsplit(item.url).scheme}://{urlsplit(item.url).netloc}"
+                      if item.url else None),
+            article_url=item.url,
+            image_url=getattr(item, "logo_url", None),
             target_category_ids=_match_categories(low, categories.target),
             offer_category_ids=_match_categories(low, categories.offer),
         )

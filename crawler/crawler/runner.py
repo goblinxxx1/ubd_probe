@@ -18,6 +18,9 @@ def offer_payload(cand) -> dict:
         "valid_until": cand.valid_until.isoformat() if cand.valid_until else None,
         "source_id": cand.source_id,
         "content_hash": cand.content_hash,
+        "site_url": cand.site_url,
+        "article_url": cand.article_url,
+        "image_url": cand.image_url,
         "target_category_ids": cand.target_category_ids,
         "offer_category_ids": cand.offer_category_ids,
     }

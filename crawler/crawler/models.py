@@ -17,6 +17,7 @@ class RawItem:
     text: str
     url: str | None = None
     links: list[str] = field(default_factory=list)
+    logo_url: str | None = None
 
 
 @dataclass
@@ -31,6 +32,9 @@ class OfferCandidate:
     valid_from: date | None = None
     valid_until: date | None = None
     content_hash: str = ""
+    site_url: str | None = None
+    article_url: str | None = None
+    image_url: str | None = None
     target_category_ids: list[int] = field(default_factory=list)
     offer_category_ids: list[int] = field(default_factory=list)
 
