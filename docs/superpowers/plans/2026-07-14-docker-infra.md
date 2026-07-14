@@ -640,7 +640,7 @@ ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 # Ensure core app is up:
 docker compose up -d --build
 # Seed the fixture source (idempotent):
-docker compose --profile crawler run --rm backend python -m app.demo_seed
+docker compose --profile crawler run --rm --entrypoint python backend -m app.demo_seed
 # Build + run one crawler pass:
 docker compose --profile crawler run --rm --build crawler
 # Confirm a pending offer landed:
@@ -694,7 +694,7 @@ The backend migrates and seeds automatically on start. MySQL is internal only
 
 ```bash
 # 1. Register the fixture website as a crawl source (idempotent):
-docker compose --profile crawler run --rm backend python -m app.demo_seed
+docker compose --profile crawler run --rm --entrypoint python backend -m app.demo_seed
 # 2. Run one crawler pass against the offline fixture:
 docker compose --profile crawler run --rm crawler
 ```
@@ -727,7 +727,7 @@ sleep 8
 curl -s http://localhost:8000/api/health                 # {"status":"ok"}
 curl -s -o /dev/null -w "public=%{http_code}\n" http://localhost:8080/
 curl -s -o /dev/null -w "admin=%{http_code}\n"  http://localhost:8081/
-docker compose --profile crawler run --rm backend python -m app.demo_seed
+docker compose --profile crawler run --rm --entrypoint python backend -m app.demo_seed
 docker compose --profile crawler run --rm crawler
 docker compose exec db mysql -uroot -p"$(grep MYSQL_ROOT_PASSWORD .env | cut -d= -f2)" \
   -e "USE ubd; SELECT status, COUNT(*) FROM offers GROUP BY status;"
