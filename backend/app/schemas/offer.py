@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
 from app.models.enums import DiscountType, OfferStatus, OfferType, CreatedBy
 from app.schemas.category import CategoryOut
@@ -17,10 +17,20 @@ class OfferBase(BaseModel):
     valid_until: date | None = None
     discount_type: DiscountType | None = None
     discount_value: Decimal | None = None
-    contacts: str | None = None
+    site_url: str | None = None
+    article_url: str | None = None
     image_url: str | None = None
     target_category_ids: list[int] = []
     offer_category_ids: list[int] = []
+
+    @field_validator("site_url", "article_url", mode="before")
+    @classmethod
+    def _optional_url(cls, v):
+        if v is None or v == "":
+            return None
+        if not (v.startswith("http://") or v.startswith("https://")):
+            raise ValueError("must be an http:// or https:// URL")
+        return v
 
     @model_validator(mode="after")
     def _check(self):
@@ -49,10 +59,20 @@ class OfferUpdate(BaseModel):
     valid_until: date | None = None
     discount_type: DiscountType | None = None
     discount_value: Decimal | None = None
-    contacts: str | None = None
+    site_url: str | None = None
+    article_url: str | None = None
     image_url: str | None = None
     target_category_ids: list[int] | None = None
     offer_category_ids: list[int] | None = None
+
+    @field_validator("site_url", "article_url", mode="before")
+    @classmethod
+    def _optional_url(cls, v):
+        if v is None or v == "":
+            return None
+        if not (v.startswith("http://") or v.startswith("https://")):
+            raise ValueError("must be an http:// or https:// URL")
+        return v
 
 
 class OfferOut(BaseModel):
@@ -67,7 +87,8 @@ class OfferOut(BaseModel):
     valid_until: date | None
     discount_type: DiscountType | None
     discount_value: Decimal | None
-    contacts: str | None
+    site_url: str | None
+    article_url: str | None
     image_url: str | None
     source_id: int | None
     status: OfferStatus
