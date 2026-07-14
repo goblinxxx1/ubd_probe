@@ -41,5 +41,11 @@ services:
     ports:
       - "${ADMIN_PORT:-8082}:80"
 
+  fixture:
+    image: nginx:alpine
+    profiles: ["crawler"]
+    volumes:
+      - ./docker/fixture:/usr/share/nginx/html:ro
+
 volumes:
   ubd-db-data:
