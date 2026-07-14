@@ -24,7 +24,8 @@ function fromInitial(o) {
     valid_until: o?.valid_until || null,
     discount_type: o?.discount_type || null,
     discount_value: o?.discount_value ?? null,
-    contacts: o?.contacts || "",
+    site_url: o?.site_url || "",
+    article_url: o?.article_url || "",
     image_url: o?.image_url || "",
     target_category_ids: o?.target_categories ? o.target_categories.map((c) => c.id) : [],
     offer_category_ids: o?.offer_categories ? o.offer_categories.map((c) => c.id) : [],
@@ -99,8 +100,11 @@ defineExpose({ form, submit });
         <el-input-number v-model="form.discount_value" :min="0" />
       </el-form-item>
     </template>
-    <el-form-item label="Контакти">
-      <el-input v-model="form.contacts" />
+    <el-form-item label="Сайт">
+      <el-input v-model="form.site_url" placeholder="https://…" />
+    </el-form-item>
+    <el-form-item label="Сторінка новини">
+      <el-input v-model="form.article_url" placeholder="https://…" />
     </el-form-item>
     <el-form-item label="Зображення (URL)">
       <el-input v-model="form.image_url" placeholder="https://…" />

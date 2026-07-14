@@ -29,12 +29,29 @@ describe("buildOfferPayload", () => {
     const payload = buildOfferPayload({
       type: "event", title: "T", provider: "P", description: "", location: "",
       valid_from: null, valid_until: null, discount_type: "percent", discount_value: 10,
-      contacts: "", image_url: "", target_category_ids: [1], offer_category_ids: [2],
+      site_url: "", article_url: "", image_url: "", target_category_ids: [1], offer_category_ids: [2],
     });
     expect(payload.discount_type).toBe(null);
     expect(payload.discount_value).toBe(null);
     expect(payload.location).toBe(null);
     expect(payload.target_category_ids).toEqual([1]);
     expect(payload.offer_category_ids).toEqual([2]);
+  });
+});
+
+describe("offer url fields", () => {
+  it("payload carries site_url/article_url, not contacts", () => {
+    const p = buildOfferPayload({ ...base, site_url: "https://ex.com", article_url: "" });
+    expect(p.site_url).toBe("https://ex.com");
+    expect(p.article_url).toBe(null);
+    expect("contacts" in p).toBe(false);
+  });
+  it("rejects a non-URL site", () => {
+    expect(validateOffer({ ...base, site_url: "nope" })).toContain(
+      "«Сайт» має починатися з http:// або https://"
+    );
+  });
+  it("accepts empty urls", () => {
+    expect(validateOffer({ ...base, site_url: "", article_url: "" })).toEqual([]);
   });
 });
