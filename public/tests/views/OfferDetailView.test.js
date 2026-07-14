@@ -32,14 +32,17 @@ describe("OfferDetailView", () => {
     offers.get.mockResolvedValue({
       id: 5, type: "discount", discount_type: "percent", discount_value: 30,
       title: "Знижка 30%", provider: "Кафе", description: "Опис", location: "Київ",
-      valid_from: "2026-07-01", valid_until: "2026-08-01", contacts: "0501112233",
+      valid_from: "2026-07-01", valid_until: "2026-08-01",
+      site_url: "https://cafe.example", article_url: "https://cafe.example/news",
       image_url: null, target_categories: [{ id: 1, name: "УБД" }], offer_categories: [{ id: 2, name: "Кафе" }],
     });
     const w = await mountAt(5);
     expect(offers.get).toHaveBeenCalledWith("5");
     expect(w.text()).toContain("Знижка 30%");
     expect(w.text()).toContain("Кафе");
-    expect(w.text()).toContain("0501112233");
+    const hrefs = w.findAll("a").map((a) => a.attributes("href"));
+    expect(hrefs).toContain("https://cafe.example");
+    expect(hrefs).toContain("https://cafe.example/news");
     expect(w.text()).toContain("01.07.2026");
   });
 

@@ -64,7 +64,14 @@ defineExpose({ offer, loading, notFound });
       </div>
       <div v-if="offer.location" class="detail__row"><span class="detail__label">Локація:</span> {{ offer.location }}</div>
       <div v-if="period" class="detail__row"><span class="detail__label">Діє:</span> {{ period }}</div>
-      <div v-if="offer.contacts" class="detail__row"><span class="detail__label">Контакти:</span> {{ offer.contacts }}</div>
+      <div v-if="offer.site_url" class="detail__row">
+        <span class="detail__label">Сайт:</span>
+        <a :href="offer.site_url" target="_blank" rel="noopener">{{ offer.site_url }}</a>
+      </div>
+      <div v-if="offer.article_url" class="detail__row">
+        <span class="detail__label">Сторінка новини:</span>
+        <a :href="offer.article_url" target="_blank" rel="noopener">{{ offer.article_url }}</a>
+      </div>
     </article>
   </div>
 </template>

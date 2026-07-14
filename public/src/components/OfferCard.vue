@@ -8,20 +8,31 @@ const image = computed(() => props.offer.image_url || placeholderDataUri(props.o
 </script>
 
 <template>
-  <router-link class="card" :to="{ name: 'offer', params: { id: offer.id } }">
-    <div class="card__media">
-      <img :src="image" alt="" />
-      <OfferBadge :offer="offer" class="card__badge" />
-    </div>
-    <div class="card__body">
+  <div class="card">
+    <router-link class="card__nav" :to="{ name: 'offer', params: { id: offer.id } }">
+      <div class="card__media">
+        <img :src="image" alt="" />
+        <OfferBadge :offer="offer" class="card__badge" />
+      </div>
       <h3 class="card__title">{{ offer.title }}</h3>
-      <div class="card__provider">{{ offer.provider }}</div>
+    </router-link>
+    <div class="card__body">
+      <div class="card__head">
+        <div class="card__provider">{{ offer.provider }}</div>
+        <img v-if="offer.image_url" class="card__logo" :src="offer.image_url" alt="" />
+      </div>
       <div v-if="offer.location" class="card__location">{{ offer.location }}</div>
+      <div v-if="offer.site_url || offer.article_url" class="card__links">
+        <a v-if="offer.site_url" class="card__link" :href="offer.site_url"
+           target="_blank" rel="noopener">Сайт</a>
+        <a v-if="offer.article_url" class="card__link" :href="offer.article_url"
+           target="_blank" rel="noopener">Сторінка новини</a>
+      </div>
       <div v-if="offer.target_categories?.length" class="card__tags">
         <span v-for="t in offer.target_categories" :key="t.id" class="tag">{{ t.name }}</span>
       </div>
     </div>
-  </router-link>
+  </div>
 </template>
 
 <style scoped lang="less">
@@ -31,8 +42,14 @@ const image = computed(() => props.offer.image_url || placeholderDataUri(props.o
 .card__media { position: relative; }
 .card__media img { display: block; width: 100%; height: 180px; object-fit: cover; }
 .card__badge { position: absolute; top: 8px; left: 8px; }
+.card__nav { display: block; color: @text; }
+.card__nav:hover { text-decoration: none; }
 .card__body { padding: 12px; }
-.card__title { margin: 0 0 4px; font-size: 16px; }
+.card__title { margin: 0 12px 4px; font-size: 16px; }
+.card__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.card__logo { width: 40px; height: 40px; object-fit: contain; border-radius: 6px; flex: none; }
+.card__links { margin-top: 8px; display: flex; gap: 12px; }
+.card__link { font-size: 13px; }
 .card__provider { color: @muted; font-size: 14px; }
 .card__location { color: @muted; font-size: 13px; margin-top: 4px; }
 .card__tags { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px; }

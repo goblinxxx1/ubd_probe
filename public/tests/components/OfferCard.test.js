@@ -35,4 +35,23 @@ describe("OfferCard", () => {
     expect(link.props("to")).toEqual({ name: "offer", params: { id: 9 } });
     expect(w.get("img").attributes("src")).toBe("https://x/y.png");
   });
+
+  it("renders Сайт + Сторінка новини links when present", () => {
+    const w = mountCard({
+      id: 1, type: "discount", title: "T", provider: "Кафе",
+      site_url: "https://cafe.example", article_url: "https://cafe.example/news",
+      image_url: null, target_categories: [],
+    });
+    const hrefs = w.findAll("a.card__link").map((a) => a.attributes("href"));
+    expect(hrefs).toContain("https://cafe.example");
+    expect(hrefs).toContain("https://cafe.example/news");
+  });
+
+  it("omits links when absent", () => {
+    const w = mountCard({
+      id: 2, type: "discount", title: "T", provider: "Кафе",
+      site_url: null, article_url: null, image_url: null, target_categories: [],
+    });
+    expect(w.findAll("a.card__link").length).toBe(0);
+  });
 });

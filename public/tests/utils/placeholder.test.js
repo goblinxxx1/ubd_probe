@@ -17,4 +17,8 @@ describe("placeholderDataUri", () => {
     expect(uri.startsWith("data:image/svg+xml,")).toBe(true);
     expect(decodeURIComponent(uri)).toContain("безкоштовно для УБД");
   });
+  it("uses the #4B5320 fill colour", () => {
+    const uri = placeholderDataUri({ type: "discount", discount_type: "percent" });
+    expect(decodeURIComponent(uri)).toContain("#4B5320");
+  });
 });
