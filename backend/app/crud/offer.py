@@ -15,6 +15,12 @@ def _load_categories(db: Session, target_ids, offer_ids):
 def create_offer(db: Session, data: OfferCreate, created_by: CreatedBy,
                  status: OfferStatus, source_id: int | None = None,
                  content_hash: str | None = None) -> Offer:
+    from app.models.offer_link import OfferLink  # local import avoids cycle
+
+    def _mk_link():
+        return OfferLink(provider=data.provider, site_url=data.site_url,
+                         article_url=data.article_url)
+
     if content_hash is not None and source_id is not None:
         existing = (db.query(Offer)
                     .filter(Offer.source_id == source_id,
@@ -22,15 +28,28 @@ def create_offer(db: Session, data: OfferCreate, created_by: CreatedBy,
                     .first())
         if existing is not None:
             return existing
+
+    if created_by == CreatedBy.crawler and data.target_url:
+        existing = db.query(Offer).filter(Offer.target_url == data.target_url).first()
+        if existing is not None:
+            already = any(l.provider == data.provider and l.site_url == data.site_url
+                          and l.article_url == data.article_url for l in existing.links)
+            if not already:
+                existing.links.append(_mk_link())
+                db.commit()
+                db.refresh(existing)
+            return existing
+
     targets, offers = _load_categories(db, data.target_category_ids, data.offer_category_ids)
     obj = Offer(
         type=data.type, title=data.title, description=data.description, provider=data.provider,
         location=data.location, valid_from=data.valid_from, valid_until=data.valid_until,
         discount_type=data.discount_type, discount_value=data.discount_value,
         site_url=data.site_url, article_url=data.article_url, image_url=data.image_url,
-        source_id=source_id,
+        target_url=data.target_url, source_id=source_id,
         status=status, created_by=created_by, content_hash=content_hash,
         target_categories=targets, offer_categories=offers,
+        links=[_mk_link()],
     )
     db.add(obj)
     db.commit()

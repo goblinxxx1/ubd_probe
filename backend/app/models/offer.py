@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
-    Date, DateTime, Enum, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, func,
+    Date, DateTime, Enum, ForeignKey, Index, Integer, Numeric, String, Text, UniqueConstraint, func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -33,7 +33,7 @@ class Offer(Base):
     site_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     article_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     image_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
-    target_url: Mapped[str | None] = mapped_column(String(1024), nullable=True, index=True)
+    target_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     source_id: Mapped[int | None] = mapped_column(ForeignKey("sources.id"), nullable=True)
     content_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     status: Mapped[OfferStatus] = mapped_column(Enum(OfferStatus), nullable=False)
@@ -56,4 +56,5 @@ class Offer(Base):
 
     __table_args__ = (
         UniqueConstraint("source_id", "content_hash", name="uq_offer_source_content_hash"),
+        Index("ix_offers_target_url", "target_url", mysql_length=255),
     )

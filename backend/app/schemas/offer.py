@@ -19,11 +19,12 @@ class OfferBase(BaseModel):
     discount_value: Decimal | None = None
     site_url: str | None = None
     article_url: str | None = None
+    target_url: str | None = None
     image_url: str | None = None
     target_category_ids: list[int] = []
     offer_category_ids: list[int] = []
 
-    @field_validator("site_url", "article_url", mode="before")
+    @field_validator("site_url", "article_url", "target_url", mode="before")
     @classmethod
     def _optional_url(cls, v):
         if v is None or v == "":
@@ -61,11 +62,12 @@ class OfferUpdate(BaseModel):
     discount_value: Decimal | None = None
     site_url: str | None = None
     article_url: str | None = None
+    target_url: str | None = None
     image_url: str | None = None
     target_category_ids: list[int] | None = None
     offer_category_ids: list[int] | None = None
 
-    @field_validator("site_url", "article_url", mode="before")
+    @field_validator("site_url", "article_url", "target_url", mode="before")
     @classmethod
     def _optional_url(cls, v):
         if v is None or v == "":
@@ -73,6 +75,13 @@ class OfferUpdate(BaseModel):
         if not (v.startswith("http://") or v.startswith("https://")):
             raise ValueError("must be an http:// or https:// URL")
         return v
+
+
+class OfferLinkOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    provider: str
+    site_url: str | None
+    article_url: str | None
 
 
 class OfferOut(BaseModel):
@@ -89,7 +98,9 @@ class OfferOut(BaseModel):
     discount_value: Decimal | None
     site_url: str | None
     article_url: str | None
+    target_url: str | None
     image_url: str | None
+    links: list[OfferLinkOut] = []
     source_id: int | None
     status: OfferStatus
     created_by: CreatedBy
