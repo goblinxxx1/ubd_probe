@@ -1,0 +1,8 @@
+use_default_settings: true
+server:
+  secret_key: "ultrasecretkey"   # overridden by SEARXNG_SECRET env in the image
+  limiter: false                 # internal single-client use; no bot limiter
+search:
+  formats:
+    - html
+    - json
