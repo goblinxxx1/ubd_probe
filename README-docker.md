@@ -75,6 +75,23 @@ Get-NetIPConfiguration | Where-Object { $_.IPv4DefaultGateway }
 Destination domains the crawler contacts during search (for reference):
 `duckduckgo.com`, `links.duckduckgo.com`, `html.duckduckgo.com`, plus any site it discovers.
 
+### SearXNG (Track B)
+
+A self-hosted metasearch engine that aggregates several upstream engines (more
+resilient than a single one). It runs as the `searxng` service under the `crawler`
+profile. Enable it by adding `searxng` to `SEARCH_PROVIDERS` (alone or with
+`duckduckgo`):
+
+```bash
+docker compose --profile crawler up -d searxng        # starts SearXNG
+docker compose --profile crawler run --rm \
+  -e ACTIVE_DISCOVERY=true -e SEARCH_PROVIDERS=searxng crawler
+```
+
+Set `SEARXNG_SECRET` in `.env` for a stable secret key. With SearXNG enabled,
+outbound traffic (from the same host address `192.168.20.69`) additionally reaches
+the upstream engines SearXNG queries (Google/Bing/DuckDuckGo/Brave/Qwant/…).
+
 ## Reset
 
 ```bash
