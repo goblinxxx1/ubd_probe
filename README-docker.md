@@ -43,6 +43,38 @@ Set `CRAWL_INTERVAL_SECONDS=3600` in `.env`, then:
 docker compose --profile crawler up -d crawler   # loops every hour
 ```
 
+## Search discovery (crawler, Track A)
+
+The crawler can find NEW candidate sources by searching the web (DuckDuckGo).
+Results go to the moderation queue (`suggested_sources`), not straight to offers.
+
+Enable via crawler env: `ACTIVE_DISCOVERY=true`. Keywords/limits live there too
+(`SEARCH_KEYWORDS`, `SEARCH_RESULTS_PER_KEYWORD`, `SEARCH_MIN_DELAY`) — see
+`crawler/.env.example`.
+
+**First run manually**, then schedule:
+
+```bash
+docker compose --profile crawler run --rm crawler          # one manual pass
+# then, for scheduled runs, set CRAWL_INTERVAL_SECONDS>0 and:
+docker compose --profile crawler up -d crawler
+```
+
+### Outbound network address (firewall exception)
+
+The crawler runs in Docker; its egress is NAT'd through the host, so the router
+sees the **host LAN IP** as the source. On this machine that is **`192.168.20.69`**
+(gateway `192.168.20.1`). Give this address to the network admin for the router's
+outbound exception. Note: it is a DHCP/Wi-Fi address and can change — reserve a
+static/DHCP-reserved IP so the exception stays valid. Find it anytime with:
+
+```powershell
+Get-NetIPConfiguration | Where-Object { $_.IPv4DefaultGateway }
+```
+
+Destination domains the crawler contacts during search (for reference):
+`duckduckgo.com`, `links.duckduckgo.com`, `html.duckduckgo.com`, plus any site it discovers.
+
 ## Reset
 
 ```bash
