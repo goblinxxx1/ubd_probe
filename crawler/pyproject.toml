@@ -8,6 +8,7 @@ dependencies = [
     "instaloader>=4.11",
     "pydantic>=2.7",
     "pydantic-settings>=2.3",
+    "ddgs>=9.0",
 ]
 
 [project.optional-dependencies]
