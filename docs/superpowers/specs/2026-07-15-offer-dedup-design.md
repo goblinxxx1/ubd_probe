@@ -1,117 +1,133 @@
-# UBD Discounts — Cross-Source Offer Dedup Design — Track C
+# UBD Discounts — Offer Dedup & Merge by Target Link Design — Track C
 
 **Date:** 2026-07-15
-**Scope:** Backend — cross-source offer deduplication
+**Scope:** Crawler + backend + public — dedup/merge offers by their target link
 **Status:** Approved design, ready for implementation planning
 **Branch:** `feat/offer-dedup` (cut from `main`)
 
 ## Context
 
-With two discovery providers (DuckDuckGo + SearXNG) and multiple crawl sources,
-the same discount can be found more than once — on different sites, from different
-providers, across passes. Today the backend only dedups **within a single source**
-via `unique (source_id, content_hash)`, and `content_hash = hash(title | provider |
-body)` includes `provider` (= the source name), so the same offer from two
-different sources produces two rows.
+With two discovery providers and multiple sources, the same discount is found more
+than once — often on different aggregator sites (`army.gov.ua`, `mva.gov.ua`, …).
+Today the backend only dedups **within one source** (`unique (source_id,
+content_hash)`), and `content_hash` includes `provider` (= source name), so the
+same discount from two sources becomes two rows.
 
-Track C adds **cross-source** dedup keyed on the *substance of the discount*
-(title + discount), independent of which source/provider found it, so a moderator
-sees one offer instead of duplicates.
+Naive dedup on the discount text/title is unsafe: two *different* businesses can
+advertise an identically-worded discount and would wrongly collapse. The reliable
+signal for "same offer" is the **target link** — where the discount actually leads
+(the business/offer page). Different businesses have different sites, so:
 
-This is the first of the dedup work; segmentation (splitting several discounts on
-one page into separate offers) is a later sub-track (C2), and fuzzy/semantic dedup
-is out of scope.
+- same `target_url` from two aggregators → the **same** offer → merge (keep both
+  source links so the public site can link to both);
+- different `target_url` → different businesses → separate offers.
+
+This is Track C. Segmentation (several discounts on one page → separate offers) is
+a later sub-track (C2); fuzzy/semantic dedup is out of scope.
 
 ## Goals
 
-- Add a `dedup_key` = `sha256(normalised_title | discount_type | discount_value)` —
-  **no `provider`/source** — computed by the backend for every offer.
-- On the **crawler** create path (`created_by=crawler`), if an offer with the same
-  `dedup_key` already exists (any source, any status), return it instead of
-  creating a duplicate.
-- Check against **all statuses** (`pending_review` + `published`) so the crawler
-  never re-adds an already-approved discount.
-- Manual (admin) offers still get a `dedup_key` but are **not** blocked — the admin
-  stays in control.
-- Keep the existing per-source `(source_id, content_hash)` dedup intact.
+- Crawler extracts a **`target_url`** for each offer — the offer's outbound target
+  link (first external link in the block; social/utility links filtered).
+- Backend dedups/merges crawler offers by normalised `target_url`: same
+  `target_url` → one offer, additional discovery **sources** recorded, not a new row.
+- Preserve every **source where the offer was found** (`provider`, `site_url`,
+  `article_url`) in a new `offer_links` table, so the public site shows multiple
+  links for a merged offer.
+- Offers without a `target_url` are never auto-merged (stay separate — no false
+  collapses).
 
 ## Non-Goals
 
 - **Segmentation** (multiple discounts on one page → separate offers) — Track C2.
-- **Fuzzy / semantic** dedup (same meaning, different wording that normalises
-  differently) — the key handles casing/whitespace/punctuation only.
-- Changing the crawler — `dedup_key` is computed server-side; the crawler is
-  untouched.
-- Deduping/merging offers already in the DB retroactively (only new inserts).
+- **Fuzzy/semantic** dedup — only exact normalised `target_url` matching.
+- **Manual merge UI / retroactive merge** of existing rows — only new crawler
+  inserts merge; admin offers are not auto-merged.
+- Reliable business identification beyond the target link (heuristic, best-effort).
 
 ## Architecture
 
-### Dedup key (`backend/app/core/dedup.py`, new)
+### Crawler: extract `target_url`
 
-```python
-def offer_dedup_key(title, discount_type, discount_value) -> str
-```
-- Normalise `title`: lowercase, collapse whitespace, strip punctuation.
-- Join normalised title with `discount_type` (enum value or "") and
-  `discount_value` (decimal as plain string or "") by `"|"`, `sha256` it.
-- Deterministic and provider-independent.
+- `WebsiteFetcher` already collects `RawItem.links` (all `href`s in the block).
+  Add a helper that picks the **target link**: the first link whose host differs
+  from the source host, excluding social/utility hosts
+  (facebook/instagram/t.me/twitter/youtube/…) and non-http schemes; normalise it
+  with the existing `_normalize_url`. `None` if no clean external link.
+- Carry `target_url` on `RawItem` → `OfferCandidate` → `offer_payload` →
+  backend internal create schema. Heuristic extractor copies it through.
 
-### Model + migration
+### Backend: model + migration
 
-- `Offer` gains `dedup_key: str | None` (String 64, nullable, **indexed** for the
-  existence lookup). Alembic migration adds the column + index.
+- `Offer` gains `target_url: str | None` (String 1024, nullable, **indexed**).
+- New table **`offer_links`**: `id`, `offer_id` (FK→offers, cascade),
+  `provider` (String), `site_url` (String|None), `article_url` (String|None),
+  `created_at`. One row per source where the offer was found.
+- Alembic migration adds the column+index and the table. (The single-valued
+  `site_url`/`article_url` columns on `offers` stay for admin-entered offers and
+  backward compatibility; the crawler now also writes an `offer_links` row.)
 
-### CRUD (`backend/app/crud/offer.py`)
+### Backend: dedup/merge on create (crawler path)
 
-- `create_offer(...)` computes `dedup_key` from `data.title`,
-  `data.discount_type`, `data.discount_value` and sets it on the row.
-- **Before** inserting, when `created_by == CreatedBy.crawler`: query for any
-  existing offer with the same `dedup_key`; if found, return it (no insert).
-- The existing `(source_id, content_hash)` short-circuit stays as a second guard.
-- Admin path (`created_by == CreatedBy.admin`) computes and stores `dedup_key` but
-  does not run the blocking lookup.
+- `create_offer(..., created_by=crawler)` with a non-null `target_url`:
+  - look up an existing offer with the same normalised `target_url`;
+  - if found → **merge**: append an `offer_links` row (this pass's `provider`,
+    `site_url`, `article_url`) to it (deduping identical link rows) and return it —
+    no new offer;
+  - else → insert the offer (with `target_url`) plus its first `offer_links` row.
+- `target_url` null, or admin path → no merge lookup; insert as today (admin offers
+  may still get one `offer_links` row from their `site_url`/`article_url`).
+- The existing `(source_id, content_hash)` guard stays as a secondary check.
 
 ### Schema
 
-- `OfferOut` optionally exposes `dedup_key` (useful for debugging/admin); not
-  required by the frontend. (Decide at planning: include or omit — leaning omit to
-  keep the API surface unchanged.)
+- `OfferOut` gains `links: list[OfferLinkOut]` (`provider`, `site_url`,
+  `article_url`) so the public API exposes all sources of a merged offer.
+
+### Public: multiple links
+
+- `OfferCard` / `OfferDetailView` iterate `offer.links` and render a "Сайт" /
+  "Сторінка новини" pair per source (dedupe empty). A merged offer shows 2+ links.
+  Falls back to the offer's own `site_url`/`article_url` if `links` is empty.
 
 ## Data flow
 
 ```
-crawler offer → internal create_offer (created_by=crawler)
-   → backend computes dedup_key(title, discount_type, discount_value)
-   → if an offer with that dedup_key exists (any source/status) → return it
-   → else insert with dedup_key
-admin offer → create_offer (created_by=admin) → compute+store dedup_key, always insert
+website block → links[] → pick target_url (first external, non-social)
+   → OfferCandidate(target_url, site_url, article_url, provider)
+   → internal create_offer (crawler):
+        target_url matches existing? → append offer_links row (merge), return it
+        else → insert offer + first offer_links row
+   → public offer shows all offer_links as separate links
 ```
 
 ## Error handling & edge cases
 
-- `discount_type`/`discount_value` null (e.g. event/free) → included as "" in the
-  key; two free offers with the same normalised title dedup together.
-- Empty/whitespace-only title → normalises to ""; still hashed (paired with the
-  discount), so identical empty-title+same-discount collapse — acceptable.
-- Race between two crawler inserts of the same key → the second finds the first (or
-  falls back to the `content_hash` guard); worst case a rare duplicate, never a crash.
-- Existing rows have `dedup_key = NULL` (migration doesn't backfill) — only new
-  inserts are deduped, per non-goals.
+- No external link in block → `target_url=None` → offer stays separate.
+- Target link is itself the source domain / a social host → filtered → `None`.
+- Duplicate `offer_links` (same provider+site+article merged twice) → deduped on
+  insert (idempotent pass re-runs don't stack rows).
+- Admin offer with a manual `target_url` colliding with a crawler offer → not
+  merged (merge only on crawler path); acceptable.
+- Existing rows have `target_url=NULL`, no `offer_links` — not backfilled; only new
+  inserts participate.
 
 ## Testing & verification
 
-- `offer_dedup_key`: title variants ("Знижка 20%!", " знижка  20% ") + same
-  discount → identical key; different `%`/title → different key.
-- CRUD: crawler creates offer with source 1, then the same discount with source 2
-  (different provider) → one row, second returns the first; different discount →
-  two rows; admin duplicate → not blocked (two rows).
-- Cross-status: crawler offer duplicating a `published` one → returns the published,
-  no new `pending_review` row.
-- End-to-end (Docker): a second fixture source repeating the same discount → the
-  crawler pass yields a single offer.
+- **crawler:** `target_url` = first external non-social link; `None` when only
+  same-host/social links; normalisation applied.
+- **backend:** two crawler offers with the same `target_url` (different providers)
+  → one offer with two `offer_links`; different `target_url` → two offers; no
+  `target_url` → two offers; duplicate merge is idempotent (no stacked links).
+- **public:** an offer with two `offer_links` renders two link pairs; single/none
+  falls back cleanly.
+- **end-to-end (Docker):** two fixture pages linking to the same target URL → one
+  merged offer with two source links, visible in public.
 
 ## Open decisions (defaulted, override at planning time)
 
-- `dedup_key` String(64), indexed, nullable; not backfilled.
-- Blocking only on `created_by=crawler`; admin computes but is unblocked.
-- `OfferOut` does not expose `dedup_key` (keep API surface unchanged).
+- `offer_links` as a separate table (vs JSON column) — chosen for clean relations.
+- Target heuristic: first external (host ≠ source host), excluding
+  facebook/instagram/t.me/twitter/x/youtube/telegram; else `None`.
+- `target_url` String(1024), indexed, nullable, not backfilled.
+- Merge only on `created_by=crawler`; admin offers unaffected.
