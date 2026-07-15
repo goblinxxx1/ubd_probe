@@ -57,6 +57,15 @@ a later sub-track (C2); fuzzy/semantic dedup is out of scope.
 - Carry `target_url` on `RawItem` → `OfferCandidate` → `offer_payload` →
   backend internal create schema. Heuristic extractor copies it through.
 
+**Platform coverage:** only fetchers that populate `RawItem.links` yield a
+`target_url` — that is **website** and **telegram** (both collect `<a href>` from
+content). **Instagram** and **Facebook** don't (IG captions have no structured
+links; FB is fetched via public `og:meta` only), so their offers get
+`target_url=None` and stay separate — no cross-source merge for them (accepted;
+per-source `content_hash` dedup still applies). URL `type` classification of search
+results (so search could find telegram channels) is a separate future improvement,
+not part of Track C.
+
 ### Backend: model + migration
 
 - `Offer` gains `target_url: str | None` (String 1024, nullable, **indexed**).
