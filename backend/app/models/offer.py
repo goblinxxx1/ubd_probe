@@ -1,5 +1,6 @@
 from datetime import date, datetime
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     Date, DateTime, Enum, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint, func,
@@ -11,6 +12,9 @@ from app.models.categories import (
     OfferCategory, TargetCategory, offer_offer_categories, offer_target_categories,
 )
 from app.models.enums import CreatedBy, DiscountType, OfferStatus, OfferType
+
+if TYPE_CHECKING:
+    from app.models.offer_link import OfferLink
 
 
 class Offer(Base):
@@ -29,6 +33,7 @@ class Offer(Base):
     site_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     article_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     image_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    target_url: Mapped[str | None] = mapped_column(String(1024), nullable=True, index=True)
     source_id: Mapped[int | None] = mapped_column(ForeignKey("sources.id"), nullable=True)
     content_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     status: Mapped[OfferStatus] = mapped_column(Enum(OfferStatus), nullable=False)
@@ -44,6 +49,9 @@ class Offer(Base):
     )
     offer_categories: Mapped[list[OfferCategory]] = relationship(
         secondary=offer_offer_categories, lazy="selectin"
+    )
+    links: Mapped[list["OfferLink"]] = relationship(
+        back_populates="offer", cascade="all, delete-orphan", lazy="selectin"
     )
 
     __table_args__ = (
