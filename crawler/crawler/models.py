@@ -35,6 +35,7 @@ class OfferCandidate:
     site_url: str | None = None
     article_url: str | None = None
     image_url: str | None = None
+    target_url: str | None = None
     target_category_ids: list[int] = field(default_factory=list)
     offer_category_ids: list[int] = field(default_factory=list)
 

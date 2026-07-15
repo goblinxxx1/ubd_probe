@@ -2,6 +2,25 @@ import re
 from urllib.parse import urlsplit
 
 from crawler.dedup import content_hash
+from crawler.discovery.providers import _normalize_url
+
+_SOCIAL_HOSTS = ("facebook.com", "instagram.com", "t.me", "telegram.me",
+                 "twitter.com", "x.com", "youtube.com", "youtu.be")
+
+
+def _pick_target(links, source_url: str) -> str | None:
+    src_host = urlsplit(source_url or "").netloc.lower().removeprefix("www.")
+    for raw in links or []:
+        norm = _normalize_url(raw or "")
+        if not norm:
+            continue
+        host = urlsplit(norm).netloc.lower().removeprefix("www.")
+        if not host or host == src_host:
+            continue
+        if any(host == s or host.endswith("." + s) for s in _SOCIAL_HOSTS):
+            continue
+        return norm
+    return None
 from crawler.extract.base import CategoryIndex
 from crawler.models import OfferCandidate, RawItem
 
@@ -74,6 +93,7 @@ class HeuristicExtractor:
                       if item.url else None),
             article_url=item.url,
             image_url=getattr(item, "logo_url", None),
+            target_url=_pick_target(getattr(item, "links", None), item.url or ""),
             target_category_ids=_match_categories(low, categories.target),
             offer_category_ids=_match_categories(low, categories.offer),
         )
