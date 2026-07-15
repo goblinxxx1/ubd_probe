@@ -17,6 +17,11 @@ class _RawSettings(BaseSettings):
     instagram_accounts: str = ""
     facebook_accounts: str = ""
     proxies: str = ""
+    search_providers: str = "duckduckgo"
+    search_keywords: str = ""
+    search_results_per_keyword: int = 7
+    search_min_delay: float = 4.0
+    search_budget: int = 0  # 0 = process all keywords
 
 
 @dataclass
@@ -29,6 +34,11 @@ class Config:
     min_delay_seconds: float
     bot_accounts: list[BotCredential] = field(default_factory=list)
     proxies: dict[str, str] = field(default_factory=dict)
+    search_providers: list[str] = field(default_factory=list)
+    search_keywords: list[str] = field(default_factory=list)
+    search_results_per_keyword: int = 7
+    search_min_delay: float = 4.0
+    search_budget: int | None = None
 
 
 def _parse_accounts(platform: str, raw: str) -> list[BotCredential]:
@@ -37,6 +47,10 @@ def _parse_accounts(platform: str, raw: str) -> list[BotCredential]:
         username, _, password = chunk.partition(":")
         out.append(BotCredential(platform=platform, username=username, password=password))
     return out
+
+
+def _split_csv(raw: str) -> list[str]:
+    return [c.strip() for c in raw.split(",") if c.strip()]
 
 
 def _parse_proxies(raw: str) -> dict[str, str]:
@@ -60,4 +74,9 @@ def load_config() -> Config:
         min_delay_seconds=s.min_delay_seconds,
         bot_accounts=accounts,
         proxies=_parse_proxies(s.proxies),
+        search_providers=_split_csv(s.search_providers),
+        search_keywords=_split_csv(s.search_keywords),
+        search_results_per_keyword=s.search_results_per_keyword,
+        search_min_delay=s.search_min_delay,
+        search_budget=(s.search_budget or None),
     )
