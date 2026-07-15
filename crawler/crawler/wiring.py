@@ -2,6 +2,8 @@ import httpx
 
 from crawler.accounts.pool import AccountPool
 from crawler.api_client import ApiClient
+from crawler.discovery.active import ActiveDiscovery
+from crawler.discovery.providers import build_search_provider
 from crawler.extract.base import get_extractor
 from crawler.fetchers.facebook import FacebookFetcher
 from crawler.fetchers.instagram import InstagramFetcher
@@ -37,4 +39,12 @@ def build_runner(config) -> Runner:
     }
     extractor = get_extractor(config.extractor)
     rate_limiter = RateLimiter(config.min_delay_seconds)
-    return Runner(api, fetchers, extractor, rate_limiter)
+
+    discovery = None
+    if config.active_discovery:
+        provider = build_search_provider(config)
+        if provider is not None:
+            budget = config.search_budget or len(config.search_keywords)
+            discovery = ActiveDiscovery(budget=budget, search_provider=provider)
+    return Runner(api, fetchers, extractor, rate_limiter,
+                  discovery=discovery, keywords=config.search_keywords)

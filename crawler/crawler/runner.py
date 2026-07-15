@@ -37,11 +37,14 @@ def suggestion_payload(sc) -> dict:
 
 
 class Runner:
-    def __init__(self, api_client, fetchers: dict, extractor, rate_limiter):
+    def __init__(self, api_client, fetchers: dict, extractor, rate_limiter,
+                 discovery=None, keywords=None):
         self._api = api_client
         self._fetchers = fetchers
         self._extractor = extractor
         self._rl = rate_limiter
+        self._discovery = discovery
+        self._keywords = keywords or []
 
     def _fetch_for(self, source: dict, last_seen_key):
         fetcher = self._fetchers.get(source["type"])
