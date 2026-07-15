@@ -67,6 +67,17 @@ class Runner:
             except Exception as exc:  # noqa: BLE001 — isolate per source
                 summary["errors"] += 1
                 log.warning("source #%s failed: %s", source.get("id"), exc)
+
+        if self._discovery is not None and self._keywords:
+            try:
+                for cand in self._discovery.run(self._keywords, known):
+                    self._api.submit_suggestion(suggestion_payload(cand))
+                    known.add(normalize_ref(cand.type, cand.url_or_handle))
+                    summary["suggestions"] += 1
+            except Exception as exc:  # noqa: BLE001 — discovery must not crash the pass
+                summary["errors"] += 1
+                log.warning("active discovery failed: %s", exc)
+
         log.info("crawl summary: %s", summary)
         return summary
 
