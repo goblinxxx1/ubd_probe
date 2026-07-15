@@ -2,6 +2,7 @@ import logging
 import time
 from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
 
+import httpx
 from ddgs import DDGS
 
 from crawler.models import SourceCandidate
@@ -50,12 +51,51 @@ class DuckDuckGoProvider:
         return out
 
 
+class SearxngProvider:
+    """Callable (keyword) -> list[SourceCandidate]; best-effort, via SearXNG JSON API."""
+
+    def __init__(self, base_url: str, results_per_keyword: int = 7, min_delay: float = 4.0,
+                 client_factory=None, sleep=time.sleep):
+        self._base = base_url.rstrip("/")
+        self._n = results_per_keyword
+        self._delay = min_delay
+        self._client_factory = client_factory or (lambda: httpx.Client(timeout=20))
+        self._sleep = sleep
+
+    def __call__(self, keyword: str) -> list[SourceCandidate]:
+        if self._delay:
+            self._sleep(self._delay)
+        try:
+            with self._client_factory() as client:
+                resp = client.get(f"{self._base}/search",
+                                  params={"q": keyword, "format": "json"})
+                resp.raise_for_status()
+                data = resp.json()
+        except Exception as exc:  # noqa: BLE001 — search is best-effort
+            log.warning("searxng search failed for %r: %s", keyword, exc)
+            return []
+        out: list[SourceCandidate] = []
+        for r in (data.get("results") or [])[:self._n]:
+            url = _normalize_url(r.get("url", ""))
+            if not url:
+                continue
+            out.append(SourceCandidate(
+                name=r.get("title") or url, type="website", url_or_handle=url,
+                discovered_from_source_id=None, discovery_note=f"searxng: {keyword}"))
+        return out
+
+
 def build_search_provider(config):
     """Combine enabled search providers into one callable, or None."""
     providers = []
     for name in config.search_providers:
         if name == "duckduckgo":
             providers.append(DuckDuckGoProvider(
+                results_per_keyword=config.search_results_per_keyword,
+                min_delay=config.search_min_delay))
+        elif name == "searxng":
+            providers.append(SearxngProvider(
+                base_url=config.searxng_url,
                 results_per_keyword=config.search_results_per_keyword,
                 min_delay=config.search_min_delay))
         else:
