@@ -3,7 +3,6 @@ import { ref, computed, onMounted } from "vue";
 import { useRoute } from "vue-router";
 import * as offersApi from "@/api/offers";
 import { formatDate } from "@/utils/format";
-import { placeholderDataUri } from "@/utils/placeholder";
 import OfferBadge from "@/components/OfferBadge.vue";
 
 const route = useRoute();
@@ -11,9 +10,6 @@ const offer = ref(null);
 const loading = ref(true);
 const notFound = ref(false);
 
-const image = computed(() =>
-  offer.value ? offer.value.image_url || placeholderDataUri(offer.value) : ""
-);
 const period = computed(() => {
   if (!offer.value) return "";
   const from = formatDate(offer.value.valid_from);
@@ -54,22 +50,30 @@ defineExpose({ offer, loading, notFound });
     </div>
 
     <article v-else>
-      <router-link :to="{ name: 'offers' }" class="back">← до списку</router-link>
-      <div class="detail__media">
-        <img :src="image" alt="" />
-        <OfferBadge :offer="offer" class="detail__badge" />
+      <router-link :to="{ name: 'offers' }" class="detail__back">← до списку</router-link>
+
+      <div class="detail__head">
+        <h1 class="detail__provider">{{ offer.provider }}</h1>
+        <img v-if="offer.image_url" class="detail__photo" :src="offer.image_url" alt="" />
       </div>
-      <h1>{{ offer.title }}</h1>
-      <div class="detail__provider">{{ offer.provider }}</div>
+
+      <div class="detail__discount">
+        <OfferBadge :offer="offer" />
+        <span v-if="offer.title" class="detail__dtext">{{ offer.title }}</span>
+      </div>
+
       <p v-if="offer.description" class="detail__desc">{{ offer.description }}</p>
 
-      <div v-if="offer.target_categories?.length" class="detail__row">
-        <span class="detail__label">Для кого:</span>
-        <span v-for="t in offer.target_categories" :key="t.id" class="tag">{{ t.name }}</span>
+      <div v-if="offer.target_categories?.length" class="detail__whom">
+        <div class="detail__whom-label">Для кого</div>
+        <div class="detail__chips">
+          <span v-for="t in offer.target_categories" :key="t.id" class="chip">{{ t.name }}</span>
+        </div>
       </div>
+
       <div v-if="offer.offer_categories?.length" class="detail__row">
         <span class="detail__label">Тематика:</span>
-        <span v-for="c in offer.offer_categories" :key="c.id" class="tag">{{ c.name }}</span>
+        <span v-for="c in offer.offer_categories" :key="c.id" class="chip chip--light">{{ c.name }}</span>
       </div>
       <div v-if="offer.location" class="detail__row"><span class="detail__label">Локація:</span> {{ offer.location }}</div>
       <div v-if="period" class="detail__row"><span class="detail__label">Діє:</span> {{ period }}</div>
@@ -84,14 +88,22 @@ defineExpose({ offer, loading, notFound });
 
 <style scoped lang="less">
 @import "@/styles/variables.less";
-.back { display: inline-block; margin-bottom: 12px; }
-.detail__media { position: relative; border-radius: @radius; overflow: hidden; margin-bottom: 12px; }
-.detail__media img { width: 100%; max-height: 360px; object-fit: cover; display: block; }
-.detail__badge { position: absolute; top: 12px; left: 12px; }
-.detail__provider { color: @muted; margin-bottom: 12px; }
-.detail__desc { line-height: 1.5; }
-.detail__row { margin: 6px 0; }
-.detail__label { color: @muted; margin-right: 6px; }
-.tag { display: inline-block; font-size: 13px; background: #eef2f7; color: @muted; border-radius: 6px; padding: 1px 8px; margin-right: 4px; }
-.state { text-align: center; padding: 48px 0; color: @muted; }
+.detail__back { display: inline-block; margin-bottom: 16px; color: @link; }
+.detail__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.detail__provider { margin: 0; font-weight: 800; font-size: 38px; line-height: .95; letter-spacing: -.5px; color: @text; }
+.detail__photo { width: 40px; height: 40px; flex: none; object-fit: cover; border-radius: 9px; }
+.detail__discount { display: flex; align-items: center; gap: 10px; margin: 14px 0; }
+.detail__dtext { font-size: 14px; }
+.detail__desc { line-height: 1.55; color: @desc-muted; margin: 0 0 16px; }
+.detail__whom {
+  background: @whom-bg; border: 1px solid @whom-border; border-radius: 8px; padding: 9px 11px; margin-bottom: 14px;
+  display: inline-block;
+}
+.detail__whom-label { font-size: 9px; text-transform: uppercase; letter-spacing: 1.5px; color: @meta-muted; font-weight: 700; margin-bottom: 6px; }
+.detail__chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.chip { font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 999px; background: @chip-bg; color: @chip-text; }
+.chip--light { background: @whom-bg; color: @meta-muted; border: 1px solid @whom-border; margin-right: 4px; }
+.detail__row { margin: 8px 0; }
+.detail__label { color: @meta-muted; margin-right: 6px; text-transform: uppercase; font-size: 11px; letter-spacing: .5px; }
+.state { text-align: center; padding: 48px 0; color: @meta-muted; }
 </style>
