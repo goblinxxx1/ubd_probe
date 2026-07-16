@@ -52,6 +52,15 @@ describe("OfferCard", () => {
     expect(w.find(".card__whom").exists()).toBe(false);
   });
 
+  it("hides the footer entirely when there is no meta and no links", () => {
+    const w = mountCard({
+      id: 6, type: "discount", title: "T", provider: "P", description: "d",
+      location: null, image_url: null, target_categories: [], offer_categories: [],
+      site_url: null, article_url: null,
+    });
+    expect(w.find(".card__foot").exists()).toBe(false);
+  });
+
   it("renders Сайт + Новина links when present", () => {
     const w = mountCard({
       id: 1, type: "discount", title: "T", provider: "Кафе", description: "d",

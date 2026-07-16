@@ -41,8 +41,8 @@ const meta = computed(() =>
       </div>
     </div>
 
-    <div class="card__foot">
-      <span class="card__meta">{{ meta }}</span>
+    <div v-if="meta || sourceLinks.length" class="card__foot">
+      <span v-if="meta" class="card__meta">{{ meta }}</span>
       <span v-if="sourceLinks.length" class="card__links">
         <template v-for="(l, i) in sourceLinks" :key="i">
           <a v-if="l.site_url" class="card__link" :href="l.site_url"
