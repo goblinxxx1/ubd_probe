@@ -67,11 +67,12 @@ class DuckDuckGoProvider:
             return []
         out: list[SourceCandidate] = []
         for r in results or []:
-            url = _normalize_url(r.get("href", ""))
-            if not url:
+            classified = classify_candidate(r.get("href", ""))
+            if classified is None:
                 continue
+            type_, url_or_handle = classified
             out.append(SourceCandidate(
-                name=r.get("title") or url, type="website", url_or_handle=url,
+                name=r.get("title") or url_or_handle, type=type_, url_or_handle=url_or_handle,
                 discovered_from_source_id=None, discovery_note=f"ddg: {keyword}"))
         return out
 
@@ -101,11 +102,12 @@ class SearxngProvider:
             return []
         out: list[SourceCandidate] = []
         for r in (data.get("results") or [])[:self._n]:
-            url = _normalize_url(r.get("url", ""))
-            if not url:
+            classified = classify_candidate(r.get("url", ""))
+            if classified is None:
                 continue
+            type_, url_or_handle = classified
             out.append(SourceCandidate(
-                name=r.get("title") or url, type="website", url_or_handle=url,
+                name=r.get("title") or url_or_handle, type=type_, url_or_handle=url_or_handle,
                 discovered_from_source_id=None, discovery_note=f"searxng: {keyword}"))
         return out
 
