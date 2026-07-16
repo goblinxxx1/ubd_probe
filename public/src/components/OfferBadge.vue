@@ -12,8 +12,12 @@ const badge = computed(() => offerBadge(props.offer));
 
 <style scoped lang="less">
 @import "@/styles/variables.less";
-.badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 13px; font-weight: 600; color: #fff; }
-.badge--event { background: #6d28d9; }
-.badge--free { background: #059669; }
-.badge--discount { background: @brand; }
+.badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 3px 9px; border-radius: 5px;
+  font-size: 13px; font-weight: 800; line-height: 1; letter-spacing: -.2px;
+}
+.badge--discount { background: @badge-discount-bg; color: @badge-discount-text; }
+.badge--free { background: @badge-free-bg; color: @badge-free-text; }
+.badge--event { background: @badge-event-bg; color: @badge-event-text; }
 </style>

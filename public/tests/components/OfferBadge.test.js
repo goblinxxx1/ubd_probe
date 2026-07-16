@@ -13,4 +13,9 @@ describe("OfferBadge", () => {
     expect(w.text()).toBe("−50%");
     expect(w.get("span").classes()).toContain("badge--discount");
   });
+  it("renders free badge", () => {
+    const w = mount(OfferBadge, { props: { offer: { type: "discount", discount_type: "free" } } });
+    expect(w.text()).toBe("Безкоштовно");
+    expect(w.get("span").classes()).toContain("badge--free");
+  });
 });
