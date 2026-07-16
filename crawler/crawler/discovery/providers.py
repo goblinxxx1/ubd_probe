@@ -22,6 +22,31 @@ def _normalize_url(url: str) -> str | None:
     return urlunsplit((p.scheme.lower(), p.netloc.lower(), path, query, ""))
 
 
+_IG_RESERVED = ("/p/", "/reel/", "/reels/", "/explore/", "/stories/")
+_FB_RESERVED = ("/share", "/sharer", "/events", "/photo", "/watch")
+
+
+def classify_candidate(url: str) -> tuple[str, str] | None:
+    """Map a search-result URL to (source_type, url_or_handle), or None to skip."""
+    norm = _normalize_url(url)
+    if not norm:
+        return None
+    parts = urlsplit(norm)
+    host = parts.netloc.lower().removeprefix("www.")
+    path = parts.path or "/"
+    if host in ("t.me", "telegram.me"):
+        return ("telegram", norm)
+    if host == "instagram.com":
+        if path == "/" or any(path.startswith(p) for p in _IG_RESERVED):
+            return None
+        return ("instagram", norm)
+    if host in ("facebook.com", "fb.com"):
+        if path == "/" or any(path.startswith(p) for p in _FB_RESERVED):
+            return None
+        return ("facebook", norm)
+    return ("website", norm)
+
+
 class DuckDuckGoProvider:
     """Callable (keyword) -> list[SourceCandidate]; best-effort."""
 
