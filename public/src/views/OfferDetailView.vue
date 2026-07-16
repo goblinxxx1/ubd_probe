@@ -32,6 +32,15 @@ onMounted(async () => {
   }
 });
 
+const sourceLinks = computed(() => {
+  const o = offer.value;
+  if (!o) return [];
+  if (o.links?.length) return o.links;
+  return o.site_url || o.article_url
+    ? [{ site_url: o.site_url, article_url: o.article_url }]
+    : [];
+});
+
 defineExpose({ offer, loading, notFound });
 </script>
 
@@ -64,13 +73,10 @@ defineExpose({ offer, loading, notFound });
       </div>
       <div v-if="offer.location" class="detail__row"><span class="detail__label">Локація:</span> {{ offer.location }}</div>
       <div v-if="period" class="detail__row"><span class="detail__label">Діє:</span> {{ period }}</div>
-      <div v-if="offer.site_url" class="detail__row">
-        <span class="detail__label">Сайт:</span>
-        <a :href="offer.site_url" target="_blank" rel="noopener">{{ offer.site_url }}</a>
-      </div>
-      <div v-if="offer.article_url" class="detail__row">
-        <span class="detail__label">Сторінка новини:</span>
-        <a :href="offer.article_url" target="_blank" rel="noopener">{{ offer.article_url }}</a>
+      <div v-for="(l, i) in sourceLinks" :key="i" class="detail__row">
+        <span class="detail__label">Джерело{{ sourceLinks.length > 1 ? ' ' + (i + 1) : '' }}:</span>
+        <a v-if="l.site_url" :href="l.site_url" target="_blank" rel="noopener">Сайт</a>
+        <a v-if="l.article_url" :href="l.article_url" target="_blank" rel="noopener" style="margin-left:8px">Сторінка новини</a>
       </div>
     </article>
   </div>

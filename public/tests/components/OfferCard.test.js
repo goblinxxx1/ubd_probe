@@ -54,4 +54,20 @@ describe("OfferCard", () => {
     });
     expect(w.findAll("a.card__link").length).toBe(0);
   });
+
+  it("renders a link pair per offer_link source", () => {
+    const w = mountCard({
+      id: 5, type: "discount", title: "T", provider: "X", image_url: null,
+      target_categories: [],
+      links: [
+        { provider: "Agg1", site_url: "https://agg1", article_url: "https://agg1/p" },
+        { provider: "Agg2", site_url: "https://agg2", article_url: "https://agg2/p" },
+      ],
+    });
+    const hrefs = w.findAll("a.card__link").map((a) => a.attributes("href"));
+    expect(hrefs).toContain("https://agg1");
+    expect(hrefs).toContain("https://agg2");
+    expect(hrefs).toContain("https://agg1/p");
+    expect(hrefs).toContain("https://agg2/p");
+  });
 });

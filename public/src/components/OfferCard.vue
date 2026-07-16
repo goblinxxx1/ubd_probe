@@ -5,6 +5,13 @@ import OfferBadge from "@/components/OfferBadge.vue";
 
 const props = defineProps({ offer: { type: Object, required: true } });
 const image = computed(() => props.offer.image_url || placeholderDataUri(props.offer));
+const sourceLinks = computed(() =>
+  props.offer.links?.length
+    ? props.offer.links
+    : (props.offer.site_url || props.offer.article_url
+        ? [{ site_url: props.offer.site_url, article_url: props.offer.article_url }]
+        : [])
+);
 </script>
 
 <template>
@@ -22,11 +29,13 @@ const image = computed(() => props.offer.image_url || placeholderDataUri(props.o
         <img v-if="offer.image_url" class="card__logo" :src="offer.image_url" alt="" />
       </div>
       <div v-if="offer.location" class="card__location">{{ offer.location }}</div>
-      <div v-if="offer.site_url || offer.article_url" class="card__links">
-        <a v-if="offer.site_url" class="card__link" :href="offer.site_url"
-           target="_blank" rel="noopener">Сайт</a>
-        <a v-if="offer.article_url" class="card__link" :href="offer.article_url"
-           target="_blank" rel="noopener">Сторінка новини</a>
+      <div v-if="sourceLinks.length" class="card__links">
+        <template v-for="(l, i) in sourceLinks" :key="i">
+          <a v-if="l.site_url" class="card__link" :href="l.site_url"
+             target="_blank" rel="noopener">Сайт{{ sourceLinks.length > 1 ? ' ' + (i + 1) : '' }}</a>
+          <a v-if="l.article_url" class="card__link" :href="l.article_url"
+             target="_blank" rel="noopener">Новина{{ sourceLinks.length > 1 ? ' ' + (i + 1) : '' }}</a>
+        </template>
       </div>
       <div v-if="offer.target_categories?.length" class="card__tags">
         <span v-for="t in offer.target_categories" :key="t.id" class="tag">{{ t.name }}</span>
