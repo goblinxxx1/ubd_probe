@@ -10,5 +10,5 @@
 
 <style scoped lang="less">
 @import "@/styles/variables.less";
-.site-footer { border-top: 1px solid @border; color: @muted; margin-top: 32px; font-size: 14px; }
+.site-footer { border-top: 1px solid @divider; color: @meta-muted; margin-top: 32px; font-size: 13px; }
 </style>
