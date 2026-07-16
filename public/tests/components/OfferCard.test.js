@@ -16,29 +16,45 @@ function mountCard(offer) {
 }
 
 describe("OfferCard", () => {
-  it("uses the placeholder when image_url is empty and shows fields", () => {
+  it("uses the placeholder photo when image_url is empty and shows fields", () => {
     const w = mountCard({
-      id: 3, type: "discount", discount_type: "free", title: "Безкоштовний вхід",
-      provider: "Музей", location: "Львів", image_url: null,
-      target_categories: [{ id: 1, name: "УБД" }], offer_categories: [],
+      id: 3, type: "discount", discount_type: "free", title: "на все меню",
+      provider: "Музей", description: "", location: "Львів", image_url: null,
+      target_categories: [{ id: 1, name: "УБД" }], offer_categories: [{ id: 2, name: "Кафе" }],
     });
-    const src = w.get("img").attributes("src");
+    const src = w.get("img.card__photo").attributes("src");
     expect(src.startsWith("data:image/svg+xml,")).toBe(true);
-    expect(w.text()).toContain("Безкоштовний вхід");
+    expect(w.text()).toContain("на все меню");
     expect(w.text()).toContain("Музей");
     expect(w.text()).toContain("УБД");
   });
 
-  it("links to the offer detail route", () => {
-    const w = mountCard({ id: 9, type: "event", title: "Подія", provider: "X", image_url: "https://x/y.png", target_categories: [] });
+  it("provider links to the offer detail route; photo uses image_url", () => {
+    const w = mountCard({ id: 9, type: "event", title: "Подія", provider: "X", description: "d", image_url: "https://x/y.png", target_categories: [] });
     const link = w.getComponent({ name: "RouterLink" });
     expect(link.props("to")).toEqual({ name: "offer", params: { id: 9 } });
-    expect(w.get("img").attributes("src")).toBe("https://x/y.png");
+    expect(w.get("img.card__photo").attributes("src")).toBe("https://x/y.png");
   });
 
-  it("renders Сайт + Сторінка новини links when present", () => {
+  it("shows the description when present", () => {
+    const w = mountCard({ id: 4, type: "discount", title: "T", provider: "P", description: "Крафтова бургерна", image_url: null, target_categories: [] });
+    expect(w.text()).toContain("Крафтова бургерна");
+    expect(w.find(".card__desc-empty").exists()).toBe(false);
+  });
+
+  it("shows the [опис] placeholder when description is empty", () => {
+    const w = mountCard({ id: 4, type: "discount", title: "T", provider: "P", description: "", image_url: null, target_categories: [] });
+    expect(w.get(".card__desc-empty").text()).toBe("[опис]");
+  });
+
+  it("hides the «Для кого» panel when there are no target categories", () => {
+    const w = mountCard({ id: 4, type: "discount", title: "T", provider: "P", description: "d", image_url: null, target_categories: [] });
+    expect(w.find(".card__whom").exists()).toBe(false);
+  });
+
+  it("renders Сайт + Новина links when present", () => {
     const w = mountCard({
-      id: 1, type: "discount", title: "T", provider: "Кафе",
+      id: 1, type: "discount", title: "T", provider: "Кафе", description: "d",
       site_url: "https://cafe.example", article_url: "https://cafe.example/news",
       image_url: null, target_categories: [],
     });
@@ -49,7 +65,7 @@ describe("OfferCard", () => {
 
   it("omits links when absent", () => {
     const w = mountCard({
-      id: 2, type: "discount", title: "T", provider: "Кафе",
+      id: 2, type: "discount", title: "T", provider: "Кафе", description: "d",
       site_url: null, article_url: null, image_url: null, target_categories: [],
     });
     expect(w.findAll("a.card__link").length).toBe(0);
@@ -57,7 +73,7 @@ describe("OfferCard", () => {
 
   it("renders a link pair per offer_link source", () => {
     const w = mountCard({
-      id: 5, type: "discount", title: "T", provider: "X", image_url: null,
+      id: 5, type: "discount", title: "T", provider: "X", description: "d", image_url: null,
       target_categories: [],
       links: [
         { provider: "Agg1", site_url: "https://agg1", article_url: "https://agg1/p" },

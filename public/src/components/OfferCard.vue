@@ -12,55 +12,85 @@ const sourceLinks = computed(() =>
         ? [{ site_url: props.offer.site_url, article_url: props.offer.article_url }]
         : [])
 );
+const meta = computed(() =>
+  [props.offer.offer_categories?.[0]?.name, props.offer.location].filter(Boolean).join(" · ")
+);
 </script>
 
 <template>
   <div class="card">
-    <router-link class="card__nav" :to="{ name: 'offer', params: { id: offer.id } }">
-      <div class="card__media">
-        <img :src="image" alt="" />
-        <OfferBadge :offer="offer" class="card__badge" />
+    <div class="card__top">
+      <router-link class="card__provider" :to="{ name: 'offer', params: { id: offer.id } }">{{ offer.provider }}</router-link>
+      <img class="card__photo" :src="image" alt="" />
+    </div>
+
+    <div class="card__discount">
+      <OfferBadge :offer="offer" />
+      <span v-if="offer.title" class="card__dtext">{{ offer.title }}</span>
+    </div>
+
+    <p class="card__desc">
+      <template v-if="offer.description">{{ offer.description }}</template>
+      <span v-else class="card__desc-empty">[опис]</span>
+    </p>
+
+    <div v-if="offer.target_categories?.length" class="card__whom">
+      <div class="card__whom-label">Для кого</div>
+      <div class="card__chips">
+        <span v-for="t in offer.target_categories" :key="t.id" class="chip">{{ t.name }}</span>
       </div>
-      <h3 class="card__title">{{ offer.title }}</h3>
-    </router-link>
-    <div class="card__body">
-      <div class="card__head">
-        <div class="card__provider">{{ offer.provider }}</div>
-        <img v-if="offer.image_url" class="card__logo" :src="offer.image_url" alt="" />
-      </div>
-      <div v-if="offer.location" class="card__location">{{ offer.location }}</div>
-      <div v-if="sourceLinks.length" class="card__links">
+    </div>
+
+    <div class="card__foot">
+      <span class="card__meta">{{ meta }}</span>
+      <span v-if="sourceLinks.length" class="card__links">
         <template v-for="(l, i) in sourceLinks" :key="i">
           <a v-if="l.site_url" class="card__link" :href="l.site_url"
              target="_blank" rel="noopener">Сайт{{ sourceLinks.length > 1 ? ' ' + (i + 1) : '' }}</a>
           <a v-if="l.article_url" class="card__link" :href="l.article_url"
              target="_blank" rel="noopener">Новина{{ sourceLinks.length > 1 ? ' ' + (i + 1) : '' }}</a>
         </template>
-      </div>
-      <div v-if="offer.target_categories?.length" class="card__tags">
-        <span v-for="t in offer.target_categories" :key="t.id" class="tag">{{ t.name }}</span>
-      </div>
+      </span>
     </div>
   </div>
 </template>
 
 <style scoped lang="less">
 @import "@/styles/variables.less";
-.card { display: block; background: @card-bg; border: 1px solid @border; border-radius: @radius; overflow: hidden; color: @text; }
-.card:hover { text-decoration: none; box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
-.card__media { position: relative; }
-.card__media img { display: block; width: 100%; height: 180px; object-fit: cover; }
-.card__badge { position: absolute; top: 8px; left: 8px; }
-.card__nav { display: block; color: @text; }
-.card__nav:hover { text-decoration: none; }
-.card__body { padding: 12px; }
-.card__title { margin: 0 12px 4px; font-size: 16px; }
-.card__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.card__logo { width: 40px; height: 40px; object-fit: contain; border-radius: 6px; flex: none; }
-.card__links { margin-top: 8px; display: flex; gap: 12px; }
-.card__link { font-size: 13px; }
-.card__provider { color: @muted; font-size: 14px; }
-.card__location { color: @muted; font-size: 13px; margin-top: 4px; }
-.card__tags { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px; }
-.tag { font-size: 12px; background: #eef2f7; color: @muted; border-radius: 6px; padding: 1px 6px; }
+.card {
+  display: flex; flex-direction: column;
+  background: @card-bg; border: 2px solid @card-border; border-radius: @radius;
+  padding: 14px; color: @text;
+}
+.card__top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.card__provider {
+  font-weight: 800; font-size: 24px; line-height: .95; letter-spacing: -.3px; color: @text;
+}
+.card__provider:hover { text-decoration: none; color: @link; }
+.card__photo {
+  width: 26px; height: 26px; flex: none; object-fit: cover; border-radius: 9px;
+}
+.card__discount { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.card__dtext { font-size: 12px; }
+.card__desc { font-size: 11.5px; line-height: 1.45; color: @desc-muted; margin: 10px 0 0; }
+.card__desc-empty { color: @placeholder; font-style: italic; }
+.card__whom {
+  background: @whom-bg; border: 1px solid @whom-border; border-radius: 8px; padding: 7px 9px; margin-top: 11px;
+}
+.card__whom-label {
+  font-size: 8px; text-transform: uppercase; letter-spacing: 1.5px; color: @meta-muted;
+  font-weight: 700; margin-bottom: 5px;
+}
+.card__chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip {
+  font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px;
+  background: @chip-bg; color: @chip-text;
+}
+.card__foot {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  margin-top: 12px; padding-top: 10px; border-top: 1px solid @card-border;
+}
+.card__meta { font-size: 9.5px; text-transform: uppercase; letter-spacing: 1px; color: @meta-muted; }
+.card__links { display: flex; gap: 10px; flex-wrap: wrap; }
+.card__link { font-size: 11px; font-weight: 700; color: @link; }
 </style>
