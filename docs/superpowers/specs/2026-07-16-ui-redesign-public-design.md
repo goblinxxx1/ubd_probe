@@ -55,8 +55,10 @@
 ## Компоненти
 
 ### `OfferCard.vue` (переструктурування)
-Зображення з картки **прибираємо** (текстовий мінімалізм). Структура згори вниз:
-1. **`provider`-герой** — bold, до 2 рядків, `line-height:.95`, `font-size` ~24px, `letter-spacing:-.3px`. Клікабельний → сторінка-деталь.
+Структура згори вниз:
+1. **Рядок-хедер картки** — flex, `justify-content:space-between`, `align-items:flex-start`:
+   - **`provider`-герой** ліворуч — bold, до 2 рядків, `line-height:.95`, `font-size` ~24px, `letter-spacing:-.3px`. Клікабельний → сторінка-деталь.
+   - **Фото праворуч**, навпроти героя — квадратний thumbnail (~56×56px), `border-radius:9px`, `object-fit:cover`, `flex:none`. Джерело: `offer.image_url`; якщо порожнє — наявний `placeholderDataUri(offer)` (стабільний розмір, без порожньої дірки).
 2. **Рядок знижки** — `<OfferBadge>` + `title` (короткий текст, напр. «на все меню»).
 3. **Блок опису** — `offer.description`; якщо порожній — курсивний `[опис]` кольором placeholder.
 4. **Панель «Для кого»** — лейбл «ДЛЯ КОГО» (uppercase) + чипи `target_categories`. Панель **ховається**, якщо `target_categories` порожній.
