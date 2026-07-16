@@ -1,47 +1,50 @@
 # UBD — як продовжувати роботу (по одному треку на сесію)
 
-Кожен під-проєкт («трек») робимо в **окремій новій сесії Claude Code**, щоб не тягнути зайвий
-контекст. Уся потрібна пам'ять автозавантажується з `~/.claude/projects/D--ubd-probe/memory/`
+Кожен трек робимо в **окремій новій сесії Claude Code**, щоб не тягнути зайвий контекст.
+Уся потрібна пам'ять автозавантажується з `~/.claude/projects/D--ubd-probe/memory/`
 (файл `MEMORY.md` + пов'язані), тож нова сесія одразу знає стан проєкту.
 
-## Порядок треків
+## Стан проєкту (станом на 2026-07-16) — усе в `main` і на GitHub
 
-1. Бекенд і модель даних — **ЗАВЕРШЕНО**, у `main`.
-2. Адмінка (Vue 3 SPA) — **ЗАВЕРШЕНО**, у `main`.
-3. Публічний фронтенд (Vue 3 SPA + Less) — **ЗАВЕРШЕНО**, у `main`.
-4. **Crawler** (сервіс за кроном) — наступний.
+`main` синхронізовано з `origin` (`https://github.com/goblinxxx1/ubd_probe.git`), дерево чисте.
+
+**Завершено й влито в `main`:**
+1. Бекенд і модель даних (FastAPI/SQLAlchemy/MySQL).
+2. Адмінка (Vue 3 SPA).
+3. Публічний фронтенд (Vue 3 SPA + Less).
+4. **Crawler** (website/telegram/instagram/facebook, internal API, пасивний discovery).
+5. **Docker-інфра** застосунку (`docker compose up`: db+backend+public:8080+admin:8082; краулер за профілем `crawler`; `README-docker.md`).
+6. **Трек 0** — presentation оффера: `site_url`/`article_url` посилання, лого сайту, заглушка `#4B5320`, шрифт **UAF Memory**.
+7. **Discovery A** — DuckDuckGo (`ddgs`) active search → `suggested_sources`.
+8. **Discovery B** — SearXNG (self-hosted сервіс під профілем crawler) як другий провайдер.
+9. **Discovery C** — дедуп/merge офферів за `target_url` (нова таблиця `offer_links`, multi-link у public).
+10. **Discovery D** — type-класифікація результатів пошуку (`t.me`→telegram тощо, відсів соц-junk).
+11. **nginx resolver фікс** (502 після ребілду backend усунуто).
+
+**Свідомо НЕ роблено:** C2 (сегментація тексту в блоці) — реальні дані показали непотрібність; деталі у пам'яті [[ubd-discovery-plan]].
+
+**Тести:** backend 58, crawler 79, admin 72, public 47.
 
 ## Як почати новий трек
 
-1. Відкрий **нову сесію** Claude Code в теці `D:\ubd_probe` (гілка `main`, дерево чисте).
-2. Встав відповідний стартовий промпт (нижче). Далі Claude сам: створить фіча-гілку від `main`,
-   проведе брейнсторм → spec → план → реалізацію (subagent-driven), і в кінці спитає про merge.
-3. Коли трек готовий і влитий у `main` — заверши сесію. Наступний трек — знову нова сесія.
+1. Нова сесія Claude Code в `D:\ubd_probe` (гілка `main`, дерево чисте).
+2. Опиши задачу — Claude сам створить фіча-гілку `feat/<track>` від `main`,
+   проведе брейнсторм → spec → план → реалізацію (TDD, часті коміти), і в кінці спитає про merge.
+3. Коли трек влитий у `main` (+ push за бажанням) — заверши сесію.
 
-### Стартовий промпт для треку 4 (crawler) — наступний
+## Домовленості
 
-```
-Продовжуємо проєкт UBD (тека D:\ubd_probe, гілка main). Починаємо під-проєкт 4 — crawler:
-сервіс за кроном, що обходить джерела (website/facebook/telegram/instagram), знаходить оффери
-та пропонує нові джерела, усе через internal API бекенда (X-API-Key). Створи фіча-гілку
-feat/crawler від main і почни з брейнсторму.
-```
+- Кожен трек — своя гілка `feat/<track>` **від `main`**; по завершенні — merge (ff) у `main`, гілку видалити.
+- **Запуск застосунку — тільки в Docker** ([[ubd-run-in-docker]]), не хостовими процесами. Хостовий запуск — лише для тестів.
+- Спілкування — **українською** ([[language-preference]]).
+- Точка відновлення до цієї сесії — git-тег `checkpoint-2026-07-16-discovery-done`.
 
-## Домовленості про гілки
+## Середовище (деталі — у пам'яті `ubd-dev-environment`)
 
-- Кожен трек — своя гілка `feat/<track>` **від `main`**.
-- Коли трек завершено і пройшов рев'ю — merge (fast-forward) у `main`, гілку видалити.
-- Так кожна нова сесія стартує з повного, чистого `main`.
-
-## Середовище (коротко; деталі — у пам'яті `ubd-dev-environment`)
-
-- **Backend:** Python лише через venv — з `backend/`: `./.venv/Scripts/python.exe -m pytest -q`.
-  Запуск API для ручної перевірки: `./.venv/Scripts/python.exe -m uvicorn app.main:app` (порт 8000).
-- **Frontend (admin, і майбутній public):** Node/npm у PATH. `cd <app> && npm run dev` (Vite),
-  `npm run test` (Vitest, API замоканий). Vite проксіює `/api` → `http://localhost:8000`.
-- **MySQL:** Docker-контейнер `mysql-container` (root / my-secret-pw), схеми `ubd` і `ubd_test`.
-  Якщо бекенд-тести не конектяться — `docker start mysql-container` (контейнер уже раз зникав).
-- **Креденшели:** `backend/.env` (gitignored).
+- **Backend/crawler тести:** з `backend/` або `crawler/`: `./.venv/Scripts/python.exe -m pytest -q` (потрібен `mysql-container` для backend — `docker start mysql-container`, він періодично зникає).
+- **Frontend тести:** `cd admin|public && npm test` (Vitest, API замоканий).
+- **Docker-стек:** `cp .env.example .env && docker compose up -d --build`; краулер-демо — `README-docker.md`.
+- **Вихідна адреса краулера для firewall:** `192.168.20.69` (LAN-IP хоста; деталі в `README-docker.md`).
 
 ## Спеки і плани
 
