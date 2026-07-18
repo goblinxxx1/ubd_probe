@@ -1,8 +1,12 @@
 # UBD Crawler
 
-Scheduled service that crawls sources (website / telegram / instagram / facebook),
-extracts candidate offers, and proposes new sources — all via the backend internal
-API (`X-API-Key`). See `docs/superpowers/specs/2026-07-12-crawler-design.md`.
+Scheduled service that crawls sources (website / telegram / instagram / facebook)
+and extracts candidate offers into moderation — all via the backend internal API
+(`X-API-Key`). Optional Level-2 active search additionally fetches found
+website/telegram pages and, when a provider can be attributed, submits offers
+straight to moderation (source suggestions are a by-product). See
+`docs/superpowers/specs/2026-07-12-crawler-design.md` and
+`docs/superpowers/specs/2026-07-18-crawler-active-harvest-design.md`.
 
 ## Setup
 
@@ -29,6 +33,10 @@ API (`X-API-Key`). See `docs/superpowers/specs/2026-07-12-crawler-design.md`.
 - `INTERNAL_API_URL`, `CRAWLER_API_KEY` — backend internal API.
 - `EXTRACTOR=heuristic` — offline extractor (only option shipped).
 - `ACTIVE_DISCOVERY=false` — Level-2 active search is opt-in (off by default).
+  When on, found website/telegram pages are fetched and, if a provider can be
+  attributed, offers are submitted straight to moderation (source suggestions
+  are a by-product). Instagram/Facebook results are ignored for now.
+- `ACTIVE_FETCH_BUDGET=20` — max page fetches per active-search pass (`0` disables).
 - `INSTAGRAM_ACCOUNTS`, `FACEBOOK_ACCOUNTS` — `user:pass` pairs, comma-separated.
   Credentials live only here, never in the database or repo.
 - `PROXIES` — optional per-platform proxy.
