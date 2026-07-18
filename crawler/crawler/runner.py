@@ -9,13 +9,14 @@ log = logging.getLogger(__name__)
 
 class Runner:
     def __init__(self, api_client, fetchers: dict, extractor, rate_limiter,
-                 discovery=None, keywords=None):
+                 discovery=None, keywords=None, harvester=None):
         self._api = api_client
         self._fetchers = fetchers
         self._extractor = extractor
         self._rl = rate_limiter
         self._discovery = discovery
         self._keywords = keywords or []
+        self._harvester = harvester
 
     def _fetch_for(self, source: dict, last_seen_key):
         fetcher = self._fetchers.get(source["type"])
@@ -39,12 +40,10 @@ class Runner:
                 summary["errors"] += 1
                 log.warning("source #%s failed: %s", source.get("id"), exc)
 
-        if self._discovery is not None and self._keywords:
+        if self._discovery is not None and self._keywords and self._harvester is not None:
             try:
-                for cand in self._discovery.run(self._keywords, known):
-                    self._api.submit_suggestion(suggestion_payload(cand))
-                    known.add(normalize_ref(cand.type, cand.url_or_handle))
-                    summary["suggestions"] += 1
+                candidates = self._discovery.run(self._keywords, known)
+                self._harvester.harvest(candidates, cats, known, summary)
             except Exception as exc:  # noqa: BLE001 — discovery must not crash the pass
                 summary["errors"] += 1
                 log.warning("active discovery failed: %s", exc)
