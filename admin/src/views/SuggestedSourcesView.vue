@@ -58,7 +58,18 @@ defineExpose({ items, load, onApprove, onReject, status });
       <el-table-column label="Тип">
         <template #default="{ row }">{{ enumLabel(SOURCE_TYPES, row.type) }}</template>
       </el-table-column>
-      <el-table-column prop="url_or_handle" label="URL / handle" />
+      <el-table-column label="URL / handle">
+        <template #default="{ row }">
+          <el-link
+            v-if="row.type === 'website'"
+            :href="row.url_or_handle"
+            type="primary"
+            target="_blank"
+            rel="noopener noreferrer"
+          >{{ row.url_or_handle }}</el-link>
+          <span v-else>{{ row.url_or_handle }}</span>
+        </template>
+      </el-table-column>
       <el-table-column prop="discovery_note" label="Нотатка" />
       <el-table-column label="Дії" width="220">
         <template #default="{ row }">

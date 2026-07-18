@@ -43,4 +43,18 @@ describe("SourcesView", () => {
     await flushPromises();
     expect(sources.remove).toHaveBeenCalledWith(1);
   });
+
+  it("renders url_or_handle as a link for website sources, plain text otherwise", async () => {
+    sources.list.mockResolvedValueOnce([
+      { id: 1, name: "W", type: "website", url_or_handle: "https://site.example", is_active: true },
+      { id: 2, name: "T", type: "telegram", url_or_handle: "@chan", is_active: true },
+    ]);
+    const wrapper = mount(SourcesView, { global: { plugins: [ElementPlus] } });
+    await flushPromises();
+    const link = wrapper.find('a[href="https://site.example"]');
+    expect(link.exists()).toBe(true);
+    expect(link.attributes("target")).toBe("_blank");
+    expect(wrapper.text()).toContain("@chan");
+    expect(wrapper.find('a[href="@chan"]').exists()).toBe(false);
+  });
 });

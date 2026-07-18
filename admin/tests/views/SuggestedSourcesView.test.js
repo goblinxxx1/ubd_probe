@@ -42,4 +42,18 @@ describe("SuggestedSourcesView", () => {
     expect(suggested.reject).toHaveBeenCalledWith(3);
     expect(suggested.list).toHaveBeenCalledTimes(2);
   });
+
+  it("renders url_or_handle as a link for website suggestions, plain text otherwise", async () => {
+    suggested.list.mockResolvedValueOnce([
+      { id: 1, name: "W", type: "website", url_or_handle: "https://found.example", discovery_note: "", status: "pending" },
+      { id: 2, name: "I", type: "instagram", url_or_handle: "@insta", discovery_note: "", status: "pending" },
+    ]);
+    const wrapper = mount(SuggestedSourcesView, { global: { plugins: [ElementPlus] } });
+    await flushPromises();
+    const link = wrapper.find('a[href="https://found.example"]');
+    expect(link.exists()).toBe(true);
+    expect(link.attributes("target")).toBe("_blank");
+    expect(wrapper.text()).toContain("@insta");
+    expect(wrapper.find('a[href="@insta"]').exists()).toBe(false);
+  });
 });
