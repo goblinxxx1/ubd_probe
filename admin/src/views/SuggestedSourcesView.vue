@@ -3,7 +3,7 @@ import { ref, onMounted } from "vue";
 import { ElMessage } from "element-plus";
 import * as suggested from "@/api/suggestedSources";
 import { SOURCE_TYPES, SUGGESTION_STATUSES } from "@/constants/enums";
-import { enumLabel } from "@/utils/format";
+import { enumLabel, isHttpUrl } from "@/utils/format";
 import { extractError } from "@/utils/errors";
 
 const items = ref([]);
@@ -61,7 +61,7 @@ defineExpose({ items, load, onApprove, onReject, status });
       <el-table-column label="URL / handle">
         <template #default="{ row }">
           <el-link
-            v-if="row.type === 'website'"
+            v-if="isHttpUrl(row.url_or_handle)"
             :href="row.url_or_handle"
             type="primary"
             target="_blank"

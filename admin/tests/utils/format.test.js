@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { enumLabel, formatDate, statusTagType } from "@/utils/format";
+import { enumLabel, formatDate, statusTagType, isHttpUrl } from "@/utils/format";
 import { OFFER_STATUSES } from "@/constants/enums";
 
 describe("enumLabel", () => {
@@ -27,5 +27,18 @@ describe("statusTagType", () => {
     expect(statusTagType("published")).toBe("success");
     expect(statusTagType("rejected")).toBe("danger");
     expect(statusTagType("expired")).toBe("info");
+  });
+});
+
+describe("isHttpUrl", () => {
+  it("accepts http(s) URLs", () => {
+    expect(isHttpUrl("https://x.example")).toBe(true);
+    expect(isHttpUrl("http://x.example")).toBe(true);
+  });
+  it("rejects non-http(s) values", () => {
+    expect(isHttpUrl("javascript:alert(1)")).toBe(false);
+    expect(isHttpUrl("example.com")).toBe(false);
+    expect(isHttpUrl("@handle")).toBe(false);
+    expect(isHttpUrl(null)).toBe(false);
   });
 });

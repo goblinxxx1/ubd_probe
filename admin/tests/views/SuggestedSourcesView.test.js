@@ -47,6 +47,7 @@ describe("SuggestedSourcesView", () => {
     suggested.list.mockResolvedValueOnce([
       { id: 1, name: "W", type: "website", url_or_handle: "https://found.example", discovery_note: "", status: "pending" },
       { id: 2, name: "I", type: "instagram", url_or_handle: "@insta", discovery_note: "", status: "pending" },
+      { id: 3, name: "X", type: "website", url_or_handle: "javascript:alert(1)", discovery_note: "", status: "pending" },
     ]);
     const wrapper = mount(SuggestedSourcesView, { global: { plugins: [ElementPlus] } });
     await flushPromises();
@@ -55,5 +56,7 @@ describe("SuggestedSourcesView", () => {
     expect(link.attributes("target")).toBe("_blank");
     expect(wrapper.text()).toContain("@insta");
     expect(wrapper.find('a[href="@insta"]').exists()).toBe(false);
+    expect(wrapper.find('a[href="javascript:alert(1)"]').exists()).toBe(false);
+    expect(wrapper.text()).toContain("javascript:alert(1)");
   });
 });

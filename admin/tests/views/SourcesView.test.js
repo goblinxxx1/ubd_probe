@@ -48,6 +48,7 @@ describe("SourcesView", () => {
     sources.list.mockResolvedValueOnce([
       { id: 1, name: "W", type: "website", url_or_handle: "https://site.example", is_active: true },
       { id: 2, name: "T", type: "telegram", url_or_handle: "@chan", is_active: true },
+      { id: 3, name: "X", type: "website", url_or_handle: "javascript:alert(1)", is_active: true },
     ]);
     const wrapper = mount(SourcesView, { global: { plugins: [ElementPlus] } });
     await flushPromises();
@@ -56,5 +57,7 @@ describe("SourcesView", () => {
     expect(link.attributes("target")).toBe("_blank");
     expect(wrapper.text()).toContain("@chan");
     expect(wrapper.find('a[href="@chan"]').exists()).toBe(false);
+    expect(wrapper.find('a[href="javascript:alert(1)"]').exists()).toBe(false);
+    expect(wrapper.text()).toContain("javascript:alert(1)");
   });
 });

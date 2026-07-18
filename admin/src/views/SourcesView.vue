@@ -3,7 +3,7 @@ import { ref, reactive, onMounted } from "vue";
 import { ElMessage } from "element-plus";
 import * as sources from "@/api/sources";
 import { SOURCE_TYPES } from "@/constants/enums";
-import { enumLabel } from "@/utils/format";
+import { enumLabel, isHttpUrl } from "@/utils/format";
 import { confirmDelete } from "@/utils/confirm";
 import { extractError } from "@/utils/errors";
 
@@ -83,7 +83,7 @@ defineExpose({ items, load, openCreate, openEdit, save, onDelete, form, editingI
       <el-table-column label="URL / handle">
         <template #default="{ row }">
           <el-link
-            v-if="row.type === 'website'"
+            v-if="isHttpUrl(row.url_or_handle)"
             :href="row.url_or_handle"
             type="primary"
             target="_blank"

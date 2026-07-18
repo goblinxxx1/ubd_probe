@@ -23,3 +23,7 @@ const STATUS_TAG = {
 export function statusTagType(status) {
   return STATUS_TAG[status] || "info";
 }
+
+export function isHttpUrl(v) {
+  return typeof v === "string" && /^https?:\/\//i.test(v);
+}

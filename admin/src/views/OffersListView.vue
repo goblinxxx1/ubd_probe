@@ -5,7 +5,7 @@ import { ElMessage } from "element-plus";
 import { useApiList } from "@/composables/useApiList";
 import * as offers from "@/api/offers";
 import { OFFER_STATUSES, OFFER_TYPES } from "@/constants/enums";
-import { enumLabel, formatDate, statusTagType } from "@/utils/format";
+import { enumLabel, formatDate, statusTagType, isHttpUrl } from "@/utils/format";
 import { confirmDelete } from "@/utils/confirm";
 import { extractError } from "@/utils/errors";
 import DataTableToolbar from "@/components/DataTableToolbar.vue";
@@ -119,21 +119,21 @@ defineExpose({ onPublish, onReject, onDelete, load, applyFilters, items });
       <el-table-column label="Джерело" width="140">
         <template #default="{ row }">
           <el-link
-            v-if="row.site_url"
+            v-if="isHttpUrl(row.site_url)"
             :href="row.site_url"
             type="primary"
             target="_blank"
             rel="noopener noreferrer"
           >Сайт ↗</el-link>
           <el-link
-            v-if="row.article_url"
+            v-if="isHttpUrl(row.article_url)"
             :href="row.article_url"
             type="primary"
             target="_blank"
             rel="noopener noreferrer"
             style="margin-left: 8px"
           >Стаття ↗</el-link>
-          <span v-if="!row.site_url && !row.article_url" style="color: var(--el-text-color-placeholder)">—</span>
+          <span v-if="!isHttpUrl(row.site_url) && !isHttpUrl(row.article_url)" style="color: var(--el-text-color-placeholder)">—</span>
         </template>
       </el-table-column>
       <el-table-column label="Дії" width="280">
