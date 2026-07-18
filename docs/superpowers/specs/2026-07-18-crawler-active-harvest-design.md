@@ -89,18 +89,18 @@ Page context (`page_ctx`) computed once per fetched page:
 For each block that passed the discount-trigger gate (see
 `HeuristicExtractor`), with block text `T` and outbound links `L`:
 
-1. **third-party (named provider):** if `L` contains a business link
-   (host ≠ `H`, not a social host — reuse `extract.heuristic._pick_target`
-   logic) → this is a named third party.
-   - `provider` = a brand token from the block heading if detectable, else the
-     registrable domain of that external link.
-   - `suggest` = `origin` of that external business link.
-2. **first-party:** else if the block reads first-person
-   (`\b(ми|у нас|наш\w*|для наших)\b`, case-insensitive) **or** the page looks
-   like a single-business page (`N <= 3`) **and** `B` is present:
-   - `provider` = `B`.
-   - `suggest` = `origin(H)`.
-3. **generic info → reject:** otherwise return `None` (no offer, no source).
+1. **first-party (first-person):** if the block reads first-person
+   (`\b(ми|у нас|наш\w*|для наших)\b`, case-insensitive) and `B` is present →
+   `provider = B`, `suggest = origin(H)`. First-person wins over an outbound
+   link, because a business site can also link out (booking, partners).
+2. **third-party (named provider):** else if `L` contains a business link
+   (host ≠ `H`, not a social host — reuse `extract.heuristic._pick_target`) →
+   named third party. `provider` = registrable domain of that external link
+   (host without `www.`); `suggest` = `origin` of that link.
+3. **first-party (single-business):** else if the page looks like a
+   single-business page (`N <= 3`) and `B` is present → `provider = B`,
+   `suggest = origin(H)`.
+4. **generic info → reject:** otherwise return `None` (no offer, no source).
 
 **Telegram:** the channel is inherently the provider (first-party). `provider` =
 channel title; `suggest` = the channel URL/handle. (No `_pick_target`/`N`
