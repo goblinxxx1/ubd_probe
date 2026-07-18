@@ -116,6 +116,26 @@ defineExpose({ onPublish, onReject, onDelete, load, applyFilters, items });
       <el-table-column label="Дійсний до">
         <template #default="{ row }">{{ formatDate(row.valid_until) }}</template>
       </el-table-column>
+      <el-table-column label="Джерело" width="140">
+        <template #default="{ row }">
+          <el-link
+            v-if="row.site_url"
+            :href="row.site_url"
+            type="primary"
+            target="_blank"
+            rel="noopener noreferrer"
+          >Сайт ↗</el-link>
+          <el-link
+            v-if="row.article_url"
+            :href="row.article_url"
+            type="primary"
+            target="_blank"
+            rel="noopener noreferrer"
+            style="margin-left: 8px"
+          >Стаття ↗</el-link>
+          <span v-if="!row.site_url && !row.article_url" style="color: var(--el-text-color-placeholder)">—</span>
+        </template>
+      </el-table-column>
       <el-table-column label="Дії" width="280">
         <template #default="{ row }">
           <el-button size="small" @click="edit(row.id)">Редагувати</el-button>

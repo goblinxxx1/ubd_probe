@@ -67,4 +67,20 @@ describe("OffersListView", () => {
     await flushPromises();
     expect(offers.list).toHaveBeenCalledWith({ status: "pending_review", page: 1, size: 20 });
   });
+
+  it("renders a clickable source link when site_url is present", async () => {
+    offers.list.mockResolvedValueOnce({
+      items: [{ id: 1, title: "T", provider: "P", type: "discount", status: "published", valid_until: null, site_url: "https://shop.example", article_url: null }],
+      total: 1,
+    });
+    const router = makeRouter();
+    router.push("/");
+    await router.isReady();
+    const wrapper = mount(OffersListView, { global: { plugins: [router, ElementPlus] } });
+    await flushPromises();
+    const link = wrapper.find('a[href="https://shop.example"]');
+    expect(link.exists()).toBe(true);
+    expect(link.attributes("target")).toBe("_blank");
+    expect(link.attributes("rel")).toContain("noopener");
+  });
 });
