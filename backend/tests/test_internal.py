@@ -51,3 +51,27 @@ def test_suggested_source_is_idempotent(client, db_session):
     r2 = client.post("/api/internal/suggested-sources", json=body, headers=h)
     assert r1.status_code == 200 and r2.status_code == 200
     assert r1.json()["id"] == r2.json()["id"]
+
+
+def test_crawler_sourceless_offer_dedup_is_idempotent(client, db_session):
+    body = {"type": "discount", "title": "10% UBD", "provider": "Cafe",
+            "content_hash": "hashnosrc"}   # no source_id
+    h = {"X-API-Key": settings.crawler_api_key}
+    r1 = client.post("/api/internal/offers", json=body, headers=h)
+    r2 = client.post("/api/internal/offers", json=body, headers=h)
+    assert r1.status_code == 200 and r2.status_code == 200
+    assert r1.json()["id"] == r2.json()["id"]      # deduped, not a duplicate
+    assert r1.json()["source_id"] is None
+
+
+def test_rejected_sourceless_offer_not_resurrected(client, db_session):
+    from app.models import Offer
+    from app.models.enums import OfferStatus
+    body = {"type": "discount", "title": "x", "provider": "P", "content_hash": "hh"}
+    h = {"X-API-Key": settings.crawler_api_key}
+    oid = client.post("/api/internal/offers", json=body, headers=h).json()["id"]
+    obj = db_session.get(Offer, oid)
+    obj.status = OfferStatus.rejected
+    db_session.commit()
+    r2 = client.post("/api/internal/offers", json=body, headers=h)
+    assert r2.json()["id"] == oid                  # same row, not a new pending one

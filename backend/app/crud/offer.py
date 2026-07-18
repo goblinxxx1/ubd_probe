@@ -21,11 +21,11 @@ def create_offer(db: Session, data: OfferCreate, created_by: CreatedBy,
         return OfferLink(provider=data.provider, site_url=data.site_url,
                          article_url=data.article_url)
 
-    if content_hash is not None and source_id is not None:
-        existing = (db.query(Offer)
-                    .filter(Offer.source_id == source_id,
-                            Offer.content_hash == content_hash)
-                    .first())
+    if content_hash is not None and created_by == CreatedBy.crawler:
+        q = db.query(Offer).filter(Offer.content_hash == content_hash)
+        q = (q.filter(Offer.source_id == source_id) if source_id is not None
+             else q.filter(Offer.source_id.is_(None)))
+        existing = q.first()
         if existing is not None:
             return existing
 
