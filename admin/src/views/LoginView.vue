@@ -41,6 +41,9 @@ defineExpose({ submit, form });
 </template>
 
 <style scoped lang="less">
-.login { display: flex; justify-content: center; align-items: center; height: 100%; }
-.login-form { width: 320px; padding: 24px; }
+@import "@/styles/variables.less";
+.login { display: flex; justify-content: center; align-items: center; height: 100%; background: @bg; }
+.login-form { width: 320px; padding: 28px 24px; background: @cream; border: 1px solid @divider; border-radius: 12px; }
+.login-form h2 { margin: 0 0 18px; color: @text; }
+.login-form .el-button { width: 100%; }
 </style>
