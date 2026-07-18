@@ -57,7 +57,7 @@ function logout() {
 .sidebar nav { display: flex; flex-direction: column; gap: 4px; }
 .sidebar nav a { font-family: "UAF Memory", system-ui, sans-serif; font-weight: 500; text-decoration: none; color: @nav-muted; padding: 8px 10px; border-radius: 8px; border-left: 3px solid transparent; }
 .sidebar nav a:hover { color: @text; background: @cream; }
-.sidebar nav a.router-link-active { color: @brand; background: @cream; border-left-color: @brand; }
+.sidebar nav a.router-link-active { color: @link; background: @cream; border-left-color: @link; }
 .main { flex: 1; display: flex; flex-direction: column; background: @bg; }
 .topbar { display: flex; justify-content: flex-end; align-items: center; gap: 12px; padding: 10px 16px; background: @surface; border-bottom: 1px solid @divider; }
 .topbar .role { color: @meta-muted; font-size: 13px; text-transform: uppercase; letter-spacing: .3px; }
