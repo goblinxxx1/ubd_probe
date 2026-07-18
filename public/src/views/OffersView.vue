@@ -50,5 +50,5 @@ defineExpose({ onApply, onPage });
 
 <style scoped lang="less">
 .offers__head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
-.offers__head h1 { font-size: 24px; margin: 0; }
+.offers__head h1 { font-size: 24px; margin: 0; font-weight: 700; }
 </style>

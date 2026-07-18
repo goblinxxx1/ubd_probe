@@ -91,7 +91,7 @@ defineExpose({ open, draft, apply, reset, activeCount });
 @import "@/styles/variables.less";
 .filters { position: relative; display: inline-block; }
 .filters__trigger {
-  padding: 6px 12px; border: 1px solid @divider; border-radius: 8px; background: @header-bg;
+  padding: 6px 12px; border: 1px solid @divider; border-radius: @radius-sm; background: @header-bg;
   cursor: pointer; font-size: 13px; color: @text; text-transform: uppercase; letter-spacing: .5px;
 }
 .filters__count { margin-left: 6px; background: @brand; color: @badge-discount-text; border-radius: 999px; padding: 0 7px; font-size: 12px; font-weight: 700; }
@@ -102,9 +102,9 @@ defineExpose({ open, draft, apply, reset, activeCount });
   box-shadow: 0 8px 28px rgba(0,0,0,0.10); padding: 14px; display: flex; flex-direction: column; gap: 10px;
 }
 .filters__panel label { display: flex; flex-direction: column; gap: 4px; font-size: 14px; color: @meta-muted; }
-.filters__panel select, .filters__panel input { padding: 7px; border: 1px solid @divider; border-radius: 8px; font-size: 15px; color: @text; }
+.filters__panel select, .filters__panel input { padding: 7px; border: 1px solid @divider; border-radius: @radius-sm; font-size: 15px; color: @text; }
 .filters__actions { display: flex; gap: 8px; margin-top: 4px; }
-.btn { padding: 8px 12px; border: 1px solid @divider; border-radius: 8px; background: @header-bg; cursor: pointer; color: @text; }
+.btn { padding: 8px 12px; border: 1px solid @divider; border-radius: @radius-sm; background: @header-bg; cursor: pointer; color: @text; }
 .btn--primary { background: @dark; color: @chip-text; border-color: @dark; }
 @media (max-width: @bp-mobile) {
   .filters { display: block; }

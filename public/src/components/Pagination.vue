@@ -27,6 +27,7 @@ function go(p) {
 @import "@/styles/variables.less";
 .pagination { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 24px 0; }
 .pagination__label { color: @muted; font-size: 14px; }
-.btn { padding: 8px 14px; border: 1px solid @border; border-radius: 8px; background: @bg; cursor: pointer; }
+.btn { padding: 8px 14px; border: 1px solid @border; border-radius: @radius-sm; background: @bg; cursor: pointer; color: @text; }
+.btn:not(:disabled):hover { background: @cream; border-color: @link; }
 .btn:disabled { opacity: 0.5; cursor: default; }
 </style>
