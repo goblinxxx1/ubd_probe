@@ -64,7 +64,7 @@ const meta = computed(() =>
 }
 .card__top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
 .card__provider {
-  font-weight: 800; font-size: 24px; line-height: .95; letter-spacing: -.3px; color: @text;
+  font-weight: 900; font-size: 24px; line-height: .95; letter-spacing: -.3px; color: @text;
 }
 .card__provider:hover { text-decoration: none; color: @link; }
 .card__photo {
