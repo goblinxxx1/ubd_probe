@@ -32,4 +32,15 @@ describe("OfferFilters", () => {
     w.vm.reset();
     expect(w.emitted().apply[0][0]).toEqual({});
   });
+
+  it("reflects open state via aria-expanded and links the panel via aria-controls", async () => {
+    const w = mountFilters({});
+    const trigger = w.get(".filters__trigger");
+    expect(trigger.attributes("aria-expanded")).toBe("false");
+    expect(trigger.attributes("aria-controls")).toBe("filters-panel");
+    w.vm.open = true;
+    await w.vm.$nextTick();
+    expect(w.get(".filters__trigger").attributes("aria-expanded")).toBe("true");
+    expect(w.get("#filters-panel").exists()).toBe(true);
+  });
 });

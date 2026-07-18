@@ -54,7 +54,7 @@ defineExpose({ offer, loading, notFound });
 
       <div class="detail__head">
         <h1 class="detail__provider">{{ offer.provider }}</h1>
-        <img v-if="offer.image_url" class="detail__photo" :src="offer.image_url" alt="" />
+        <img v-if="offer.image_url" class="detail__photo" :src="offer.image_url" :alt="offer.provider" />
       </div>
 
       <div class="detail__discount">

@@ -16,7 +16,7 @@ function go(p) {
 </script>
 
 <template>
-  <nav v-if="totalPages > 1" class="pagination">
+  <nav v-if="totalPages > 1" class="pagination" aria-label="Пагінація">
     <button data-test="prev" class="btn" :disabled="page <= 1" @click="go(page - 1)">← Назад</button>
     <span class="pagination__label">Сторінка {{ page }} з {{ totalPages }}</span>
     <button data-test="next" class="btn" :disabled="page >= totalPages" @click="go(page + 1)">Далі →</button>

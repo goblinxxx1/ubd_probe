@@ -48,13 +48,13 @@ defineExpose({ open, draft, apply, reset, activeCount });
 
 <template>
   <div class="filters">
-    <button class="filters__trigger" @click="open = !open">
+    <button class="filters__trigger" :aria-expanded="open" aria-controls="filters-panel" @click="open = !open">
       Фільтри<span v-if="activeCount" class="filters__count">{{ activeCount }}</span>
     </button>
 
     <div v-if="open" class="filters__backdrop" @click="open = false"></div>
 
-    <div v-if="open" class="filters__panel">
+    <div v-if="open" id="filters-panel" class="filters__panel">
       <label>Тип
         <select v-model="draft.type">
           <option value="">Усі</option>

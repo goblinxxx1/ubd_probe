@@ -52,4 +52,15 @@ describe("OfferDetailView", () => {
     expect(w.vm.notFound).toBe(true);
     expect(w.text()).toContain("не знайдено");
   });
+
+  it("sets the detail photo alt to the provider name", async () => {
+    offers.get.mockResolvedValue({
+      id: 8, type: "discount", discount_type: "percent", discount_value: 10,
+      title: "T", provider: "Салон Краси", description: "d", location: "Київ",
+      valid_from: "2026-07-01", valid_until: "2026-08-01",
+      image_url: "https://x/y.png", target_categories: [], offer_categories: [],
+    });
+    const w = await mountAt(8);
+    expect(w.get("img.detail__photo").attributes("alt")).toBe("Салон Краси");
+  });
 });

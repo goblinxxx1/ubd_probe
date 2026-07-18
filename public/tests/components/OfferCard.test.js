@@ -95,4 +95,9 @@ describe("OfferCard", () => {
     expect(hrefs).toContain("https://agg1/p");
     expect(hrefs).toContain("https://agg2/p");
   });
+
+  it("sets the photo alt to the provider name", () => {
+    const w = mountCard({ id: 7, type: "discount", title: "T", provider: "Кав'ярня Львів", description: "d", image_url: null, target_categories: [] });
+    expect(w.get("img.card__photo").attributes("alt")).toBe("Кав'ярня Львів");
+  });
 });

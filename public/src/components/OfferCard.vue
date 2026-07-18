@@ -21,7 +21,7 @@ const meta = computed(() =>
   <div class="card">
     <div class="card__top">
       <router-link class="card__provider" :to="{ name: 'offer', params: { id: offer.id } }">{{ offer.provider }}</router-link>
-      <img class="card__photo" :src="image" alt="" />
+      <img class="card__photo" :src="image" :alt="offer.provider" />
     </div>
 
     <div class="card__discount">

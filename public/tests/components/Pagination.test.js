@@ -20,4 +20,9 @@ describe("Pagination", () => {
     const last = mount(Pagination, { props: { total: 40, size: 12, page: 4 } });
     expect(last.get("[data-test=next]").attributes("disabled")).toBeDefined();
   });
+
+  it("labels the pagination nav", () => {
+    const w = mount(Pagination, { props: { total: 40, size: 12, page: 1 } });
+    expect(w.get("nav.pagination").attributes("aria-label")).toBe("Пагінація");
+  });
 });
