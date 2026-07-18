@@ -52,9 +52,14 @@ function logout() {
 <style scoped lang="less">
 @import "@/styles/variables.less";
 .admin-layout { display: flex; height: 100%; }
-.sidebar { width: @sidebar-width; background: #f5f7fa; padding: 12px; }
-.sidebar nav { display: flex; flex-direction: column; gap: 8px; }
-.main { flex: 1; display: flex; flex-direction: column; }
-.topbar { display: flex; justify-content: flex-end; align-items: center; gap: 12px; padding: 8px 16px; border-bottom: 1px solid #eee; }
-.content { padding: 16px; overflow: auto; }
+.sidebar { width: @sidebar-width; background: @surface; border-right: 1px solid @divider; padding: 16px 12px; }
+.logo { font-family: "UAF Memory", system-ui, sans-serif; font-weight: @heading-weight; font-size: 26px; color: @brand; margin: 0 0 16px; letter-spacing: -.3px; }
+.sidebar nav { display: flex; flex-direction: column; gap: 4px; }
+.sidebar nav a { font-family: "UAF Memory", system-ui, sans-serif; font-weight: 500; text-decoration: none; color: @nav-muted; padding: 8px 10px; border-radius: 8px; border-left: 3px solid transparent; }
+.sidebar nav a:hover { color: @text; background: @cream; }
+.sidebar nav a.router-link-active { color: @brand; background: @cream; border-left-color: @brand; }
+.main { flex: 1; display: flex; flex-direction: column; background: @bg; }
+.topbar { display: flex; justify-content: flex-end; align-items: center; gap: 12px; padding: 10px 16px; background: @surface; border-bottom: 1px solid @divider; }
+.topbar .role { color: @meta-muted; font-size: 13px; text-transform: uppercase; letter-spacing: .3px; }
+.content { padding: 20px; overflow: auto; }
 </style>
