@@ -42,6 +42,18 @@ def test_website_no_duplicate_or_overlapping_blocks():
     assert any("t.me/coffeechan" in link for link in discount_item.links)
 
 
+def test_website_captures_site_name():
+    html = ('<html><head><meta property="og:site_name" content="My Cafe">'
+            '<title>t</title></head><body>'
+            '<article><p>Знижка 15% для ветеранів на каву у нас.</p></article>'
+            '</body></html>')
+    def handle(request):
+        return httpx.Response(200, text=html)
+    f = WebsiteFetcher(httpx.Client(transport=httpx.MockTransport(handle)))
+    items, _ = f.fetch({"id": 1, "url_or_handle": "http://x"}, None)
+    assert items and all(i.site_name == "My Cafe" for i in items)
+
+
 def test_website_never_raises_on_network_error():
     def boom(request):
         raise httpx.ConnectError("down")
