@@ -18,6 +18,7 @@ class RawItem:
     url: str | None = None
     links: list[str] = field(default_factory=list)
     logo_url: str | None = None
+    site_name: str | None = None
 
 
 @dataclass

@@ -31,6 +31,19 @@ def _extract_logo(tree, base_url: str) -> str | None:
     return None
 
 
+def _extract_site_name(tree) -> str | None:
+    node = tree.css_first('meta[property="og:site_name"]')
+    if node is not None and node.attributes.get("content"):
+        return node.attributes["content"].strip()
+    for css in ("title", "h1"):
+        node = tree.css_first(css)
+        if node is not None:
+            txt = node.text(strip=True)
+            if txt:
+                return txt
+    return None
+
+
 class WebsiteFetcher:
     platform = "website"
 
@@ -45,6 +58,7 @@ class WebsiteFetcher:
 
             tree = HTMLParser(resp.text)
             logo = _extract_logo(tree, url)
+            site_name = _extract_site_name(tree)
             items: list[RawItem] = []
             seen_keys: set[str] = set()
             for node in tree.css("article, li, p"):
@@ -61,7 +75,7 @@ class WebsiteFetcher:
                          if a.attributes.get("href")]
                 items.append(RawItem(source_id=source["id"], platform="website",
                                      key=key, text=text, url=url, links=links,
-                                     logo_url=logo))
+                                     logo_url=logo, site_name=site_name))
             new_key = items[-1].key if items else last_seen_key
             return items, new_key
         except Exception as exc:  # noqa: BLE001 — never raise up the stack

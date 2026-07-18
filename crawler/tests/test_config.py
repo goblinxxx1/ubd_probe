@@ -19,3 +19,8 @@ def test_load_config_parses_accounts_and_flags(monkeypatch):
     assert [b.username for b in igs] == ["bot_a", "bot_b"]
     assert igs[0].password == "pw1"
     assert cfg.proxies["instagram"] == "http://p1"
+
+
+def test_active_fetch_budget_default(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)      # no .env -> defaults apply
+    assert load_config().active_fetch_budget == 20

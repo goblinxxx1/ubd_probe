@@ -22,6 +22,7 @@ class _RawSettings(BaseSettings):
     search_results_per_keyword: int = 7
     search_min_delay: float = 4.0
     search_budget: int = 0  # 0 = process all keywords
+    active_fetch_budget: int = 20
     searxng_url: str = "http://searxng:8080"
 
 
@@ -40,6 +41,7 @@ class Config:
     search_results_per_keyword: int = 7
     search_min_delay: float = 4.0
     search_budget: int | None = None
+    active_fetch_budget: int = 20
     searxng_url: str = "http://searxng:8080"
 
 
@@ -81,5 +83,6 @@ def load_config() -> Config:
         search_results_per_keyword=s.search_results_per_keyword,
         search_min_delay=s.search_min_delay,
         search_budget=(s.search_budget or None),
+        active_fetch_budget=s.active_fetch_budget,
         searxng_url=s.searxng_url,
     )
