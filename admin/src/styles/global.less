@@ -8,4 +8,4 @@ h1, h2 { font-family: "UAF Memory", system-ui, sans-serif; font-weight: @heading
 
 // Легкі теплі штрихи таблиць (не важкі override-и)
 .el-table th.el-table__cell { background: @cream; }
-.el-table tr:hover > td.el-table__cell { background: @bg; }
+.el-table { --el-table-row-hover-bg-color: @row-hover; } // перевизначаємо змінну EP (робастно, без боротьби специфічності)

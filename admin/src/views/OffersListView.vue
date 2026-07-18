@@ -116,7 +116,7 @@ defineExpose({ onPublish, onReject, onDelete, load, applyFilters, items });
       <el-table-column label="Дійсний до">
         <template #default="{ row }">{{ formatDate(row.valid_until) }}</template>
       </el-table-column>
-      <el-table-column label="Джерело" width="140">
+      <el-table-column label="Джерело" width="170">
         <template #default="{ row }">
           <el-link
             v-if="isHttpUrl(row.site_url)"
