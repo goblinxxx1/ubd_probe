@@ -63,6 +63,13 @@ services:
   crawler:
     build: ./crawler
     profiles: ["crawler"]
+    # Load search config (SEARCH_KEYWORDS / SEARCH_PROVIDERS / limits, bot accounts,
+    # EXTRACTOR, ACTIVE_DISCOVERY) from crawler/.env if present. Optional: absence
+    # doesn't break the offline demo (falls back to image defaults). The environment
+    # block below overrides the few Docker-network values. Per-run flags (-e) win over both.
+    env_file:
+      - path: crawler/.env
+        required: false
     depends_on:
       backend:
         condition: service_started
@@ -74,7 +81,6 @@ services:
       INTERNAL_API_URL: http://backend:8000
       CRAWLER_API_KEY: ${CRAWLER_API_KEY}
       EXTRACTOR: heuristic
-      ACTIVE_DISCOVERY: "false"
       SEARXNG_URL: http://searxng:8080
       CRAWL_INTERVAL_SECONDS: ${CRAWL_INTERVAL_SECONDS:-0}
 

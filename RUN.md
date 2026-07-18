@@ -68,6 +68,34 @@ docker compose --profile crawler up -d --build
 вимкненим, доки не задаси `ACTIVE_DISCOVERY=true` (див. Блоки 2–3). Джерела для обходу
 мають існувати (демо-фікстура або схвалені джерела) — інакше проходити нема що.
 
+**Усе разом + активний пошук по ключових словах (обери движок):**
+
+Спершу підніми стек, потім зроби прохід активного пошуку. Движок обираєш через
+`-e SEARCH_PROVIDERS`; ключові слова беруться з `crawler/.env` (`SEARCH_KEYWORDS`),
+який compose підвантажує в контейнер (`env_file`) — тож `crawler/.env` має існувати
+(скопіюй з `.env.example`, там уже заповнений список фраз).
+
+```bash
+docker compose up -d --build                      # db + backend + public + admin
+
+# один движок — DuckDuckGo:
+docker compose --profile crawler run --rm \
+  -e ACTIVE_DISCOVERY=true -e SEARCH_PROVIDERS=duckduckgo crawler
+
+# один движок — SearXNG:
+docker compose --profile crawler run --rm \
+  -e ACTIVE_DISCOVERY=true -e SEARCH_PROVIDERS=searxng crawler
+
+# усі движки разом:
+docker compose --profile crawler run --rm \
+  -e ACTIVE_DISCOVERY=true -e SEARCH_PROVIDERS=duckduckgo,searxng crawler
+```
+
+Знахідки падають у **admin → Запропоновані джерела** (див. Блок 3). Для запуску на
+розкладі задай `ACTIVE_DISCOVERY=true` + потрібний `SEARCH_PROVIDERS` прямо в `crawler/.env`
+і підніми краулер циклом: `docker compose --profile crawler up -d --build`
+(з `CRAWL_INTERVAL_SECONDS>0`).
+
 **Зупинка / скидання:**
 
 ```bash
@@ -149,6 +177,9 @@ docker compose --profile crawler run --rm \
 Налаштування пошуку (у `crawler/.env`): `SEARCH_KEYWORDS` (фрази через кому),
 `SEARCH_RESULTS_PER_KEYWORD` (7), `SEARCH_MIN_DELAY` (4 c між запитами),
 `SEARCH_BUDGET` (0 = всі ключові слова), `SEARXNG_URL` (для Docker — `http://searxng:8080`).
+У Docker `crawler/.env` підвантажується в контейнер краулера через `env_file` (compose),
+тож для пошуку по ключових словах він **має існувати**; окремі значення (`ACTIVE_DISCOVERY`,
+`SEARCH_PROVIDERS`) перекриваються прапорцем `-e`.
 
 > **SearXNG з хостового краулера:** сервіс `searxng` слухає всередині Docker-мережі
 > (`searxng:8080`), з хоста не опублікований. Тому для `searxng` найпростіше гнати
