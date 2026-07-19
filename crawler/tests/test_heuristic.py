@@ -3,8 +3,8 @@ from crawler.models import RawItem
 
 
 CATS = CategoryIndex(
-    target=[{"id": 10, "name": "Ветерани", "slug": "veterans"}],
-    offer=[{"id": 20, "name": "Кафе", "slug": "cafe"}],
+    target=[{"id": 10, "name": "Ветеран", "slug": "veteran"}],
+    offer=[{"id": 20, "name": "Кафе/ресторани", "slug": "food"}],
 )
 
 
@@ -24,8 +24,9 @@ def test_percent_discount_parsed():
     assert cand.discount_type == "percent"
     assert cand.discount_value == "20"
     assert cand.provider == "Кафе Львів"
-    assert 10 in cand.target_category_ids   # "ветеран" keyword → veterans
-    assert 20 in cand.offer_category_ids    # "кафе" → cafe
+    assert 10 in cand.target_category_ids                       # "ветеран" → veteran
+    assert ("Кафе/ресторани", "food") in cand.offer_category_matches   # "кафе" → food
+    assert cand.offer_category_ids == []                        # ids filled later by resolver
     assert len(cand.content_hash) == 64
 
 
@@ -74,3 +75,17 @@ def test_local_llm_is_hook_only():
     import pytest
     with pytest.raises(NotImplementedError):
         get_extractor("local_llm")
+
+
+def test_offer_category_from_site_name_context():
+    it = RawItem(source_id=1, platform="website", key="k",
+                 text="Знижка 20% для ветеранів", site_name="Барбершоп Резервіст")
+    cand = get_extractor("heuristic").extract(it, "Shop", CATS)
+    assert ("Краса та догляд", "beauty") in cand.offer_category_matches
+
+
+def test_target_from_military_keyword_resolves_existing_only():
+    # "військових" → ubd, but CATS has no ubd row → no id resolved (no creation)
+    cand = get_extractor("heuristic").extract(
+        _item("Знижка 20% для військових"), "Shop", CATS)
+    assert cand.target_category_ids == []

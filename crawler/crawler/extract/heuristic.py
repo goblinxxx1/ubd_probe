@@ -22,6 +22,7 @@ def _pick_target(links, source_url: str) -> str | None:
         return norm
     return None
 from crawler.discovery.geo import find_city, is_online
+from crawler.discovery.lexicon import classify, OFFER_LEXICON, TARGET_LEXICON
 from crawler.extract.base import CategoryIndex
 from crawler.models import OfferCandidate, RawItem
 
@@ -50,15 +51,6 @@ def _title_from(text: str) -> str:
     if len(first) > 80:
         first = first[:80].rsplit(" ", 1)[0] or first[:80]
     return first.strip()
-
-
-def _match_categories(text_low: str, cats: list[dict]) -> list[int]:
-    ids = []
-    for c in cats:
-        needle = c["name"].lower()[:5]  # match on stem to survive Ukrainian inflection
-        if needle and needle in text_low:
-            ids.append(c["id"])
-    return ids
 
 
 class HeuristicExtractor:
@@ -90,6 +82,11 @@ class HeuristicExtractor:
             except ValueError:
                 valid_until = None
 
+        blob = f"{provider} {item.site_name or ''} {text}".lower()
+        target_slugs = {slug for _, slug in classify(blob, TARGET_LEXICON)}
+        target_ids = [c["id"] for c in categories.target if c["slug"] in target_slugs]
+        offer_matches = classify(blob, OFFER_LEXICON)
+
         title = _title_from(text)
         return OfferCandidate(
             source_id=item.source_id,
@@ -107,6 +104,6 @@ class HeuristicExtractor:
             article_url=item.url,
             image_url=getattr(item, "logo_url", None),
             target_url=_pick_target(getattr(item, "links", None), item.url or ""),
-            target_category_ids=_match_categories(low, categories.target),
-            offer_category_ids=_match_categories(low, categories.offer),
+            target_category_ids=target_ids,
+            offer_category_matches=offer_matches,
         )
