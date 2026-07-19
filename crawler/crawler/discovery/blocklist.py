@@ -4,6 +4,8 @@ news media, government, stock-photo banks, social-video aggregators."""
 _MEDIA = {
     "nv.ua", "24tv.ua", "061.ua", "pravda.com.ua", "unian.ua", "tsn.ua",
     "rbc.ua", "censor.net", "obozrevatel.com", "segodnya.ua",
+    # observed leaks from live active-search runs (news/blogs, not providers)
+    "ukr.net", "dnipro.media", "fakty.com.ua", "blog.ipay.ua",
 }
 _STOCK = {"depositphotos.com", "shutterstock.com", "istockphoto.com", "freepik.com"}
 _SOCIAL = {

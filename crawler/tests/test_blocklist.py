@@ -31,3 +31,11 @@ def test_none_and_empty_not_blocked():
 def test_lookalike_not_blocked():
     # must not match "nv.ua" as a bare substring
     assert not is_blocked_host("mynv.ua")
+
+
+def test_observed_live_leaks_blocked():
+    # domains caught leaking as fake providers during live active-search runs
+    assert is_blocked_host("www.dnipro.media")
+    assert is_blocked_host("fakty.com.ua")
+    assert is_blocked_host("blog.ipay.ua")
+    assert is_blocked_host("ukr.net")
