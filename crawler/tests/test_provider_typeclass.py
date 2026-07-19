@@ -5,7 +5,7 @@ from crawler.discovery.providers import DuckDuckGoProvider, SearxngProvider
 
 class FakeDDGS:
     def __init__(self, results): self._results = results
-    def text(self, query, max_results=7): return self._results
+    def text(self, query, max_results=7, **kwargs): return self._results
 
 
 def test_ddg_provider_classifies_and_skips_junk():

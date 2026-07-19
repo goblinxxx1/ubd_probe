@@ -47,21 +47,29 @@ def classify_candidate(url: str) -> tuple[str, str] | None:
     return ("website", norm)
 
 
+# All ddgs text backends except yandex, which reliably times out from Docker/CI
+# IPs and stalls every query ~5s. ddgs has no exclusion syntax, so we enumerate
+# the wanted engines (comma-delimited string, as ddgs expects).
+DDG_BACKENDS = "duckduckgo,brave,google,mojeek,startpage,wikipedia,yahoo,grokipedia"
+
+
 class DuckDuckGoProvider:
     """Callable (keyword) -> list[SourceCandidate]; best-effort."""
 
     def __init__(self, results_per_keyword: int = 7, min_delay: float = 4.0,
-                 ddgs_factory=DDGS, sleep=time.sleep):
+                 ddgs_factory=DDGS, sleep=time.sleep, backend: str = DDG_BACKENDS):
         self._n = results_per_keyword
         self._delay = min_delay
         self._ddgs_factory = ddgs_factory
         self._sleep = sleep
+        self._backend = backend
 
     def __call__(self, keyword: str) -> list[SourceCandidate]:
         if self._delay:
             self._sleep(self._delay)
         try:
-            results = self._ddgs_factory().text(keyword, max_results=self._n)
+            results = self._ddgs_factory().text(keyword, max_results=self._n,
+                                                backend=self._backend)
         except Exception as exc:  # noqa: BLE001 — search is best-effort
             log.warning("duckduckgo search failed for %r: %s", keyword, exc)
             return []
