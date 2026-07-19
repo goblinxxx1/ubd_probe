@@ -96,6 +96,33 @@ describe("OfferCard", () => {
     expect(hrefs).toContain("https://agg2/p");
   });
 
+  it("hides the discount-title when it equals the description", () => {
+    const w = mountCard({
+      id: 10, type: "discount", title: "Знижка 20% для ветеранів",
+      provider: "P", description: "Знижка 20% для ветеранів",
+      image_url: null, target_categories: [],
+    });
+    expect(w.find(".card__dtext").exists()).toBe(false);
+  });
+
+  it("hides the discount-title when the description starts with it", () => {
+    const w = mountCard({
+      id: 11, type: "discount", title: "Знижка 20%",
+      provider: "P", description: "Знижка 20% для ветеранів у нашому кафе",
+      image_url: null, target_categories: [],
+    });
+    expect(w.find(".card__dtext").exists()).toBe(false);
+  });
+
+  it("shows the discount-title when it is distinct from the description", () => {
+    const w = mountCard({
+      id: 12, type: "discount", title: "на все меню",
+      provider: "P", description: "Крафтова бургерна у центрі міста",
+      image_url: null, target_categories: [],
+    });
+    expect(w.get(".card__dtext").text()).toBe("на все меню");
+  });
+
   it("sets the photo alt to the provider name", () => {
     const w = mountCard({ id: 7, type: "discount", title: "T", provider: "Кав'ярня Львів", description: "d", image_url: null, target_categories: [] });
     expect(w.get("img.card__photo").attributes("alt")).toBe("Кав'ярня Львів");

@@ -15,6 +15,14 @@ const sourceLinks = computed(() =>
 const meta = computed(() =>
   [props.offer.offer_categories?.[0]?.name, props.offer.location].filter(Boolean).join(" · ")
 );
+const showTitle = computed(() => {
+  const t = (props.offer.title || "").trim();
+  if (!t) return false;
+  const d = (props.offer.description || "").trim();
+  if (!d) return true;
+  const norm = (s) => s.toLowerCase().replace(/\s+/g, " ");
+  return !norm(d).startsWith(norm(t));
+});
 </script>
 
 <template>
@@ -26,7 +34,7 @@ const meta = computed(() =>
 
     <div class="card__discount">
       <OfferBadge :offer="offer" />
-      <span v-if="offer.title" class="card__dtext">{{ offer.title }}</span>
+      <span v-if="showTitle" class="card__dtext">{{ offer.title }}</span>
     </div>
 
     <p class="card__desc">
