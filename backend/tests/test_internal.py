@@ -75,3 +75,28 @@ def test_rejected_sourceless_offer_not_resurrected(client, db_session):
     db_session.commit()
     r2 = client.post("/api/internal/offers", json=body, headers=h)
     assert r2.json()["id"] == oid                  # same row, not a new pending one
+
+
+def test_crawler_creates_offer_category(client, db_session):
+    h = {"X-API-Key": settings.crawler_api_key}
+    resp = client.post("/api/internal/offer-categories",
+                       json={"name": "Автосервіс", "slug": "auto"}, headers=h)
+    assert resp.status_code == 200
+    assert resp.json()["slug"] == "auto"
+    assert [c["slug"] for c in client.get("/api/offer-categories").json()] == ["auto"]
+
+
+def test_crawler_offer_category_is_get_or_create(client, db_session):
+    h = {"X-API-Key": settings.crawler_api_key}
+    body = {"name": "Автосервіс", "slug": "auto"}
+    r1 = client.post("/api/internal/offer-categories", json=body, headers=h)
+    r2 = client.post("/api/internal/offer-categories", json=body, headers=h)
+    assert r1.status_code == 200 and r2.status_code == 200
+    assert r1.json()["id"] == r2.json()["id"]           # same row, no 409
+    assert len(client.get("/api/offer-categories").json()) == 1
+
+
+def test_internal_offer_category_requires_api_key(client):
+    resp = client.post("/api/internal/offer-categories",
+                       json={"name": "X", "slug": "x"})
+    assert resp.status_code == 401
