@@ -41,9 +41,35 @@ def test_single_business_page_first_party():
     item = _item("Знижка 10% ветеранам", site_name="Shop")
     ctx = PageCtx(cand_type="website", cand_name="Shop",
                   cand_url_or_handle="https://shop.example",
-                  brand="Shop", host="shop.example", offer_block_count=2)
+                  brand="Shop", host="shop.example", offer_block_count=1)
     a = attribute(item, ctx)
     assert a.is_first_party and a.provider == "Shop"
+
+
+def test_rule3_two_blocks_no_longer_first_party():
+    item = _item("Знижка 10% ветеранам", site_name="Shop")
+    ctx = PageCtx(cand_type="website", cand_name="Shop",
+                  cand_url_or_handle="https://shop.example",
+                  brand="Shop", host="shop.example", offer_block_count=2)
+    assert attribute(item, ctx) is None
+
+
+def test_blocked_page_host_returns_none():
+    item = _item("У нас знижка 10% для УБД", site_name="НВ Бізнес")
+    ctx = PageCtx(cand_type="website", cand_name="НВ",
+                  cand_url_or_handle="https://biz.nv.ua/x",
+                  brand="НВ Бізнес", host="biz.nv.ua", offer_block_count=1)
+    assert attribute(item, ctx) is None
+
+
+def test_blocked_external_link_ignored():
+    item = _item("Дивіться відео про знижки військовим",
+                 links=["https://vm.tiktok.com/abc"], site_name="Portal")
+    ctx = PageCtx(cand_type="website", cand_name="Portal",
+                  cand_url_or_handle="https://portal.example",
+                  brand="Portal", host="portal.example", offer_block_count=9)
+    # tiktok link must not become a provider; nothing else qualifies → None
+    assert attribute(item, ctx) is None
 
 
 def test_telegram_channel_is_provider():
