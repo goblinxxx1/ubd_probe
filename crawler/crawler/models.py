@@ -19,6 +19,7 @@ class RawItem:
     links: list[str] = field(default_factory=list)
     logo_url: str | None = None
     site_name: str | None = None
+    locality: str | None = None
 
 
 @dataclass
@@ -27,6 +28,7 @@ class OfferCandidate:
     title: str
     provider: str
     body: str
+    location: str | None = None
     offer_type: str = "discount"          # "discount" | "event"
     discount_type: str | None = None      # "percent" | "fixed" | "free"
     discount_value: str | None = None     # decimal as string, or None

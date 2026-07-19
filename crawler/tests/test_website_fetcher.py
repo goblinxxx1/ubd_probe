@@ -62,6 +62,40 @@ def test_website_never_raises_on_network_error():
     assert items == [] and key == "prev"
 
 
+def test_website_locality_from_jsonld():
+    html = ('<html><head><script type="application/ld+json">'
+            '{"@type":"Restaurant","address":{"@type":"PostalAddress",'
+            '"addressLocality":"Львів"}}</script></head><body>'
+            '<article><p>Знижка 15% для ветеранів на каву у нас сьогодні.</p>'
+            '</article></body></html>')
+
+    def handle(request):
+        return httpx.Response(200, text=html)
+
+    f = WebsiteFetcher(httpx.Client(transport=httpx.MockTransport(handle)))
+    items, _ = f.fetch({"id": 1, "url_or_handle": "http://x"}, None)
+    assert items and all(i.locality == "Львів" for i in items)
+
+
+def test_website_locality_from_og_meta():
+    html = ('<html><head><meta property="og:locality" content="Одеса"></head>'
+            '<body><article><p>Знижка 15% для ветеранів на каву у нас сьогодні.'
+            '</p></article></body></html>')
+
+    def handle(request):
+        return httpx.Response(200, text=html)
+
+    f = WebsiteFetcher(httpx.Client(transport=httpx.MockTransport(handle)))
+    items, _ = f.fetch({"id": 1, "url_or_handle": "http://x"}, None)
+    assert items and all(i.locality == "Одеса" for i in items)
+
+
+def test_website_locality_absent_is_none():
+    f = WebsiteFetcher(_client())
+    items, _ = f.fetch({"id": 1, "url_or_handle": "http://x"}, None)
+    assert items and all(i.locality is None for i in items)
+
+
 def test_website_never_raises_on_parse_error():
     # The HTTP request/status succeed cleanly (real MockTransport response,
     # so client.get()/raise_for_status() don't themselves raise); the failure

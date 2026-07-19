@@ -4,6 +4,7 @@ def offer_payload(cand) -> dict:
         "title": cand.title,
         "description": cand.body,
         "provider": cand.provider,
+        "location": cand.location,
         "discount_type": cand.discount_type,
         "discount_value": cand.discount_value,
         "valid_from": cand.valid_from.isoformat() if cand.valid_from else None,
