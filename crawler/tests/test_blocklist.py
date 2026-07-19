@@ -42,6 +42,8 @@ def test_observed_live_leaks_blocked():
 
 
 def test_aggregator_portal_blocked():
-    # aggregators/directories are not the actual provider
+    # aggregators/directories/NGO write-ups are not the actual provider
     assert is_blocked_host("veteranam.info")
     assert is_blocked_host("www.veteranam.info")
+    assert is_blocked_host("engage.org.ua")
+    assert is_blocked_host("goncharenkocentre.com.ua")

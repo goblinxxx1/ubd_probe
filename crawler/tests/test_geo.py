@@ -1,4 +1,4 @@
-from crawler.discovery.geo import find_city
+from crawler.discovery.geo import find_city, is_online
 
 
 def test_nominative_match():
@@ -26,3 +26,13 @@ def test_no_city_returns_none():
 def test_word_boundary_avoids_false_match():
     # "рівні" (level) must not match the city Рівне
     assert find_city("сервіс на рівні найкращих") is None
+
+
+def test_online_detected():
+    assert is_online("Знижки в нашому інтернет-магазині для УБД")
+    assert is_online("Працюємо онлайн по всій Україні")
+
+
+def test_online_not_detected():
+    assert not is_online("Знижка у кафе на вулиці")
+    assert not is_online(None)
