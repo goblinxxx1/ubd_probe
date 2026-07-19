@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { mount } from "@vue/test-utils";
+import { mount, flushPromises } from "@vue/test-utils";
 import ElementPlus from "element-plus";
 import ResponsiveTable from "@/components/ResponsiveTable.vue";
 
@@ -21,10 +21,14 @@ function mountRT(mobile) {
 describe("ResponsiveTable", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("renders el-table on desktop", () => {
+  it("renders el-table on desktop", async () => {
     const w = mountRT(false);
+    await flushPromises();
+    await w.vm.$nextTick();
     expect(w.find(".el-table").exists()).toBe(true);
     expect(w.find(".rt-cards").exists()).toBe(false);
+    expect(w.find(".flag").text()).toBe("yes");
+    expect(w.find(".act").text()).toContain("del 1");
   });
 
   it("renders card stack with labels + slots on mobile", () => {
