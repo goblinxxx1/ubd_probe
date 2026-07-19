@@ -15,6 +15,10 @@ def _handler(captured):
             return httpx.Response(200, json={"last_seen_key": "p1", "last_crawled_at": None})
         if request.url.path == "/api/internal/offers":
             return httpx.Response(200, json={"id": 7, "status": "pending_review"})
+        if request.url.path == "/api/internal/offer-categories":
+            body = json.loads(request.content)
+            return httpx.Response(200, json={"id": 42, "name": body["name"],
+                                             "slug": body["slug"]})
         return httpx.Response(404, json={"code": "not_found", "detail": "x"})
     return handle
 
@@ -36,3 +40,15 @@ def test_submit_offer_posts_payload():
     assert out["id"] == 7
     body = json.loads(captured[-1].content)
     assert body["title"] == "t"
+
+
+def test_create_offer_category_posts_name_and_slug():
+    captured = []
+    client = ApiClient("http://api", "secret", 10.0,
+                       transport=httpx.MockTransport(_handler(captured)))
+    out = client.create_offer_category("Автосервіс", "auto")
+    assert out["id"] == 42
+    assert captured[-1].url.path == "/api/internal/offer-categories"
+    assert captured[-1].headers["X-API-Key"] == "secret"
+    body = json.loads(captured[-1].content)
+    assert body == {"name": "Автосервіс", "slug": "auto"}

@@ -2,6 +2,7 @@ import logging
 
 from crawler.discovery.passive import extract_source_candidates, normalize_ref
 from crawler.extract.base import CategoryIndex
+from crawler.extract.categories import resolve_offer_categories
 from crawler.payloads import offer_payload, suggestion_payload
 
 log = logging.getLogger(__name__)
@@ -57,6 +58,8 @@ class Runner:
         for item in items:
             cand = self._extractor.extract(item, source["name"], cats)
             if cand is not None:
+                cand.offer_category_ids = resolve_offer_categories(
+                    self._api, cats, cand.offer_category_matches)
                 self._api.submit_offer(offer_payload(cand))
                 summary["offers"] += 1
             for sc in extract_source_candidates(item, known):

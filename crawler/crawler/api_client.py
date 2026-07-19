@@ -46,6 +46,12 @@ class ApiClient:
         r.raise_for_status()
         return r.json()
 
+    def create_offer_category(self, name: str, slug: str) -> dict:
+        r = self._client.post("/api/internal/offer-categories",
+                              json={"name": name, "slug": slug})
+        r.raise_for_status()
+        return r.json()
+
     def list_bot_accounts(self, platform: str) -> list[dict]:
         r = self._client.get("/api/internal/bot-accounts", params={"platform": platform})
         r.raise_for_status()

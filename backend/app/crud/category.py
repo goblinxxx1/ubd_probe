@@ -25,6 +25,16 @@ def create_category(db: Session, model, data: CategoryCreate):
     return obj
 
 
+def get_or_create_category(db: Session, model, name: str, slug: str):
+    obj = db.query(model).filter(model.slug == slug).first()
+    if obj is None:
+        obj = model(name=name, slug=slug)
+        db.add(obj)
+        db.commit()
+        db.refresh(obj)
+    return obj
+
+
 def update_category(db: Session, model, category_id: int, data: CategoryUpdate):
     obj = get_category(db, model, category_id)
     if data.slug and data.slug != obj.slug and db.query(model).filter(model.slug == data.slug).first():

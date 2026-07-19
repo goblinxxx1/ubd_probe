@@ -3,8 +3,15 @@ from crawler.discovery.providers import DuckDuckGoProvider, _normalize_url
 
 class FakeDDGS:
     def __init__(self, results): self._results = results
-    def text(self, query, max_results=7):
+    def text(self, query, max_results=7, **kwargs):
         return self._results
+
+
+class CapturingDDGS:
+    def __init__(self): self.kwargs = None
+    def text(self, query, **kwargs):
+        self.kwargs = kwargs
+        return []
 
 
 def _provider(results):
@@ -35,6 +42,16 @@ def test_provider_maps_results_to_website_candidates():
     assert all(c.type == "website" for c in cands)
     assert cands[0].discovery_note == "ddg: знижки ветеранам"
     assert cands[0].name == "Кафе знижки"
+
+
+def test_provider_excludes_yandex_backend():
+    # yandex reliably times out from Docker/CI IPs, stalling every query ~5s.
+    fake = CapturingDDGS()
+    p = DuckDuckGoProvider(min_delay=0, ddgs_factory=lambda: fake, sleep=lambda _s: None)
+    p("kw")
+    backend = fake.kwargs.get("backend", "")
+    assert "yandex" not in backend
+    assert "duckduckgo" in backend      # still queries real engines, just not yandex
 
 
 def test_provider_is_best_effort_on_error():

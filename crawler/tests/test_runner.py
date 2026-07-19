@@ -27,9 +27,15 @@ class FakeApi:
         self.offers = []
         self.suggestions = []
         self.state = {}
+        self.created = []
+        self._offer_cats = []
 
     def list_target_categories(self): return []
-    def list_offer_categories(self): return []
+    def list_offer_categories(self): return list(self._offer_cats)
+    def create_offer_category(self, name, slug):
+        row = {"id": 900 + len(self.created), "name": name, "slug": slug}
+        self.created.append((name, slug)); self._offer_cats.append(row)
+        return row
     def list_sources(self, is_active=True): return self._sources
     def get_crawl_state(self, source_id): return {"last_seen_key": None, "last_crawled_at": None}
     def set_crawl_state(self, source_id, last_seen_key): self.state[source_id] = last_seen_key; return {}
@@ -68,3 +74,15 @@ def test_runner_isolates_source_failure():
     summary = runner.run()
     assert summary["errors"] == 1      # telegram source #2 failed
     assert summary["offers"] == 1      # website source #1 still processed
+
+
+def test_runner_autocreates_offer_category():
+    src = {"id": 1, "type": "website", "name": "Барбершоп", "url_or_handle": "http://x"}
+    item = RawItem(source_id=1, platform="website", key="k",
+                   text="Знижка 20% для ветеранів на стрижку у барбершопі", links=[])
+    api = FakeApi([src])
+    runner = Runner(api, {"website": FakeFetcher([item])}, get_extractor("heuristic"), _rl())
+
+    runner.run()
+    assert api.created == [("Краса та догляд", "beauty")]
+    assert api.offers[0]["offer_category_ids"] == [900]
