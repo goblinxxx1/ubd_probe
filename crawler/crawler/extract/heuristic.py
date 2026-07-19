@@ -21,7 +21,7 @@ def _pick_target(links, source_url: str) -> str | None:
             continue
         return norm
     return None
-from crawler.discovery.geo import find_city
+from crawler.discovery.geo import find_city, is_online
 from crawler.extract.base import CategoryIndex
 from crawler.models import OfferCandidate, RawItem
 
@@ -96,7 +96,7 @@ class HeuristicExtractor:
             title=title,
             provider=provider,
             body=text,
-            location=item.locality or find_city(text),
+            location=item.locality or find_city(text) or ("Онлайн" if is_online(text) else None),
             offer_type="discount",
             discount_type=discount_type,
             discount_value=discount_value,

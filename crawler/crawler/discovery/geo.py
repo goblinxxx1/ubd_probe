@@ -51,3 +51,11 @@ def find_city(text: str | None) -> str | None:
         if pat.search(low):
             return city
     return None
+
+
+_ONLINE = re.compile(r"(?<!\w)(онлайн|інтернет[-\s]?магазин)\w*", re.IGNORECASE)
+
+
+def is_online(text: str | None) -> bool:
+    """Online-only signal — used as a location fallback when no city is found."""
+    return bool(text and _ONLINE.search(text))

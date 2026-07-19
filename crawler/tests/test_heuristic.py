@@ -56,6 +56,12 @@ def test_location_none_when_absent():
     assert cand.location is None
 
 
+def test_location_online_fallback():
+    cand = get_extractor("heuristic").extract(
+        _item("Знижка 20% для ветеранів у нашому інтернет-магазині"), "Shop", CATS)
+    assert cand.location == "Онлайн"
+
+
 def test_title_is_concise_headline():
     text = ("Знижка 20% для ветеранів. Пропозиція діє у нашому кафе протягом "
             "усього місяця на всі напої та десерти без винятку сьогодні.")
