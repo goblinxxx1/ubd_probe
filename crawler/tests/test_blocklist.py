@@ -39,3 +39,9 @@ def test_observed_live_leaks_blocked():
     assert is_blocked_host("fakty.com.ua")
     assert is_blocked_host("blog.ipay.ua")
     assert is_blocked_host("ukr.net")
+
+
+def test_aggregator_portal_blocked():
+    # aggregators/directories are not the actual provider
+    assert is_blocked_host("veteranam.info")
+    assert is_blocked_host("www.veteranam.info")

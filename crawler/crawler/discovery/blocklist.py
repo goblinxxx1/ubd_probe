@@ -6,6 +6,8 @@ _MEDIA = {
     "rbc.ua", "censor.net", "obozrevatel.com", "segodnya.ua",
     # observed leaks from live active-search runs (news/blogs, not providers)
     "ukr.net", "dnipro.media", "fakty.com.ua", "blog.ipay.ua",
+    # aggregators/portals — we want offers from the actual provider, not a directory
+    "veteranam.info",
 }
 _STOCK = {"depositphotos.com", "shutterstock.com", "istockphoto.com", "freepik.com"}
 _SOCIAL = {
