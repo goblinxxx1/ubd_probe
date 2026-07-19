@@ -5,6 +5,9 @@ import { OFFER_TYPES, DISCOUNT_TYPES } from "@/constants/enums";
 import { validateOffer, buildOfferPayload } from "@/utils/offerForm";
 import ImagePreview from "@/components/ImagePreview.vue";
 import CategoryMultiSelect from "@/components/CategoryMultiSelect.vue";
+import { useBreakpoint } from "@/composables/useBreakpoint";
+
+const { isMobile } = useBreakpoint();
 
 const props = defineProps({
   initial: { type: Object, default: null },
@@ -60,7 +63,7 @@ defineExpose({ form, submit });
 </script>
 
 <template>
-  <el-form label-position="top" class="offer-form">
+  <el-form :label-position="isMobile ? 'top' : 'right'" class="offer-form">
     <el-form-item label="Тип" required>
       <el-select v-model="form.type" style="width: 200px">
         <el-option v-for="t in OFFER_TYPES" :key="t.value" :label="t.label" :value="t.value" />
@@ -120,6 +123,12 @@ defineExpose({ form, submit });
 </template>
 
 <style scoped lang="less">
+@import "@/styles/variables.less";
 .offer-form { max-width: 640px; }
 .actions { display: flex; gap: 8px; }
+
+@media (max-width: @bp-mobile) {
+  :deep(.el-select), :deep(.el-input), :deep(.el-input-number) { width: 100%; }
+  .el-form-item { margin-bottom: 14px; }
+}
 </style>
