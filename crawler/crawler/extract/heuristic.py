@@ -21,6 +21,7 @@ def _pick_target(links, source_url: str) -> str | None:
             continue
         return norm
     return None
+from crawler.discovery.geo import find_city
 from crawler.extract.base import CategoryIndex
 from crawler.models import OfferCandidate, RawItem
 
@@ -35,9 +36,20 @@ _FREE = re.compile(r"безкоштов|безплатн|\bfree\b", re.IGNORECAS
 _UNTIL = re.compile(r"(?:до|діє до)\s+(\d{1,2})[.\-/](\d{1,2})(?:[.\-/](\d{2,4}))?")
 
 
+_SENT_END = re.compile(r"(?<=[.!?…])\s")
+
+
 def _title_from(text: str) -> str:
-    first = text.strip().splitlines()[0] if text.strip() else text.strip()
-    return first[:200]
+    t = text.strip()
+    if not t:
+        return t
+    first = t.splitlines()[0]
+    m = _SENT_END.search(first)
+    if m:
+        first = first[:m.start() + 1]
+    if len(first) > 80:
+        first = first[:80].rsplit(" ", 1)[0] or first[:80]
+    return first.strip()
 
 
 def _match_categories(text_low: str, cats: list[dict]) -> list[int]:
@@ -84,6 +96,7 @@ class HeuristicExtractor:
             title=title,
             provider=provider,
             body=text,
+            location=item.locality or find_city(text),
             offer_type="discount",
             discount_type=discount_type,
             discount_value=discount_value,

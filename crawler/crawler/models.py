@@ -28,6 +28,7 @@ class OfferCandidate:
     title: str
     provider: str
     body: str
+    location: str | None = None
     offer_type: str = "discount"          # "discount" | "event"
     discount_type: str | None = None      # "percent" | "fixed" | "free"
     discount_value: str | None = None     # decimal as string, or None
