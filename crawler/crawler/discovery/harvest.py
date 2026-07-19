@@ -2,6 +2,7 @@ import logging
 
 from crawler.discovery.attribution import attribute, build_page_ctx
 from crawler.discovery.passive import normalize_ref
+from crawler.extract.categories import resolve_offer_categories
 from crawler.payloads import offer_payload
 
 log = logging.getLogger(__name__)
@@ -53,6 +54,8 @@ class ActiveHarvester:
             if attr is None:
                 continue
             offer = self._extractor.extract(item, attr.provider, cats)
+            offer.offer_category_ids = resolve_offer_categories(
+                self._api, cats, offer.offer_category_matches)
             self._api.submit_offer(offer_payload(offer))
             summary["offers"] += 1
             if attr.suggest_url_or_handle:
