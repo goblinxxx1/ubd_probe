@@ -5,10 +5,18 @@ import * as suggested from "@/api/suggestedSources";
 import { SOURCE_TYPES, SUGGESTION_STATUSES } from "@/constants/enums";
 import { enumLabel, isHttpUrl } from "@/utils/format";
 import { extractError } from "@/utils/errors";
+import ResponsiveTable from "@/components/ResponsiveTable.vue";
 
 const items = ref([]);
 const loading = ref(false);
 const status = ref("pending");
+
+const columns = [
+  { prop: "name", label: "Назва" },
+  { label: "Тип", slot: "type" },
+  { label: "URL / handle", slot: "ref" },
+  { prop: "discovery_note", label: "Нотатка" },
+];
 
 async function load() {
   loading.value = true;
@@ -53,34 +61,26 @@ defineExpose({ items, load, onApprove, onReject, status });
       </el-select>
     </div>
 
-    <el-table :data="items" v-loading="loading" style="width: 100%">
-      <el-table-column prop="name" label="Назва" />
-      <el-table-column label="Тип">
-        <template #default="{ row }">{{ enumLabel(SOURCE_TYPES, row.type) }}</template>
-      </el-table-column>
-      <el-table-column label="URL / handle">
-        <template #default="{ row }">
-          <el-link
-            v-if="isHttpUrl(row.url_or_handle)"
-            :href="row.url_or_handle"
-            type="primary"
-            target="_blank"
-            rel="noopener noreferrer"
-          >{{ row.url_or_handle }}</el-link>
-          <span v-else>{{ row.url_or_handle }}</span>
+    <ResponsiveTable :columns="columns" :rows="items" :loading="loading">
+      <template #col-type="{ row }">{{ enumLabel(SOURCE_TYPES, row.type) }}</template>
+      <template #col-ref="{ row }">
+        <el-link
+          v-if="isHttpUrl(row.url_or_handle)"
+          :href="row.url_or_handle"
+          type="primary"
+          target="_blank"
+          rel="noopener noreferrer"
+        >{{ row.url_or_handle }}</el-link>
+        <span v-else>{{ row.url_or_handle }}</span>
+      </template>
+      <template #actions="{ row }">
+        <template v-if="row.status === 'pending'">
+          <el-button size="small" type="success" @click="onApprove(row.id)">Схвалити</el-button>
+          <el-button size="small" type="danger" @click="onReject(row.id)">Відхилити</el-button>
         </template>
-      </el-table-column>
-      <el-table-column prop="discovery_note" label="Нотатка" />
-      <el-table-column label="Дії" width="220">
-        <template #default="{ row }">
-          <template v-if="row.status === 'pending'">
-            <el-button size="small" type="success" @click="onApprove(row.id)">Схвалити</el-button>
-            <el-button size="small" type="danger" @click="onReject(row.id)">Відхилити</el-button>
-          </template>
-          <span v-else>{{ enumLabel(SUGGESTION_STATUSES, row.status) }}</span>
-        </template>
-      </el-table-column>
-    </el-table>
+        <span v-else>{{ enumLabel(SUGGESTION_STATUSES, row.status) }}</span>
+      </template>
+    </ResponsiveTable>
   </div>
 </template>
 
