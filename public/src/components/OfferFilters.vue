@@ -108,6 +108,14 @@ defineExpose({ open, draft, apply, reset, activeCount });
 .btn--primary { background: @dark; color: @chip-text; border-color: @dark; }
 @media (max-width: @bp-mobile) {
   .filters { display: block; }
-  .filters__panel { width: 100%; }
+  // Panel is anchored to the narrow flex-item .filters on desktop; on mobile
+  // decouple it from that width — fix it to the viewport as a centered modal
+  // with a dimmed backdrop, so it can't render narrow or let cards bleed beside it.
+  .filters__backdrop { background: rgba(0, 0, 0, 0.45); z-index: 1000; }
+  .filters__panel {
+    position: fixed; z-index: 1001;
+    left: 12px; right: 12px; top: 50%; transform: translateY(-50%);
+    width: auto; max-height: 85vh; overflow-y: auto;
+  }
 }
 </style>
