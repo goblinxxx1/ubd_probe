@@ -6,10 +6,17 @@ import { ADMIN_ROLES } from "@/constants/enums";
 import { enumLabel, formatDate } from "@/utils/format";
 import { confirmDelete } from "@/utils/confirm";
 import { extractError } from "@/utils/errors";
+import ResponsiveTable from "@/components/ResponsiveTable.vue";
 
 const items = ref([]);
 const loading = ref(false);
 const form = reactive({ email: "", password: "", role: "moderator" });
+
+const columns = [
+  { prop: "email", label: "Email" },
+  { label: "Роль", slot: "role" },
+  { label: "Створено", slot: "created" },
+];
 
 async function load() {
   loading.value = true;
@@ -64,20 +71,13 @@ defineExpose({ items, form, load, create, onDelete });
   <div class="admin-users-view">
     <h2>Адміністратори</h2>
 
-    <el-table :data="items" v-loading="loading" style="width: 100%">
-      <el-table-column prop="email" label="Email" />
-      <el-table-column label="Роль">
-        <template #default="{ row }">{{ enumLabel(ADMIN_ROLES, row.role) }}</template>
-      </el-table-column>
-      <el-table-column label="Створено">
-        <template #default="{ row }">{{ formatDate(row.created_at) }}</template>
-      </el-table-column>
-      <el-table-column label="Дії" width="140">
-        <template #default="{ row }">
-          <el-button size="small" type="danger" @click="onDelete(row.id)">Видалити</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+    <ResponsiveTable :columns="columns" :rows="items" :loading="loading">
+      <template #col-role="{ row }">{{ enumLabel(ADMIN_ROLES, row.role) }}</template>
+      <template #col-created="{ row }">{{ formatDate(row.created_at) }}</template>
+      <template #actions="{ row }">
+        <el-button size="small" type="danger" @click="onDelete(row.id)">Видалити</el-button>
+      </template>
+    </ResponsiveTable>
 
     <el-form class="create-form" :inline="true">
       <el-form-item label="Email">
