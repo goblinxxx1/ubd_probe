@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, onMounted } from "vue";
+import { computed, ref, onMounted, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
 import * as offers from "@/api/offers";
@@ -12,6 +12,10 @@ const pendingCount = ref(0);
 const { isTablet } = useBreakpoint();
 const drawerOpen = ref(false);
 defineExpose({ drawerOpen });
+
+watch(isTablet, (v) => {
+  if (!v) drawerOpen.value = false;
+});
 
 onMounted(async () => {
   try {
