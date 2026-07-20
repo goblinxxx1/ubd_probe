@@ -24,3 +24,22 @@ def test_load_config_parses_accounts_and_flags(monkeypatch):
 def test_active_fetch_budget_default(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)      # no .env -> defaults apply
     assert load_config().active_fetch_budget == 20
+
+
+def test_search_antithrottle_defaults(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)      # no .env -> defaults apply
+    cfg = load_config()
+    assert cfg.search_backends == ["google", "startpage", "duckduckgo", "yahoo", "brave"]
+    assert cfg.search_state_path == "/data/search_state.json"
+    assert cfg.search_cache_ttl_hours == 168
+    assert cfg.search_min_delay == 45.0
+    assert cfg.search_jitter == 0.5
+    assert cfg.search_backend_cooldown_base_seconds == 300.0
+    assert cfg.search_backend_cooldown_cap_seconds == 21600.0
+    assert cfg.search_global_backoff_hours == 6.0
+
+
+def test_search_backends_env_override(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("SEARCH_BACKENDS", "google, brave")
+    assert load_config().search_backends == ["google", "brave"]

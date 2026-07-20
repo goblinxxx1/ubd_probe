@@ -20,7 +20,14 @@ class _RawSettings(BaseSettings):
     search_providers: str = "duckduckgo"
     search_keywords: str = ""
     search_results_per_keyword: int = 7
-    search_min_delay: float = 4.0
+    search_min_delay: float = 45.0
+    search_backends: str = "google,startpage,duckduckgo,yahoo,brave"
+    search_state_path: str = "/data/search_state.json"
+    search_cache_ttl_hours: int = 168
+    search_jitter: float = 0.5
+    search_backend_cooldown_base_seconds: float = 300.0
+    search_backend_cooldown_cap_seconds: float = 21600.0
+    search_global_backoff_hours: float = 6.0
     search_budget: int = 0  # 0 = process all keywords
     active_fetch_budget: int = 20
     searxng_url: str = "http://searxng:8080"
@@ -39,7 +46,14 @@ class Config:
     search_providers: list[str] = field(default_factory=list)
     search_keywords: list[str] = field(default_factory=list)
     search_results_per_keyword: int = 7
-    search_min_delay: float = 4.0
+    search_min_delay: float = 45.0
+    search_backends: list[str] = field(default_factory=list)
+    search_state_path: str = "/data/search_state.json"
+    search_cache_ttl_hours: int = 168
+    search_jitter: float = 0.5
+    search_backend_cooldown_base_seconds: float = 300.0
+    search_backend_cooldown_cap_seconds: float = 21600.0
+    search_global_backoff_hours: float = 6.0
     search_budget: int | None = None
     active_fetch_budget: int = 20
     searxng_url: str = "http://searxng:8080"
@@ -82,6 +96,13 @@ def load_config() -> Config:
         search_keywords=_split_csv(s.search_keywords),
         search_results_per_keyword=s.search_results_per_keyword,
         search_min_delay=s.search_min_delay,
+        search_backends=_split_csv(s.search_backends),
+        search_state_path=s.search_state_path,
+        search_cache_ttl_hours=s.search_cache_ttl_hours,
+        search_jitter=s.search_jitter,
+        search_backend_cooldown_base_seconds=s.search_backend_cooldown_base_seconds,
+        search_backend_cooldown_cap_seconds=s.search_backend_cooldown_cap_seconds,
+        search_global_backoff_hours=s.search_global_backoff_hours,
         search_budget=(s.search_budget or None),
         active_fetch_budget=s.active_fetch_budget,
         searxng_url=s.searxng_url,
