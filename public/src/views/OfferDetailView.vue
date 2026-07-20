@@ -94,7 +94,7 @@ defineExpose({ offer, loading, notFound });
 .detail__photo { width: 40px; height: 40px; flex: none; object-fit: cover; border-radius: 9px; }
 .detail__discount { display: flex; align-items: center; gap: 10px; margin: 14px 0; }
 .detail__dtext { font-size: 14px; }
-.detail__desc { line-height: 1.55; color: @desc-muted; margin: 0 0 16px; }
+.detail__desc { line-height: 1.55; color: @desc-muted; margin: 0 0 16px; overflow-wrap: anywhere; }
 .detail__whom {
   background: @whom-bg; border: 1px solid @whom-border; border-radius: 8px; padding: 9px 11px; margin-bottom: 14px;
   display: inline-block;

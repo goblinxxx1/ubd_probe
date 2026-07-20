@@ -81,7 +81,7 @@ const showTitle = computed(() => {
 }
 .card__discount { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
 .card__dtext { font-size: 12px; }
-.card__desc { font-size: 11.5px; line-height: 1.45; color: @desc-muted; margin: 10px 0 0; }
+.card__desc { font-size: 11.5px; line-height: 1.45; color: @desc-muted; margin: 10px 0 0; overflow-wrap: anywhere; }
 .card__desc-empty { color: @placeholder; font-style: italic; }
 .card__whom {
   background: @whom-bg; border: 1px solid @whom-border; border-radius: 8px; padding: 7px 9px; margin-top: 11px;
