@@ -6,15 +6,17 @@ defineProps({
   rows: { type: Array, default: () => [] },
   rowKey: { type: String, default: "id" },
   loading: { type: Boolean, default: false },
+  actionsWidth: { type: [String, Number], default: undefined },
 });
 const { isMobile } = useBreakpoint();
 </script>
 
 <template>
-  <el-table v-if="!isMobile" :data="rows" :row-key="rowKey" v-loading="loading" style="width: 100%">
+  <el-table v-if="!isMobile" :data="rows" :row-key="rowKey" v-loading="loading"
+            empty-text="Немає даних" style="width: 100%">
     <el-table-column
       v-for="col in columns"
-      :key="col.label"
+      :key="col.prop || col.slot || col.label"
       :prop="col.prop"
       :label="col.label"
       :width="col.width"
@@ -23,7 +25,7 @@ const { isMobile } = useBreakpoint();
         <slot :name="'col-' + col.slot" :row="row" />
       </template>
     </el-table-column>
-    <el-table-column v-if="$slots.actions" label="Дії">
+    <el-table-column v-if="$slots.actions" label="Дії" :width="actionsWidth">
       <template #default="{ row }"><slot name="actions" :row="row" /></template>
     </el-table-column>
   </el-table>
@@ -31,7 +33,7 @@ const { isMobile } = useBreakpoint();
   <div v-else class="rt-cards" v-loading="loading">
     <p v-if="!rows.length" class="rt-empty">Немає даних</p>
     <div v-for="row in rows" :key="row[rowKey]" class="rt-card">
-      <div v-for="col in columns" :key="col.label" class="rt-cell">
+      <div v-for="col in columns" :key="col.prop || col.slot || col.label" class="rt-cell">
         <span class="rt-label">{{ col.label }}</span>
         <span class="rt-value">
           <slot v-if="col.slot" :name="'col-' + col.slot" :row="row" />
