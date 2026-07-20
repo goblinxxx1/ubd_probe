@@ -119,6 +119,28 @@ class RotatingDdgProvider:
         return out
 
 
+class SearchCache:
+    """TTL decorator over a search provider. Cache hit = no network, no sleep.
+    Does not cache a result produced while global backoff is (or becomes) active."""
+
+    def __init__(self, inner, state: SearchState, ttl_seconds: float):
+        self._inner = inner
+        self._state = state
+        self._ttl = ttl_seconds
+
+    def __call__(self, keyword: str) -> list[SourceCandidate]:
+        cached = self._state.cache_get(keyword, self._ttl)
+        if cached is not None:
+            return cached
+        if self._state.in_global_backoff():
+            return []
+        results = self._inner(keyword)
+        if self._state.in_global_backoff():   # inner just tripped backoff — degraded empty
+            return []
+        self._state.cache_put(keyword, results)
+        return results
+
+
 class SearxngProvider:
     """Callable (keyword) -> list[SourceCandidate]; best-effort, via SearXNG JSON API."""
 
