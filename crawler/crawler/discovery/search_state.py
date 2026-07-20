@@ -1,3 +1,4 @@
+import copy
 import json
 import logging
 import os
@@ -24,8 +25,10 @@ class SearchState:
         try:
             with open(path, encoding="utf-8") as f:
                 data = json.load(f)
+            if not isinstance(data, dict):
+                raise ValueError("search state must be a JSON object")
             for k, default in _EMPTY.items():
-                data.setdefault(k, default)
+                data.setdefault(k, copy.deepcopy(default))
         except (OSError, ValueError) as exc:
             log.warning("search state load failed (%s); starting clean", exc)
             data = None

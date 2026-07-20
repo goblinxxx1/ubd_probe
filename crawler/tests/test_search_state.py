@@ -105,3 +105,24 @@ def test_load_missing_or_corrupt_starts_clean(tmp_path):
     st = SearchState.load(str(bad), clock=Clock())
     assert st.cursor == 0
     assert st.is_healthy("x") is True
+
+
+def test_load_missing_key_does_not_leak_into_fresh_instance(tmp_path):
+    # A state file missing the "cache" key must not cause later instances to
+    # share/inherit mutated state (regression: shared _EMPTY default).
+    import json as _json
+    path = tmp_path / "partial.json"
+    path.write_text(_json.dumps({"version": 1, "cursor": 0, "next_allowed_at": 0.0,
+                                 "backends": {}}), encoding="utf-8")
+    st_a = SearchState.load(str(path), clock=Clock())
+    st_a.cache_put("leaked", [])
+    st_b = SearchState(str(tmp_path / "other.json"), clock=Clock())
+    assert st_b.cache_get("leaked", ttl_seconds=1e9) is None
+
+
+def test_load_non_object_json_starts_clean(tmp_path):
+    bad = tmp_path / "arr.json"
+    bad.write_text("[1, 2, 3]", encoding="utf-8")
+    st = SearchState.load(str(bad), clock=Clock())
+    assert st.cursor == 0
+    assert st.is_healthy("x") is True
