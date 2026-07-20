@@ -29,6 +29,9 @@ def create_offer(db: Session, data: OfferCreate, created_by: CreatedBy,
              else q.filter(Offer.source_id.is_(None)))
         existing = q.first()
         if existing is not None:
+            existing.last_seen_at = datetime.utcnow()
+            db.commit()
+            db.refresh(existing)
             return existing
 
     if created_by == CreatedBy.crawler and data.target_url:
@@ -38,8 +41,9 @@ def create_offer(db: Session, data: OfferCreate, created_by: CreatedBy,
                           and l.article_url == data.article_url for l in existing.links)
             if not already:
                 existing.links.append(_mk_link())
-                db.commit()
-                db.refresh(existing)
+            existing.last_seen_at = datetime.utcnow()
+            db.commit()
+            db.refresh(existing)
             return existing
 
     targets, offers = _load_categories(db, data.target_category_ids, data.offer_category_ids)
