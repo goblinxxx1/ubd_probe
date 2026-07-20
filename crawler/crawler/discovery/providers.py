@@ -1,10 +1,12 @@
 import logging
+import random
 import time
 from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
 
 import httpx
 from ddgs import DDGS
 
+from crawler.discovery.search_state import SearchState
 from crawler.models import SourceCandidate
 
 log = logging.getLogger(__name__)
@@ -47,32 +49,64 @@ def classify_candidate(url: str) -> tuple[str, str] | None:
     return ("website", norm)
 
 
-# All ddgs text backends except yandex, which reliably times out from Docker/CI
-# IPs and stalls every query ~5s. ddgs has no exclusion syntax, so we enumerate
-# the wanted engines (comma-delimited string, as ddgs expects).
-DDG_BACKENDS = "duckduckgo,brave,google,mojeek,startpage,wikipedia,yahoo,grokipedia"
+class RotatingDdgProvider:
+    """Callable (keyword) -> list[SourceCandidate].
 
+    Queries ONE backend per keyword, round-robin across `pool`, skipping backends
+    in cooldown. A failing backend is cooled (exponential backoff) and the keyword
+    falls through to the next healthy one. When no backend is healthy, sets a global
+    backoff and returns []. Best-effort: never raises for a single keyword.
+    """
 
-class DuckDuckGoProvider:
-    """Callable (keyword) -> list[SourceCandidate]; best-effort."""
-
-    def __init__(self, results_per_keyword: int = 7, min_delay: float = 4.0,
-                 ddgs_factory=DDGS, sleep=time.sleep, backend: str = DDG_BACKENDS):
+    def __init__(self, pool, state: SearchState, results_per_keyword: int = 7,
+                 min_delay: float = 45.0, jitter: float = 0.5, cooldown_base: float = 300.0,
+                 cooldown_cap: float = 21600.0, global_backoff_seconds: float = 21600.0,
+                 ddgs_factory=DDGS, sleep=time.sleep, rand=random.random):
+        self._pool = list(pool)
+        self._state = state
         self._n = results_per_keyword
         self._delay = min_delay
+        self._jitter = jitter
+        self._base = cooldown_base
+        self._cap = cooldown_cap
+        self._global_backoff = global_backoff_seconds
         self._ddgs_factory = ddgs_factory
         self._sleep = sleep
-        self._backend = backend
+        self._rand = rand
 
     def __call__(self, keyword: str) -> list[SourceCandidate]:
-        if self._delay:
-            self._sleep(self._delay)
-        try:
-            results = self._ddgs_factory().text(keyword, max_results=self._n,
-                                                backend=self._backend)
-        except Exception as exc:  # noqa: BLE001 — search is best-effort
-            log.warning("duckduckgo search failed for %r: %s", keyword, exc)
+        if self._state.in_global_backoff():
             return []
+        for _ in range(2):  # at most two healthy backends per keyword
+            backend = self._take_next_healthy()
+            if backend is None:
+                self._state.set_global_backoff(self._global_backoff)
+                return []
+            self._sleep(self._delay * (1 + self._rand() * self._jitter))
+            try:
+                results = self._ddgs_factory().text(keyword, max_results=self._n, backend=backend)
+            except Exception as exc:  # noqa: BLE001 — search is best-effort
+                log.warning("ddg backend %s failed for %r: %s", backend, keyword, exc)
+                self._state.record_block(backend, self._base, self._cap, self._jitter, self._rand)
+                continue
+            self._state.record_success(backend)
+            return self._classify(results, backend, keyword)
+        return []
+
+    def _take_next_healthy(self) -> str | None:
+        n = len(self._pool)
+        if n == 0:
+            return None
+        start = self._state.cursor % n
+        for offset in range(n):
+            idx = (start + offset) % n
+            backend = self._pool[idx]
+            if self._state.is_healthy(backend):
+                self._state.set_cursor((idx + 1) % n)
+                return backend
+        return None
+
+    def _classify(self, results, backend: str, keyword: str) -> list[SourceCandidate]:
         out: list[SourceCandidate] = []
         for r in results or []:
             classified = classify_candidate(r.get("href", ""))
@@ -81,7 +115,7 @@ class DuckDuckGoProvider:
             type_, url_or_handle = classified
             out.append(SourceCandidate(
                 name=r.get("title") or url_or_handle, type=type_, url_or_handle=url_or_handle,
-                discovered_from_source_id=None, discovery_note=f"ddg: {keyword}"))
+                discovered_from_source_id=None, discovery_note=f"ddg:{backend}: {keyword}"))
         return out
 
 
