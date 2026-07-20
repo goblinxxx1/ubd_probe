@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta
+
 from sqlalchemy.orm import Session
 
 from app.core.errors import not_found, validation_error
@@ -48,6 +50,7 @@ def create_offer(db: Session, data: OfferCreate, created_by: CreatedBy,
         site_url=data.site_url, article_url=data.article_url, image_url=data.image_url,
         target_url=data.target_url, source_id=source_id,
         status=status, created_by=created_by, content_hash=content_hash,
+        last_seen_at=datetime.utcnow(),
         target_categories=targets, offer_categories=offers,
         links=[_mk_link()],
     )

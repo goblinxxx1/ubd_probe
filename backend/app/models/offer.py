@@ -36,6 +36,7 @@ class Offer(Base):
     target_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     source_id: Mapped[int | None] = mapped_column(ForeignKey("sources.id"), nullable=True)
     content_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     status: Mapped[OfferStatus] = mapped_column(Enum(OfferStatus), nullable=False)
     created_by: Mapped[CreatedBy] = mapped_column(Enum(CreatedBy), nullable=False)
     reviewed_by: Mapped[int | None] = mapped_column(ForeignKey("admin_users.id"), nullable=True)

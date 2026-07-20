@@ -106,5 +106,6 @@ class OfferOut(BaseModel):
     created_by: CreatedBy
     created_at: datetime
     updated_at: datetime
+    last_seen_at: datetime | None = None
     target_categories: list[CategoryOut]
     offer_categories: list[CategoryOut]
