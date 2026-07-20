@@ -55,7 +55,8 @@ class RotatingDdgProvider:
     Queries ONE backend per keyword, round-robin across `pool`, skipping backends
     in cooldown. A failing backend is cooled (exponential backoff) and the keyword
     falls through to the next healthy one. When no backend is healthy, sets a global
-    backoff and returns []. Best-effort: never raises for a single keyword.
+    backoff and returns []. Any non-success outcome flags the shared state degraded so a
+    wrapping SearchCache does not cache the empty. Best-effort: never raises for a single keyword.
     """
 
     def __init__(self, pool, state: SearchState, results_per_keyword: int = 7,
@@ -75,12 +76,15 @@ class RotatingDdgProvider:
         self._rand = rand
 
     def __call__(self, keyword: str) -> list[SourceCandidate]:
+        self._state.clear_degraded()
         if self._state.in_global_backoff():
+            self._state.mark_degraded()
             return []
         for _ in range(2):  # at most two healthy backends per keyword
             backend = self._take_next_healthy()
             if backend is None:
                 self._state.set_global_backoff(self._global_backoff)
+                self._state.mark_degraded()
                 return []
             self._sleep(self._delay * (1 + self._rand() * self._jitter))
             try:
@@ -91,6 +95,7 @@ class RotatingDdgProvider:
                 continue
             self._state.record_success(backend)
             return self._classify(results, backend, keyword)
+        self._state.mark_degraded()
         return []
 
     def _take_next_healthy(self) -> str | None:
@@ -121,7 +126,8 @@ class RotatingDdgProvider:
 
 class SearchCache:
     """TTL decorator over a search provider. Cache hit = no network, no sleep.
-    Does not cache a result produced while global backoff is (or becomes) active."""
+    Does not cache a result produced while global backoff is (or becomes) active, or one the
+    inner provider flagged as degraded (all attempted backends failed)."""
 
     def __init__(self, inner, state: SearchState, ttl_seconds: float):
         self._inner = inner
@@ -135,7 +141,9 @@ class SearchCache:
         if self._state.in_global_backoff():
             return []
         results = self._inner(keyword)
-        if self._state.in_global_backoff():   # inner just tripped backoff — degraded empty
+        if self._state.in_global_backoff():        # inner just tripped backoff — degraded empty
+            return []
+        if self._state.degraded_last_call():       # inner flagged degraded — don't cache the empty
             return []
         self._state.cache_put(keyword, results)
         return results

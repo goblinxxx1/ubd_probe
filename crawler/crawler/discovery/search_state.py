@@ -19,6 +19,7 @@ class SearchState:
         self._path = path
         self._clock = clock
         self._data = data if data is not None else json.loads(json.dumps(_EMPTY))
+        self._degraded = False
 
     @classmethod
     def load(cls, path: str, clock=time.time) -> "SearchState":
@@ -69,6 +70,18 @@ class SearchState:
     def set_global_backoff(self, seconds: float) -> None:
         self._data["next_allowed_at"] = self._clock() + seconds
         self._save()
+
+    # --- transient degradation signal (in-memory only; never persisted) ---
+    def mark_degraded(self) -> None:
+        """Flag the most recent provider call as degraded (all attempted backends
+        failed / no search happened) so a wrapping SearchCache won't cache the empty."""
+        self._degraded = True
+
+    def clear_degraded(self) -> None:
+        self._degraded = False
+
+    def degraded_last_call(self) -> bool:
+        return self._degraded
 
     # --- keyword cache ---
     def cache_get(self, keyword: str, ttl_seconds: float) -> list[SourceCandidate] | None:

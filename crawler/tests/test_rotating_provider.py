@@ -100,3 +100,30 @@ def test_sleep_uses_min_delay_and_jitter(tmp_path):
                      sleep=lambda s: slept.append(s), rand=lambda: 1.0)
     p("kw")
     assert slept == [15.0]                            # 10 * (1 + 1.0*0.5)
+
+
+def test_partial_failure_marks_degraded_without_global_backoff(tmp_path):
+    log = []
+
+    class AlwaysBad:
+        def text(self, query, max_results=7, backend=None):
+            log.append(backend)
+            raise RuntimeError("429")
+
+    # 3-backend pool: two attempts both fail, one backend stays untried & healthy
+    p, st = _provider(tmp_path, Clock(), lambda: AlwaysBad(),
+                      pool=["google", "startpage", "duckduckgo"])
+    assert p("kw") == []
+    assert len(log) == 2                       # only two attempts, not the whole pool
+    assert st.degraded_last_call() is True     # signalled degraded
+    assert st.in_global_backoff() is False     # but NOT global backoff -- a healthy backend remains
+    assert st.is_healthy("duckduckgo") is True
+
+
+def test_success_clears_degraded(tmp_path):
+    log = []
+    factory = lambda: RecordingDDGS([{"title": "S", "href": "https://a.example/x"}], log)
+    p, st = _provider(tmp_path, Clock(), factory)
+    st.mark_degraded()               # pretend a prior degraded pass
+    p("kw")
+    assert st.degraded_last_call() is False

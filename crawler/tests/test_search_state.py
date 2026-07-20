@@ -126,3 +126,12 @@ def test_load_non_object_json_starts_clean(tmp_path):
     st = SearchState.load(str(bad), clock=Clock())
     assert st.cursor == 0
     assert st.is_healthy("x") is True
+
+
+def test_degraded_flag_defaults_false_and_toggles(tmp_path):
+    st = _state(tmp_path, Clock())
+    assert st.degraded_last_call() is False
+    st.mark_degraded()
+    assert st.degraded_last_call() is True
+    st.clear_degraded()
+    assert st.degraded_last_call() is False

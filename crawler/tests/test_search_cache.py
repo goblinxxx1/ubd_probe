@@ -96,3 +96,17 @@ def test_in_backoff_returns_empty_without_inner(tmp_path):
     st.set_global_backoff(3600.0)
     assert cache("kw") == []
     assert calls == []
+
+
+def test_degraded_empty_not_cached(tmp_path):
+    calls = []
+
+    def inner(kw):
+        calls.append(kw)
+        st.mark_degraded()          # provider signals a degraded pass (all attempted backends failed)
+        return []
+
+    cache, st = _cache(tmp_path, Clock(), inner)
+    assert cache("kw") == []
+    assert cache("kw") == []
+    assert calls == ["kw", "kw"]    # degraded empty NOT cached -> inner re-queried
