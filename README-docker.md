@@ -52,6 +52,15 @@ Enable via crawler env: `ACTIVE_DISCOVERY=true`. Keywords/limits live there too
 (`SEARCH_KEYWORDS`, `SEARCH_RESULTS_PER_KEYWORD`, `SEARCH_MIN_DELAY`) — see
 `crawler/.env.example`.
 
+**Anti-throttle:** to avoid getting the single outbound IP flagged, the DuckDuckGo
+search hits **one** backend per query, round-robin across the `SEARCH_BACKENDS` pool
+(`google,startpage,duckduckgo,yahoo,brave`), with a per-backend cooldown on failure
+and a global backoff when all are cooled. The crawler persists this anti-throttle
+state (per-backend cooldown, keyword cache, rotation cursor, global backoff) to
+`/data/search_state.json` on the `ubd-crawler-state` volume, so blocked-backend
+cooldowns and cached keyword results survive container restarts. Override the path
+with `SEARCH_STATE_PATH`.
+
 **First run manually**, then schedule:
 
 ```bash

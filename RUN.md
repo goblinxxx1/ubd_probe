@@ -175,11 +175,20 @@ docker compose --profile crawler run --rm \
 ```
 
 Налаштування пошуку (у `crawler/.env`): `SEARCH_KEYWORDS` (фрази через кому),
-`SEARCH_RESULTS_PER_KEYWORD` (7), `SEARCH_MIN_DELAY` (4 c між запитами),
-`SEARCH_BUDGET` (0 = всі ключові слова), `SEARXNG_URL` (для Docker — `http://searxng:8080`).
-У Docker `crawler/.env` підвантажується в контейнер краулера через `env_file` (compose),
-тож для пошуку по ключових словах він **має існувати**; окремі значення (`ACTIVE_DISCOVERY`,
-`SEARCH_PROVIDERS`) перекриваються прапорцем `-e`.
+`SEARCH_RESULTS_PER_KEYWORD` (7), `SEARCH_MIN_DELAY` (45 c між реальними запитами,
+довгий навмисне), `SEARCH_BUDGET` (0 = всі ключові слова), `SEARXNG_URL` (для
+Docker — `http://searxng:8080`). У Docker `crawler/.env` підвантажується в контейнер
+краулера через `env_file` (compose), тож для пошуку по ключових словах він **має
+існувати**; окремі значення (`ACTIVE_DISCOVERY`, `SEARCH_PROVIDERS`) перекриваються прапорцем `-e`.
+
+**Анти-throttle (DuckDuckGo):** активний пошук ходить по **одному** бекенду на запит
+із пулу `SEARCH_BACKENDS` (`google,startpage,duckduckgo,yahoo,brave`), round-robin —
+а не б'є всі одразу. На помилці бекенд отримує per-backend cooldown і запит перетікає
+на наступний; коли всі остигають — глобальний backoff (`SEARCH_GLOBAL_BACKOFF_HOURS`).
+Keyword-результати кешуються (`SEARCH_CACHE_TTL_HOURS`, типово 7 днів; попадання в кеш
+не спить і не ходить у мережу). Увесь стан (cooldown, кеш, курсор ротації, backoff)
+лежить у `SEARCH_STATE_PATH` (`/data/search_state.json`) на томі `ubd-crawler-state`,
+тож переживає рестарти контейнера. Мета — не блокуватись по IP; швидкість вторинна.
 
 > **SearXNG з хостового краулера:** сервіс `searxng` слухає всередині Docker-мережі
 > (`searxng:8080`), з хоста не опублікований. Тому для `searxng` найпростіше гнати

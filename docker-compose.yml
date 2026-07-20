@@ -77,12 +77,16 @@ services:
         condition: service_started
       searxng:
         condition: service_healthy
+    volumes:
+      - ubd-crawler-state:/data
     environment:
       INTERNAL_API_URL: http://backend:8000
       CRAWLER_API_KEY: ${CRAWLER_API_KEY}
       EXTRACTOR: heuristic
       SEARXNG_URL: http://searxng:8080
+      SEARCH_STATE_PATH: /data/search_state.json
       CRAWL_INTERVAL_SECONDS: ${CRAWL_INTERVAL_SECONDS:-0}
 
 volumes:
   ubd-db-data:
+  ubd-crawler-state:
