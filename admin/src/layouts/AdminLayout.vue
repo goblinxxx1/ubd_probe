@@ -1,13 +1,21 @@
 <script setup>
-import { computed, ref, onMounted } from "vue";
+import { computed, ref, onMounted, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
 import * as offers from "@/api/offers";
+import { useBreakpoint } from "@/composables/useBreakpoint";
 
 const auth = useAuthStore();
 const router = useRouter();
 const isSuperAdmin = computed(() => auth.isSuperAdmin);
 const pendingCount = ref(0);
+const { isTablet } = useBreakpoint();
+const drawerOpen = ref(false);
+defineExpose({ drawerOpen });
+
+watch(isTablet, (v) => {
+  if (!v) drawerOpen.value = false;
+});
 
 onMounted(async () => {
   try {
@@ -26,21 +34,23 @@ function logout() {
 
 <template>
   <div class="admin-layout">
-    <aside class="sidebar">
+    <aside class="sidebar" :class="{ 'sidebar--open': drawerOpen }">
       <h1 class="logo">UBD</h1>
       <nav>
-        <router-link :to="{ name: 'offers' }">Оффери</router-link>
-        <router-link :to="{ name: 'moderation' }">
+        <router-link :to="{ name: 'offers' }" @click="drawerOpen = false">Оффери</router-link>
+        <router-link :to="{ name: 'moderation' }" @click="drawerOpen = false">
           <el-badge :value="pendingCount" :hidden="!pendingCount">Черга модерації</el-badge>
         </router-link>
-        <router-link :to="{ name: 'sources' }">Джерела</router-link>
-        <router-link :to="{ name: 'suggested-sources' }">Запропоновані джерела</router-link>
-        <router-link v-if="isSuperAdmin" :to="{ name: 'categories' }">Категорії</router-link>
-        <router-link v-if="isSuperAdmin" :to="{ name: 'users' }">Адміни</router-link>
+        <router-link :to="{ name: 'sources' }" @click="drawerOpen = false">Джерела</router-link>
+        <router-link :to="{ name: 'suggested-sources' }" @click="drawerOpen = false">Запропоновані джерела</router-link>
+        <router-link v-if="isSuperAdmin" :to="{ name: 'categories' }" @click="drawerOpen = false">Категорії</router-link>
+        <router-link v-if="isSuperAdmin" :to="{ name: 'users' }" @click="drawerOpen = false">Адміни</router-link>
       </nav>
     </aside>
+    <div v-if="drawerOpen" class="sidebar__backdrop" @click="drawerOpen = false"></div>
     <div class="main">
       <header class="topbar">
+        <button class="hamburger" aria-label="Меню" @click="drawerOpen = !drawerOpen">☰</button>
         <span class="role">{{ auth.role }}</span>
         <el-button size="small" @click="logout">Вийти</el-button>
       </header>
@@ -63,4 +73,14 @@ function logout() {
 .topbar { display: flex; justify-content: flex-end; align-items: center; gap: 12px; padding: 10px 16px; background: @surface; border-bottom: 1px solid @divider; }
 .topbar .role { color: @meta-muted; font-size: 13px; text-transform: uppercase; letter-spacing: .3px; }
 .content { padding: 20px; overflow: auto; }
+.hamburger { display: none; background: none; border: none; font-size: 22px; cursor: pointer; color: @text; margin-right: auto; }
+@media (max-width: @bp-tablet) {
+  .hamburger { display: block; }
+  .sidebar {
+    position: fixed; z-index: 1001; top: 0; left: 0; height: 100%;
+    transform: translateX(-100%); transition: transform .2s ease;
+  }
+  .sidebar--open { transform: translateX(0); }
+  .sidebar__backdrop { position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.45); }
+}
 </style>

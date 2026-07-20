@@ -120,6 +120,12 @@ defineExpose({ form, submit });
 </template>
 
 <style scoped lang="less">
+@import "@/styles/variables.less";
 .offer-form { max-width: 640px; }
 .actions { display: flex; gap: 8px; }
+
+@media (max-width: @bp-mobile) {
+  :deep(.el-select), :deep(.el-input), :deep(.el-input-number) { width: 100%; }
+  .el-form-item { margin-bottom: 14px; }
+}
 </style>

@@ -52,3 +52,16 @@ describe("AdminLayout", () => {
     expect(wrapper.text()).toContain("Адміни");
   });
 });
+
+describe("AdminLayout drawer", () => {
+  beforeEach(() => setActivePinia(createPinia()));
+
+  it("starts closed and toggles open", async () => {
+    const stubs = { "router-link": true, "router-view": true };
+    const w = mount(AdminLayout, { global: { plugins: [ElementPlus, createPinia()], stubs } });
+    expect(w.vm.drawerOpen).toBe(false);
+    w.vm.drawerOpen = true;
+    await w.vm.$nextTick();
+    expect(w.find(".sidebar--open").exists()).toBe(true);
+  });
+});

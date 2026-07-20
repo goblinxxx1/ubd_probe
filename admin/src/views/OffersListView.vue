@@ -9,9 +9,19 @@ import { enumLabel, formatDate, statusTagType, isHttpUrl } from "@/utils/format"
 import { confirmDelete } from "@/utils/confirm";
 import { extractError } from "@/utils/errors";
 import DataTableToolbar from "@/components/DataTableToolbar.vue";
+import ResponsiveTable from "@/components/ResponsiveTable.vue";
 
 const props = defineProps({ fixedStatus: { type: String, default: null } });
 const router = useRouter();
+
+const columns = [
+  { prop: "title", label: "Заголовок" },
+  { prop: "provider", label: "Провайдер" },
+  { label: "Тип", slot: "type" },
+  { label: "Статус", slot: "status" },
+  { label: "Дійсний до", slot: "validUntil" },
+  { label: "Джерело", slot: "source" },
+];
 
 function loader(params) {
   const p = { ...params };
@@ -102,53 +112,24 @@ defineExpose({ onPublish, onReject, onDelete, load, applyFilters, items });
       </template>
     </DataTableToolbar>
 
-    <el-table :data="items" v-loading="loading" style="width: 100%">
-      <el-table-column prop="title" label="Заголовок" />
-      <el-table-column prop="provider" label="Провайдер" />
-      <el-table-column label="Тип">
-        <template #default="{ row }">{{ enumLabel(OFFER_TYPES, row.type) }}</template>
-      </el-table-column>
-      <el-table-column label="Статус">
-        <template #default="{ row }">
-          <el-tag :type="statusTagType(row.status)">{{ enumLabel(OFFER_STATUSES, row.status) }}</el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="Дійсний до">
-        <template #default="{ row }">{{ formatDate(row.valid_until) }}</template>
-      </el-table-column>
-      <el-table-column label="Джерело" width="170">
-        <template #default="{ row }">
-          <el-link
-            v-if="isHttpUrl(row.site_url)"
-            :href="row.site_url"
-            type="primary"
-            target="_blank"
-            rel="noopener noreferrer"
-          >Сайт ↗</el-link>
-          <el-link
-            v-if="isHttpUrl(row.article_url)"
-            :href="row.article_url"
-            type="primary"
-            target="_blank"
-            rel="noopener noreferrer"
-            style="margin-left: 8px"
-          >Стаття ↗</el-link>
-          <span v-if="!isHttpUrl(row.site_url) && !isHttpUrl(row.article_url)" style="color: var(--el-text-color-placeholder)">—</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="Дії" width="280">
-        <template #default="{ row }">
-          <el-button size="small" @click="edit(row.id)">Редагувати</el-button>
-          <el-button v-if="row.status !== 'published'" size="small" type="success" @click="onPublish(row.id)">
-            Опублікувати
-          </el-button>
-          <el-button v-if="row.status === 'pending_review'" size="small" type="warning" @click="onReject(row.id)">
-            Відхилити
-          </el-button>
-          <el-button size="small" type="danger" @click="onDelete(row.id)">Видалити</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+    <ResponsiveTable :columns="columns" :rows="items" :loading="loading">
+      <template #col-type="{ row }">{{ enumLabel(OFFER_TYPES, row.type) }}</template>
+      <template #col-status="{ row }">
+        <el-tag :type="statusTagType(row.status)">{{ enumLabel(OFFER_STATUSES, row.status) }}</el-tag>
+      </template>
+      <template #col-validUntil="{ row }">{{ formatDate(row.valid_until) }}</template>
+      <template #col-source="{ row }">
+        <el-link v-if="isHttpUrl(row.site_url)" :href="row.site_url" type="primary" target="_blank" rel="noopener noreferrer">Сайт ↗</el-link>
+        <el-link v-if="isHttpUrl(row.article_url)" :href="row.article_url" type="primary" target="_blank" rel="noopener noreferrer" style="margin-left: 8px">Стаття ↗</el-link>
+        <span v-if="!isHttpUrl(row.site_url) && !isHttpUrl(row.article_url)" style="color: var(--el-text-color-placeholder)">—</span>
+      </template>
+      <template #actions="{ row }">
+        <el-button size="small" @click="edit(row.id)">Редагувати</el-button>
+        <el-button v-if="row.status !== 'published'" size="small" type="success" @click="onPublish(row.id)">Опублікувати</el-button>
+        <el-button v-if="row.status === 'pending_review'" size="small" type="warning" @click="onReject(row.id)">Відхилити</el-button>
+        <el-button size="small" type="danger" @click="onDelete(row.id)">Видалити</el-button>
+      </template>
+    </ResponsiveTable>
 
     <el-pagination
       layout="prev, pager, next"

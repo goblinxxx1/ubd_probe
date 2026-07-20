@@ -6,6 +6,14 @@ import { SOURCE_TYPES } from "@/constants/enums";
 import { enumLabel, isHttpUrl } from "@/utils/format";
 import { confirmDelete } from "@/utils/confirm";
 import { extractError } from "@/utils/errors";
+import ResponsiveTable from "@/components/ResponsiveTable.vue";
+
+const columns = [
+  { prop: "name", label: "Назва" },
+  { label: "Тип", slot: "type" },
+  { label: "URL / handle", slot: "ref" },
+  { label: "Активне", slot: "active" },
+];
 
 const items = ref([]);
 const loading = ref(false);
@@ -75,33 +83,24 @@ defineExpose({ items, load, openCreate, openEdit, save, onDelete, form, editingI
       <el-button type="primary" @click="openCreate">Додати джерело</el-button>
     </div>
 
-    <el-table :data="items" v-loading="loading" style="width: 100%">
-      <el-table-column prop="name" label="Назва" />
-      <el-table-column label="Тип">
-        <template #default="{ row }">{{ enumLabel(SOURCE_TYPES, row.type) }}</template>
-      </el-table-column>
-      <el-table-column label="URL / handle">
-        <template #default="{ row }">
-          <el-link
-            v-if="isHttpUrl(row.url_or_handle)"
-            :href="row.url_or_handle"
-            type="primary"
-            target="_blank"
-            rel="noopener noreferrer"
-          >{{ row.url_or_handle }}</el-link>
-          <span v-else>{{ row.url_or_handle }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="Активне">
-        <template #default="{ row }">{{ row.is_active ? "Так" : "Ні" }}</template>
-      </el-table-column>
-      <el-table-column label="Дії" width="200">
-        <template #default="{ row }">
-          <el-button size="small" @click="openEdit(row)">Редагувати</el-button>
-          <el-button size="small" type="danger" @click="onDelete(row.id)">Видалити</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+    <ResponsiveTable :columns="columns" :rows="items" :loading="loading">
+      <template #col-type="{ row }">{{ enumLabel(SOURCE_TYPES, row.type) }}</template>
+      <template #col-ref="{ row }">
+        <el-link
+          v-if="isHttpUrl(row.url_or_handle)"
+          :href="row.url_or_handle"
+          type="primary"
+          target="_blank"
+          rel="noopener noreferrer"
+        >{{ row.url_or_handle }}</el-link>
+        <span v-else>{{ row.url_or_handle }}</span>
+      </template>
+      <template #col-active="{ row }">{{ row.is_active ? "Так" : "Ні" }}</template>
+      <template #actions="{ row }">
+        <el-button size="small" @click="openEdit(row)">Редагувати</el-button>
+        <el-button size="small" type="danger" @click="onDelete(row.id)">Видалити</el-button>
+      </template>
+    </ResponsiveTable>
 
     <el-dialog v-model="dialogVisible" :title="editingId ? 'Редагувати джерело' : 'Нове джерело'">
       <el-form label-position="top">

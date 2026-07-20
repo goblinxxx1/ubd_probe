@@ -5,6 +5,12 @@ import * as categories from "@/api/categories";
 import { useDictionariesStore } from "@/stores/dictionaries";
 import { confirmDelete } from "@/utils/confirm";
 import { extractError } from "@/utils/errors";
+import ResponsiveTable from "@/components/ResponsiveTable.vue";
+
+const columns = [
+  { prop: "name", label: "Назва" },
+  { prop: "slug", label: "Slug" },
+];
 
 const dictionaries = useDictionariesStore();
 onMounted(() => dictionaries.load());
@@ -82,16 +88,12 @@ defineExpose({ save, remove, startEdit, editingId });
     <h2>Категорії</h2>
     <el-tabs>
       <el-tab-pane label="Для кого">
-        <el-table :data="dictionaries.targetCategories" style="width: 100%">
-          <el-table-column prop="name" label="Назва" />
-          <el-table-column prop="slug" label="Slug" />
-          <el-table-column label="Дії" width="200">
-            <template #default="{ row }">
-              <el-button size="small" @click="startEdit('target', row)">Редагувати</el-button>
-              <el-button size="small" type="danger" @click="remove('target', row.id)">Видалити</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
+        <ResponsiveTable :columns="columns" :rows="dictionaries.targetCategories">
+          <template #actions="{ row }">
+            <el-button size="small" @click="startEdit('target', row)">Редагувати</el-button>
+            <el-button size="small" type="danger" @click="remove('target', row.id)">Видалити</el-button>
+          </template>
+        </ResponsiveTable>
         <div class="add-row">
           <el-input v-model="drafts.target.name" placeholder="Назва" style="width: 200px" />
           <el-input v-model="drafts.target.slug" placeholder="slug" style="width: 200px" />
@@ -101,16 +103,12 @@ defineExpose({ save, remove, startEdit, editingId });
       </el-tab-pane>
 
       <el-tab-pane label="Тематика">
-        <el-table :data="dictionaries.offerCategories" style="width: 100%">
-          <el-table-column prop="name" label="Назва" />
-          <el-table-column prop="slug" label="Slug" />
-          <el-table-column label="Дії" width="200">
-            <template #default="{ row }">
-              <el-button size="small" @click="startEdit('offer', row)">Редагувати</el-button>
-              <el-button size="small" type="danger" @click="remove('offer', row.id)">Видалити</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
+        <ResponsiveTable :columns="columns" :rows="dictionaries.offerCategories">
+          <template #actions="{ row }">
+            <el-button size="small" @click="startEdit('offer', row)">Редагувати</el-button>
+            <el-button size="small" type="danger" @click="remove('offer', row.id)">Видалити</el-button>
+          </template>
+        </ResponsiveTable>
         <div class="add-row">
           <el-input v-model="drafts.offer.name" placeholder="Назва" style="width: 200px" />
           <el-input v-model="drafts.offer.slug" placeholder="slug" style="width: 200px" />

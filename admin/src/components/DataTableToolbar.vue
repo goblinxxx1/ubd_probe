@@ -26,5 +26,11 @@ defineExpose({ q });
 </template>
 
 <style scoped lang="less">
+@import "@/styles/variables.less";
 .toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+
+@media (max-width: @bp-mobile) {
+  .toolbar { flex-wrap: wrap; }
+  .toolbar :deep(.el-select), .toolbar :deep(.el-input) { width: 100% !important; }
+}
 </style>
