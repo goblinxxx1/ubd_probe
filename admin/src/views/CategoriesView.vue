@@ -88,7 +88,7 @@ defineExpose({ save, remove, startEdit, editingId });
     <h2>Категорії</h2>
     <el-tabs>
       <el-tab-pane label="Для кого">
-        <ResponsiveTable :columns="columns" :rows="dictionaries.targetCategories">
+        <ResponsiveTable :columns="columns" :rows="dictionaries.targetCategories" :actions-width="200">
           <template #actions="{ row }">
             <el-button size="small" @click="startEdit('target', row)">Редагувати</el-button>
             <el-button size="small" type="danger" @click="remove('target', row.id)">Видалити</el-button>
@@ -103,7 +103,7 @@ defineExpose({ save, remove, startEdit, editingId });
       </el-tab-pane>
 
       <el-tab-pane label="Тематика">
-        <ResponsiveTable :columns="columns" :rows="dictionaries.offerCategories">
+        <ResponsiveTable :columns="columns" :rows="dictionaries.offerCategories" :actions-width="200">
           <template #actions="{ row }">
             <el-button size="small" @click="startEdit('offer', row)">Редагувати</el-button>
             <el-button size="small" type="danger" @click="remove('offer', row.id)">Видалити</el-button>

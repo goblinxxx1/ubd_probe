@@ -20,7 +20,7 @@ const columns = [
   { label: "Тип", slot: "type" },
   { label: "Статус", slot: "status" },
   { label: "Дійсний до", slot: "validUntil" },
-  { label: "Джерело", slot: "source" },
+  { label: "Джерело", slot: "source", width: 170 },
 ];
 
 function loader(params) {
@@ -112,7 +112,7 @@ defineExpose({ onPublish, onReject, onDelete, load, applyFilters, items });
       </template>
     </DataTableToolbar>
 
-    <ResponsiveTable :columns="columns" :rows="items" :loading="loading">
+    <ResponsiveTable :columns="columns" :rows="items" :loading="loading" :actions-width="280">
       <template #col-type="{ row }">{{ enumLabel(OFFER_TYPES, row.type) }}</template>
       <template #col-status="{ row }">
         <el-tag :type="statusTagType(row.status)">{{ enumLabel(OFFER_STATUSES, row.status) }}</el-tag>

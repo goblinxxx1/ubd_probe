@@ -83,7 +83,7 @@ defineExpose({ items, load, openCreate, openEdit, save, onDelete, form, editingI
       <el-button type="primary" @click="openCreate">Додати джерело</el-button>
     </div>
 
-    <ResponsiveTable :columns="columns" :rows="items" :loading="loading">
+    <ResponsiveTable :columns="columns" :rows="items" :loading="loading" :actions-width="200">
       <template #col-type="{ row }">{{ enumLabel(SOURCE_TYPES, row.type) }}</template>
       <template #col-ref="{ row }">
         <el-link

@@ -71,7 +71,7 @@ defineExpose({ items, form, load, create, onDelete });
   <div class="admin-users-view">
     <h2>Адміністратори</h2>
 
-    <ResponsiveTable :columns="columns" :rows="items" :loading="loading">
+    <ResponsiveTable :columns="columns" :rows="items" :loading="loading" :actions-width="140">
       <template #col-role="{ row }">{{ enumLabel(ADMIN_ROLES, row.role) }}</template>
       <template #col-created="{ row }">{{ formatDate(row.created_at) }}</template>
       <template #actions="{ row }">

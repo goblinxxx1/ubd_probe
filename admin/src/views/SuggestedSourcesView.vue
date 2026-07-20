@@ -61,7 +61,7 @@ defineExpose({ items, load, onApprove, onReject, status });
       </el-select>
     </div>
 
-    <ResponsiveTable :columns="columns" :rows="items" :loading="loading">
+    <ResponsiveTable :columns="columns" :rows="items" :loading="loading" :actions-width="220">
       <template #col-type="{ row }">{{ enumLabel(SOURCE_TYPES, row.type) }}</template>
       <template #col-ref="{ row }">
         <el-link
