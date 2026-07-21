@@ -39,3 +39,35 @@ def test_internal_sources_filters_active(client, db_session):
                       headers={"X-API-Key": settings.crawler_api_key})
     names = [s["name"] for s in resp.json()]
     assert names == ["A"]
+
+
+def test_normalize_source_ref():
+    from app.core.urlnorm import normalize_source_ref
+    assert normalize_source_ref("HTTPS://Shop.Example.com/deal/?utm_source=x#frag") \
+        == "https://shop.example.com/deal"
+    assert normalize_source_ref("https://ex.com/") == "https://ex.com"
+    assert normalize_source_ref("not a url") is None
+    assert normalize_source_ref("") is None
+
+
+def test_get_or_create_source_by_ref_creates_then_reuses(db_session):
+    from app.crud import source as source_crud
+    from app.models.enums import CreatedBy, SourceType
+    a = source_crud.get_or_create_source_by_ref(
+        db_session, SourceType.website, "https://shop.example/deal", "Shop", CreatedBy.crawler)
+    b = source_crud.get_or_create_source_by_ref(
+        db_session, SourceType.website, "https://shop.example/deal", "Shop", CreatedBy.crawler)
+    assert a.id == b.id
+    assert a.name == "Shop" and a.type == SourceType.website and a.is_active is True
+
+
+def test_get_or_create_source_by_ref_reactivates(db_session):
+    from app.crud import source as source_crud
+    from app.models.enums import CreatedBy, SourceType
+    a = source_crud.get_or_create_source_by_ref(
+        db_session, SourceType.website, "https://shop.example/x", "Shop", CreatedBy.crawler)
+    a.is_active = False
+    db_session.commit()
+    b = source_crud.get_or_create_source_by_ref(
+        db_session, SourceType.website, "https://shop.example/x", "Shop", CreatedBy.crawler)
+    assert b.id == a.id and b.is_active is True

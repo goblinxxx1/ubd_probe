@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 
 from app.core.errors import not_found
 from app.models import Source
-from app.models.enums import CreatedBy
+from app.models.enums import CreatedBy, SourceType
 from app.schemas.source import SourceCreate, SourceUpdate
 
 
@@ -42,3 +42,21 @@ def delete_source(db: Session, source_id: int) -> None:
     obj = get_source(db, source_id)
     db.delete(obj)
     db.commit()
+
+
+def get_or_create_source_by_ref(db: Session, type_: SourceType, url_or_handle: str,
+                                name: str, created_by: CreatedBy) -> Source:
+    existing = db.query(Source).filter(Source.type == type_,
+                                       Source.url_or_handle == url_or_handle).first()
+    if existing is not None:
+        if not existing.is_active:
+            existing.is_active = True
+            db.commit()
+            db.refresh(existing)
+        return existing
+    obj = Source(name=name, type=type_, url_or_handle=url_or_handle,
+                 is_active=True, created_by=created_by)
+    db.add(obj)
+    db.commit()
+    db.refresh(obj)
+    return obj
