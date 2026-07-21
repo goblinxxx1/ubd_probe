@@ -66,6 +66,12 @@ class ApiClient:
         r.raise_for_status()
         return r.json()
 
+    def expire_stale(self, older_than_days: int) -> dict:
+        r = self._client.post("/api/internal/offers/expire-stale",
+                              json={"older_than_days": older_than_days})
+        r.raise_for_status()
+        return r.json()
+
     # --- public (no key needed, but harmless to send) ---
     def list_target_categories(self) -> list[dict]:
         r = self._client.get("/api/target-categories")

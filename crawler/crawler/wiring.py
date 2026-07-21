@@ -52,4 +52,5 @@ def build_runner(config) -> Runner:
                 harvester = ActiveHarvester(api, fetchers, extractor, rate_limiter,
                                             fetch_budget=config.active_fetch_budget)
     return Runner(api, fetchers, extractor, rate_limiter,
-                  discovery=discovery, keywords=config.search_keywords, harvester=harvester)
+                  discovery=discovery, keywords=config.search_keywords, harvester=harvester,
+                  freshness_ttl_days=config.freshness_ttl_days)

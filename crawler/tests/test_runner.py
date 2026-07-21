@@ -29,6 +29,7 @@ class FakeApi:
         self.state = {}
         self.created = []
         self._offer_cats = []
+        self.expired_calls = []
 
     def list_target_categories(self): return []
     def list_offer_categories(self): return list(self._offer_cats)
@@ -41,6 +42,9 @@ class FakeApi:
     def set_crawl_state(self, source_id, last_seen_key): self.state[source_id] = last_seen_key; return {}
     def submit_offer(self, payload): self.offers.append(payload); return {"id": len(self.offers)}
     def submit_suggestion(self, payload): self.suggestions.append(payload); return {"id": 1}
+    def expire_stale(self, older_than_days):
+        self.expired_calls.append(older_than_days)
+        return {"expired": 2}
 
 
 def _rl():
@@ -86,3 +90,14 @@ def test_runner_autocreates_offer_category():
     runner.run()
     assert api.created == [("Краса та догляд", "beauty")]
     assert api.offers[0]["offer_category_ids"] == [900]
+
+
+def test_runner_calls_expire_stale_and_reports_count():
+    src = {"id": 1, "type": "website", "name": "Shop", "url_or_handle": "http://x"}
+    item = RawItem(source_id=1, platform="website", key="k", text="Акція 10%", links=[])
+    api = FakeApi([src])
+    runner = Runner(api, {"website": FakeFetcher([item])}, get_extractor("heuristic"), _rl(),
+                    freshness_ttl_days=14)
+    summary = runner.run()
+    assert api.expired_calls == [14]
+    assert summary["expired"] == 2

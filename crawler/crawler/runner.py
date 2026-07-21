@@ -10,7 +10,7 @@ log = logging.getLogger(__name__)
 
 class Runner:
     def __init__(self, api_client, fetchers: dict, extractor, rate_limiter,
-                 discovery=None, keywords=None, harvester=None):
+                 discovery=None, keywords=None, harvester=None, freshness_ttl_days=30):
         self._api = api_client
         self._fetchers = fetchers
         self._extractor = extractor
@@ -18,6 +18,7 @@ class Runner:
         self._discovery = discovery
         self._keywords = keywords or []
         self._harvester = harvester
+        self._freshness_ttl_days = freshness_ttl_days
 
     def _fetch_for(self, source: dict, last_seen_key):
         fetcher = self._fetchers.get(source["type"])
@@ -31,7 +32,7 @@ class Runner:
                              self._api.list_offer_categories())
         sources = self._api.list_sources(is_active=True)
         known = {normalize_ref(s["type"], s["url_or_handle"]) for s in sources}
-        summary = {"sources": 0, "offers": 0, "suggestions": 0, "errors": 0}
+        summary = {"sources": 0, "offers": 0, "suggestions": 0, "expired": 0, "errors": 0}
 
         for source in sources:
             summary["sources"] += 1
@@ -48,6 +49,13 @@ class Runner:
             except Exception as exc:  # noqa: BLE001 — discovery must not crash the pass
                 summary["errors"] += 1
                 log.warning("active discovery failed: %s", exc)
+
+        try:
+            result = self._api.expire_stale(self._freshness_ttl_days)
+            summary["expired"] = result.get("expired", 0)
+        except Exception as exc:  # noqa: BLE001 — sweep must not crash the pass
+            summary["errors"] += 1
+            log.warning("expire-stale failed: %s", exc)
 
         log.info("crawl summary: %s", summary)
         return summary

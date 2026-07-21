@@ -43,3 +43,11 @@ def test_search_backends_env_override(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("SEARCH_BACKENDS", "google, brave")
     assert load_config().search_backends == ["google", "brave"]
+
+
+def test_freshness_ttl_days_default_and_override(monkeypatch):
+    from crawler.config import load_config
+    monkeypatch.delenv("FRESHNESS_TTL_DAYS", raising=False)
+    assert load_config().freshness_ttl_days == 30
+    monkeypatch.setenv("FRESHNESS_TTL_DAYS", "7")
+    assert load_config().freshness_ttl_days == 7
