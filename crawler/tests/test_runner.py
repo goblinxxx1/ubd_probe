@@ -70,7 +70,8 @@ def test_runner_submits_offer_and_suggestion_and_state():
 def test_runner_isolates_source_failure():
     good = {"id": 1, "type": "website", "name": "S1", "url_or_handle": "http://x"}
     bad = {"id": 2, "type": "telegram", "name": "S2", "url_or_handle": "@chan"}
-    item = RawItem(source_id=1, platform="website", key="k", text="Акція 10%", links=[])
+    item = RawItem(source_id=1, platform="website", key="k",
+                   text="Акція 10% для військових", links=[])
     api = FakeApi([bad, good])
     fetchers = {"website": FakeFetcher([item]), "telegram": BoomFetcher()}
     runner = Runner(api, fetchers, get_extractor("heuristic"), _rl())
