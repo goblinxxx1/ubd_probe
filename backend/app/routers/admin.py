@@ -15,6 +15,7 @@ from app.schemas.common import Page
 from app.schemas.offer import OfferCreate, OfferOut, OfferUpdate
 from app.schemas.source import SourceCreate, SourceOut, SourceUpdate
 from app.schemas.suggested_source import SuggestedSourceOut
+from app.services import promotion
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -94,7 +95,9 @@ def update_offer(offer_id: int, data: OfferUpdate, db: Session = Depends(get_db)
 @router.post("/offers/{offer_id}/publish", response_model=OfferOut)
 def publish_offer(offer_id: int, db: Session = Depends(get_db),
                   admin=Depends(get_current_admin)):
-    return offer_crud.set_status(db, offer_id, OfferStatus.published, admin.id)
+    offer = offer_crud.set_status(db, offer_id, OfferStatus.published, admin.id)
+    promotion.maybe_promote_on_publish(db, offer)
+    return offer
 
 
 @router.post("/offers/{offer_id}/reject", response_model=OfferOut)
