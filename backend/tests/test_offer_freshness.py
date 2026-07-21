@@ -1,8 +1,10 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from app.crud import offer as offer_crud
+from app.crud import source as source_crud
 from app.models.enums import CreatedBy, OfferStatus
 from app.schemas.offer import OfferCreate
+from app.schemas.source import SourceCreate
 
 
 def _offer(**over):
@@ -39,3 +41,33 @@ def test_resubmit_same_target_url_bumps_last_seen(db_session):
                                 CreatedBy.crawler, OfferStatus.pending_review)
     assert b.id == a.id
     assert b.last_seen_at > datetime(2000, 1, 1)
+
+
+def _source(db):
+    return source_crud.create_source(
+        db, SourceCreate(name="S", type="website", url_or_handle="https://a/x", is_active=True),
+        CreatedBy.crawler)
+
+
+def _published(db, source_id, last_seen, ch, created_by=CreatedBy.crawler):
+    o = offer_crud.create_offer(db, _offer(target_url=None), created_by,
+                                OfferStatus.published, source_id=source_id, content_hash=ch)
+    o.last_seen_at = last_seen
+    db.commit()
+    db.refresh(o)
+    return o
+
+
+def test_expire_stale_marks_only_stale_promoted_published(db_session):
+    s = _source(db_session)
+    old = datetime.utcnow() - timedelta(days=40)
+    fresh = datetime.utcnow()
+    stale = _published(db_session, s.id, old, "h_stale")
+    still_fresh = _published(db_session, s.id, fresh, "h_fresh")
+    unpromoted = _published(db_session, None, old, "h_unpromoted")   # source_id None
+    n = offer_crud.expire_stale(db_session, 30)
+    db_session.refresh(stale); db_session.refresh(still_fresh); db_session.refresh(unpromoted)
+    assert n == 1
+    assert stale.status == OfferStatus.expired
+    assert still_fresh.status == OfferStatus.published
+    assert unpromoted.status == OfferStatus.published   # not promoted -> never expires

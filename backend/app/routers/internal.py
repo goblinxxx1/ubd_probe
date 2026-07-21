@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.crud import bot_account as bot_account_crud
@@ -39,6 +40,19 @@ def create_offer(data: InternalOfferCreate, db: Session = Depends(get_db)):
     return offer_crud.create_offer(db, payload, CreatedBy.crawler,
                                    OfferStatus.pending_review, source_id=data.source_id,
                                    content_hash=data.content_hash)
+
+
+class ExpireStaleRequest(BaseModel):
+    older_than_days: int = 30
+
+
+class ExpireStaleResult(BaseModel):
+    expired: int
+
+
+@router.post("/offers/expire-stale", response_model=ExpireStaleResult)
+def expire_stale(data: ExpireStaleRequest, db: Session = Depends(get_db)):
+    return ExpireStaleResult(expired=offer_crud.expire_stale(db, data.older_than_days))
 
 
 @router.post("/suggested-sources", response_model=SuggestedSourceOut)

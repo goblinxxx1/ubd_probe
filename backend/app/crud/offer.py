@@ -131,3 +131,17 @@ def delete_offer(db: Session, offer_id: int) -> None:
     obj = get_offer(db, offer_id)
     db.delete(obj)
     db.commit()
+
+
+def expire_stale(db: Session, older_than_days: int) -> int:
+    cutoff = datetime.utcnow() - timedelta(days=older_than_days)
+    rows = db.query(Offer).filter(
+        Offer.status == OfferStatus.published,
+        Offer.created_by == CreatedBy.crawler,
+        Offer.source_id.isnot(None),
+        Offer.last_seen_at < cutoff,
+    ).all()
+    for o in rows:
+        o.status = OfferStatus.expired
+    db.commit()
+    return len(rows)

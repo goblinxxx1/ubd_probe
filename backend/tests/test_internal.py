@@ -100,3 +100,28 @@ def test_internal_offer_category_requires_api_key(client):
     resp = client.post("/api/internal/offer-categories",
                        json={"name": "X", "slug": "x"})
     assert resp.status_code == 401
+
+
+def test_expire_stale_endpoint(client, db_session):
+    from datetime import datetime, timedelta
+    from app.crud import offer as offer_crud
+    from app.crud import source as source_crud
+    from app.models.enums import CreatedBy, OfferStatus
+    from app.schemas.offer import OfferCreate
+    from app.schemas.source import SourceCreate
+
+    s = source_crud.create_source(
+        db_session, SourceCreate(name="S", type="website", url_or_handle="https://a/x",
+                                 is_active=True), CreatedBy.crawler)
+    o = offer_crud.create_offer(
+        db_session, OfferCreate(type="discount", title="T", provider="P"),
+        CreatedBy.crawler, OfferStatus.published, source_id=s.id, content_hash="h")
+    o.last_seen_at = datetime.utcnow() - timedelta(days=40)
+    db_session.commit()
+
+    r = client.post("/api/internal/offers/expire-stale", json={"older_than_days": 30},
+                    headers={"X-API-Key": settings.crawler_api_key})
+    assert r.status_code == 200
+    assert r.json() == {"expired": 1}
+    db_session.refresh(o)
+    assert o.status == OfferStatus.expired
