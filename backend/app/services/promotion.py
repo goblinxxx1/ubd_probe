@@ -9,13 +9,13 @@ from app.models.enums import CreatedBy, SourceType
 
 
 def maybe_promote_on_publish(db: Session, offer: Offer) -> None:
-    """On publish, promote a crawler offer's website origin to an active passive-crawl
+    """On publish, promote a crawler offer's article page to an active passive-crawl
     source and link the offer to it, so the passive crawler re-confirms it (freshness).
     No-op unless the offer is a crawler offer, not already sourced, with a valid http(s)
-    site_url. Idempotent by (type, url_or_handle)."""
+    article_url (falls back to site_url). Idempotent by (type, url_or_handle)."""
     if offer.created_by != CreatedBy.crawler or offer.source_id is not None:
         return
-    ref = normalize_source_ref(offer.site_url or "")
+    ref = normalize_source_ref(offer.article_url or offer.site_url or "")
     if ref is None:
         return
     source = source_crud.get_or_create_source_by_ref(

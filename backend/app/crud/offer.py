@@ -122,6 +122,8 @@ def set_status(db: Session, offer_id: int, status: OfferStatus, reviewed_by: int
     obj = get_offer(db, offer_id)
     obj.status = status
     obj.reviewed_by = reviewed_by
+    if status == OfferStatus.published:
+        obj.last_seen_at = datetime.utcnow()
     db.commit()
     db.refresh(obj)
     return obj

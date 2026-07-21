@@ -66,12 +66,13 @@ transition to `published`** (not on reject or any other status change).
 On publish, **if** all hold:
 - `offer.created_by == CreatedBy.crawler`
 - `offer.source_id is None`
-- the offer has a **fetchable website origin**: `offer.site_url` is a valid `http(s)` URL
+- the offer has a **fetchable article page**: `offer.article_url` (falling back to
+  `offer.site_url`) is a valid `http(s)` URL
 
 then:
 1. **Upsert** a `Source` by `(type=website, normalized url_or_handle)`:
-   - `url_or_handle = normalize(offer.site_url)` — the exact origin page, so the passive fetcher
-     re-fetches the same page.
+   - `url_or_handle = normalize(offer.article_url or offer.site_url)` — the offer's actual page,
+     so the passive fetcher re-fetches the same page.
    - `name = offer.provider` — see §3 (makes the re-crawl reproduce the same `content_hash`).
    - `is_active = True`, `created_by = CreatedBy.crawler`.
    - Idempotent: if a source with the same `(type, url_or_handle)` exists, reuse it (and ensure
@@ -86,14 +87,19 @@ exists, do **not** violate the constraint — leave the offer's `source_id` unse
 row already represents that offer under the source) or link only when free. The common case
 (brand-new source at publish) is always free.
 
-Offers **without** a fetchable origin are published normally but **not** promoted, and therefore
-**never expire** (freshness only applies to what can be re-crawled). V1 handles `website`
-origins only; `telegram` promotion is a possible later extension.
+Offers **without** a fetchable article page are published normally but **not** promoted, and
+therefore **never expire** (freshness only applies to what can be re-crawled). V1 handles
+`website` origins only; `telegram` promotion is a possible later extension.
 
 New source CRUD helper: `get_or_create_source_by_ref(db, type, url_or_handle, name, created_by)`.
 URL normalization reuses the crawler's canonical form conceptually; backend uses its own small
 normalizer (lowercased host, no trailing slash, strip `utm_*`/fragment) consistent with how the
-crawler produced `site_url`.
+crawler produced `article_url`.
+
+> **Note:** in the crawler's data model (`crawler/crawler/extract/heuristic.py`), `site_url` is
+> the bare origin (`scheme://netloc`, path stripped) while `article_url` is the actual page the
+> offer block was found on. `content_hash` is computed from that page's content, so `article_url`
+> — not `site_url` — is the correct promotion key for reproducing the same hash on re-crawl.
 
 ### 3. Re-crawl matching (the technical crux) ⚠️
 
@@ -101,7 +107,7 @@ For the passive re-crawl to bump `last_seen_at` on the *same* published offer, t
 offer must dedup-match it. Identity is `content_hash = sha256(title | provider | body)`
 (`crawler/dedup.py`). In the passive path the extractor is called as
 `extract(item, source["name"], cats)` — i.e. **provider = source name**. Therefore promotion sets
-`Source.name = offer.provider` and `Source.url_or_handle = the exact origin page`, so the passive
+`Source.name = offer.provider` and `Source.url_or_handle = the offer's article page`, so the passive
 extractor over the unchanged page yields the same `title | provider | body` → the same
 `content_hash`. Because the published offer now has `source_id = source.id`, the passive submission
 (same `source_id`, same `content_hash`) matches via `create_offer`'s `(source_id, content_hash)`
@@ -158,9 +164,10 @@ in the sweep call. No backend config change (threshold travels in the request).
 
 **Backend:**
 - Publishing a crawler offer with a website origin: upserts a `Source` (name=provider,
-  url_or_handle=normalized site_url, active), sets `offer.source_id`, sets `last_seen_at`.
+  url_or_handle=normalized article_url, active), sets `offer.source_id`, sets `last_seen_at`.
 - Idempotent promotion: two published offers sharing an origin → one source; re-publish reuses it.
-- No promotion when: `created_by != crawler`, `source_id` already set, or no valid `site_url`.
+- No promotion when: `created_by != crawler`, `source_id` already set, or no valid `article_url`
+  (falling back to `site_url`).
 - `create_offer` dedup (both branches) bumps `last_seen_at` on the existing offer.
 - Sweep expires only rows matching all four conditions; leaves published-but-fresh, un-promoted,
   admin, and non-published rows untouched; returns the correct count.

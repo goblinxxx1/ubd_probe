@@ -49,7 +49,7 @@ def test_no_promotion_for_admin_offer(db_session):
 
 
 def test_no_promotion_without_site_url(db_session):
-    o = _crawler_offer(db_session, site_url=None)
+    o = _crawler_offer(db_session, site_url=None, article_url=None)
     promotion.maybe_promote_on_publish(db_session, o)
     db_session.refresh(o)
     assert o.source_id is None
@@ -109,3 +109,12 @@ def test_publish_endpoint_promotes(client, db_session):
     db_session.refresh(pending)
     assert pending.source_id is not None
     assert db_session.get(Source, pending.source_id).name == "Shop"
+
+
+def test_promotes_from_article_url_not_homepage(db_session):
+    o = _crawler_offer(db_session, site_url="https://shop.example",
+                       article_url="https://shop.example/promo/veterans")
+    promotion.maybe_promote_on_publish(db_session, o)
+    db_session.refresh(o)
+    src = db_session.get(Source, o.source_id)
+    assert src.url_or_handle == "https://shop.example/promo/veterans"   # the offer page, not homepage
