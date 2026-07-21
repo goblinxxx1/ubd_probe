@@ -102,3 +102,24 @@ def test_offer_for_dsns_passes_gate():
     cand = ex.extract(_item("Знижка 15% для рятувальників ДСНС"), "Магазин", CATS)
     assert cand is not None
     assert cand.discount_type == "percent"
+
+
+def test_price_increase_without_discount_returns_none():
+    ex = get_extractor("heuristic")
+    # has a structural trigger ("діє до") + audience ("ветеранів") but it's a price HIKE
+    txt = "Подорожчання проїзду для ветеранів діє до 15 липня, буде 544 грн"
+    assert ex.extract(_item(txt), "Новини", CATS) is None
+
+
+def test_bare_percentage_is_not_an_offer():
+    ex = get_extractor("heuristic")
+    # a percentage + audience word, but NO discount trigger word at all
+    assert ex.extract(_item("18% студентів-ветеранів мають знижений тариф"), "Новини", CATS) is None
+
+
+def test_sale_percent_still_parsed():
+    ex = get_extractor("heuristic")
+    cand = ex.extract(_item("Розпродаж 50% для військових"), "Shop", CATS)
+    assert cand is not None
+    assert cand.discount_type == "percent"
+    assert cand.discount_value == "50"
