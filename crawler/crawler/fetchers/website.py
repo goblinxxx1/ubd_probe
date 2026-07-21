@@ -6,6 +6,7 @@ from urllib.parse import urljoin, urlsplit
 import httpx
 from selectolax.parser import HTMLParser
 
+from crawler.discovery.geo import find_city
 from crawler.models import RawItem
 
 log = logging.getLogger(__name__)
@@ -93,7 +94,19 @@ def _extract_locality(tree) -> str | None:
         node = tree.css_first(css)
         if node is not None and node.attributes.get("content"):
             return node.attributes["content"].strip()
-    return None
+    node = tree.css_first('[itemprop="addressLocality"]')
+    if node is not None:
+        txt = node.text(strip=True)
+        if txt:
+            return txt
+    parts = []
+    for css in ("address", "footer", '[class*="contact"]', '[id*="contact"]',
+                '[class*="address"]', '[class*="footer"]'):
+        for n in tree.css(css):
+            t = n.text(separator=" ", strip=True)
+            if t:
+                parts.append(t)
+    return find_city(" ".join(parts))
 
 
 class WebsiteFetcher:

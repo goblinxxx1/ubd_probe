@@ -105,3 +105,19 @@ def test_website_never_raises_on_parse_error():
         items, key = WebsiteFetcher(_client()).fetch(
             {"id": 1, "url_or_handle": "http://x"}, "prev")
     assert items == [] and key == "prev"
+
+
+def test_locality_from_microdata():
+    from selectolax.parser import HTMLParser
+    from crawler.fetchers.website import _extract_locality
+    html = '<html><body><span itemprop="addressLocality">Київ</span></body></html>'
+    assert _extract_locality(HTMLParser(html)) == "Київ"
+
+
+def test_locality_from_contact_region():
+    from selectolax.parser import HTMLParser
+    from crawler.fetchers.website import _extract_locality
+    html = ('<html><body><main><p>Знижка 15% для УБД</p></main>'
+            '<footer><address>м. Вишневе, вул. Київська 1</address></footer>'
+            '</body></html>')
+    assert _extract_locality(HTMLParser(html)) == "Вишневе"
