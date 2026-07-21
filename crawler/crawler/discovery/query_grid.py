@@ -58,3 +58,23 @@ def merge_queries(primary: list[str], extra: list[str]) -> list[str]:
             seen.add(key)
             out.append(q)
     return out
+
+
+class QueryGrid:
+    """Deterministic rotation over the generated grid via an integer cursor."""
+
+    def __init__(self, queries: list[str] | None = None):
+        self._grid = queries if queries is not None else build_grid()
+
+    def __len__(self) -> int:
+        return len(self._grid)
+
+    def next_batch(self, n: int, cursor: int) -> tuple[list[str], int]:
+        size = len(self._grid)
+        if size == 0:
+            return [], 0
+        n = max(1, min(int(n), size))
+        if cursor < 0 or cursor >= size:
+            cursor = 0
+        batch = [self._grid[(cursor + i) % size] for i in range(n)]
+        return batch, (cursor + n) % size
