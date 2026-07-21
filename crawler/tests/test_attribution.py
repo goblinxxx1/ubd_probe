@@ -80,3 +80,19 @@ def test_telegram_channel_is_provider():
     assert a.is_first_party and a.provider == "Kava Channel"
     assert a.suggest_type == "telegram"
     assert a.suggest_url_or_handle == "t.me/kavachan"
+
+
+def test_telegram_news_channel_rejected():
+    item = _item("Розклад пар та стипендії", url="https://t.me/nau_info/753")
+    ctx = build_page_ctx(SourceCandidate(name="КАІ • Корисна інфа", type="telegram",
+                                         url_or_handle="https://t.me/nau_info"), [item])
+    assert attribute(item, ctx) is None
+
+
+def test_telegram_business_channel_attributed():
+    item = _item("Знижка 10% для УБД", url="https://t.me/kava_lviv")
+    ctx = build_page_ctx(SourceCandidate(name="Кав'ярня Львів", type="telegram",
+                                         url_or_handle="https://t.me/kava_lviv"), [item])
+    a = attribute(item, ctx)
+    assert a is not None
+    assert a.suggest_type == "telegram"

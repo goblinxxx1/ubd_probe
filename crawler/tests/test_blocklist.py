@@ -47,3 +47,21 @@ def test_aggregator_portal_blocked():
     assert is_blocked_host("www.veteranam.info")
     assert is_blocked_host("engage.org.ua")
     assert is_blocked_host("goncharenkocentre.com.ua")
+
+
+def test_is_blocked_telegram_handle():
+    from crawler.discovery.blocklist import is_blocked_telegram
+    assert is_blocked_telegram("https://t.me/nau_info", "КАІ • Корисна інфа") is True
+    assert is_blocked_telegram("t.me/nau_info", None) is True
+    assert is_blocked_telegram("@nau_info", None) is True
+
+
+def test_is_blocked_telegram_news_name():
+    from crawler.discovery.blocklist import is_blocked_telegram
+    assert is_blocked_telegram("t.me/somechan", "Львівські новини") is True
+    assert is_blocked_telegram("t.me/uni_kai", "Університет — інфо для студентів") is True
+
+
+def test_is_blocked_telegram_allows_business():
+    from crawler.discovery.blocklist import is_blocked_telegram
+    assert is_blocked_telegram("t.me/kava_lviv", "Кав'ярня Львів") is False
