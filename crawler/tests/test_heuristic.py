@@ -89,3 +89,16 @@ def test_target_from_military_keyword_resolves_existing_only():
     cand = get_extractor("heuristic").extract(
         _item("Знижка 20% для військових"), "Shop", CATS)
     assert cand.target_category_ids == []
+
+
+def test_offer_without_target_audience_is_skipped():
+    ex = get_extractor("heuristic")
+    # real discount phrase, but no "для кого" audience signal -> not a UBD offer
+    assert ex.extract(_item("Знижка 20% на все у нашому магазині"), "Shop", CATS) is None
+
+
+def test_offer_for_dsns_passes_gate():
+    ex = get_extractor("heuristic")
+    cand = ex.extract(_item("Знижка 15% для рятувальників ДСНС"), "Магазин", CATS)
+    assert cand is not None
+    assert cand.discount_type == "percent"

@@ -84,6 +84,8 @@ class HeuristicExtractor:
 
         blob = f"{provider} {item.site_name or ''} {text}".lower()
         target_slugs = {slug for _, slug in classify(blob, TARGET_LEXICON)}
+        if not target_slugs:
+            return None
         target_ids = [c["id"] for c in categories.target if c["slug"] in target_slugs]
         offer_matches = classify(blob, OFFER_LEXICON)
 
