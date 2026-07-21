@@ -41,4 +41,17 @@ def test_online_not_detected():
 def test_kyiv_agglomeration_towns():
     assert find_city("м. Вишневе, вул. Київська 1") == "Вишневе"
     assert find_city("наш заклад в Ірпені") == "Ірпінь"
-    assert find_city("Бровари, просп. Незалежності") == "Бровари"
+    assert find_city("м. Бровари, просп. Незалежності") == "Бровари"
+
+
+def test_homograph_towns_need_locality_prefix():
+    # bare common-word homographs must NOT be read as cities
+    assert find_city("знижка на вишневе морозиво для військових") is None
+    assert find_city("місцеві бровари варять пиво") is None
+    assert find_city("зчинилася буча навколо цін") is None
+
+
+def test_homograph_towns_match_with_prefix():
+    assert find_city("м. Вишневе, вул. Київська 1") == "Вишневе"
+    assert find_city("смт Буча, центр") == "Буча"
+    assert find_city("у місто Бровари") == "Бровари"

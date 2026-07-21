@@ -1,6 +1,8 @@
 """Hosts that must never be attributed as offer providers or offer sources:
 news media, government, stock-photo banks, social-video aggregators."""
 
+import re
+
 _MEDIA = {
     "nv.ua", "24tv.ua", "061.ua", "pravda.com.ua", "unian.ua", "tsn.ua",
     "rbc.ua", "censor.net", "obozrevatel.com", "segodnya.ua",
@@ -30,10 +32,14 @@ def is_blocked_host(host: str | None) -> bool:
 
 _TELEGRAM_HANDLES = {"nau_info"}
 
-_CHANNEL_NEWS_LEXICON = (
-    "новини", "новостей", "інфо", "news", "info", "університет", "студент",
+# Strong, unambiguous news/info-channel markers — substring match is safe.
+_CHANNEL_NEWS_STRONG = (
+    "новини", "новостей", "університет", "студент",
     "коледж", "абітурієнт", "розклад", "оголошення", "вступ",
 )
+# Short generic terms — word-boundary only, so legit "*_info" business handles
+# (e.g. @salon_info) are not swept up.
+_CHANNEL_NEWS_WORD = re.compile(r"(?<!\w)(інфо|info|news)(?!\w)", re.IGNORECASE)
 
 
 def _tg_handle(raw: str | None) -> str:
@@ -47,4 +53,6 @@ def is_blocked_telegram(handle: str | None, name: str | None) -> bool:
     if _tg_handle(handle) in _TELEGRAM_HANDLES:
         return True
     text = f"{handle or ''} {name or ''}".lower()
-    return any(w in text for w in _CHANNEL_NEWS_LEXICON)
+    if any(w in text for w in _CHANNEL_NEWS_STRONG):
+        return True
+    return bool(_CHANNEL_NEWS_WORD.search(text))

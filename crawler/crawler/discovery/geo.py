@@ -35,7 +35,7 @@ _CITIES = {
     "Біла Церква": ("біла церква", "білій церкві", "білої церкви"),
     "Вишневе": ("вишневе", "вишневому", "вишневого"),
     "Ірпінь": ("ірпінь", "ірпені", "ірпеня"),
-    "Буча": ("буча", "бучі", "бучанськ"),
+    "Буча": ("буча", "бучі"),
     "Бровари": ("бровари", "броварах", "броварів"),
     "Бориспіль": ("бориспіль", "борисполі", "борисполя"),
     "Фастів": ("фастів", "фастові", "фастова"),
@@ -49,7 +49,19 @@ _FORMS = sorted(
     ((form, city) for city, forms in _CITIES.items() for form in forms),
     key=lambda fc: len(fc[0]), reverse=True,
 )
-_PATTERNS = [(re.compile(r"(?<!\w)" + re.escape(f) + r"(?!\w)"), c) for f, c in _FORMS]
+# Towns whose surface forms are homographs of common words (cherry / brewers /
+# uproar) — match only when preceded by a locality marker, to avoid false hits.
+_PREFIX_ONLY = {"Вишневе", "Буча", "Бровари"}
+_LOC_PREFIX = r"(?<!\w)(?:м|смт|с|місто)\.?\s+"
+
+
+def _make_pattern(form: str, city: str) -> re.Pattern:
+    if city in _PREFIX_ONLY:
+        return re.compile(_LOC_PREFIX + re.escape(form) + r"(?!\w)")
+    return re.compile(r"(?<!\w)" + re.escape(form) + r"(?!\w)")
+
+
+_PATTERNS = [(_make_pattern(f, c), c) for f, c in _FORMS]
 
 
 def find_city(text: str | None) -> str | None:

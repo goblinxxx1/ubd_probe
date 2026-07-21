@@ -65,3 +65,13 @@ def test_is_blocked_telegram_news_name():
 def test_is_blocked_telegram_allows_business():
     from crawler.discovery.blocklist import is_blocked_telegram
     assert is_blocked_telegram("t.me/kava_lviv", "Кав'ярня Львів") is False
+
+
+def test_business_info_handle_not_blocked():
+    from crawler.discovery.blocklist import is_blocked_telegram
+    # "*_info" is a common legit business-handle convention — must NOT be blocked
+    assert is_blocked_telegram("t.me/salon_info", "Салон краси") is False
+    assert is_blocked_telegram("t.me/pizza_lviv_info", "Піца Львів") is False
+    # but an explicit blocklisted handle and strong news terms still block
+    assert is_blocked_telegram("t.me/nau_info", None) is True
+    assert is_blocked_telegram("t.me/x", "Львівські новини") is True
