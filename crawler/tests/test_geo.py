@@ -36,3 +36,9 @@ def test_online_detected():
 def test_online_not_detected():
     assert not is_online("Знижка у кафе на вулиці")
     assert not is_online(None)
+
+
+def test_kyiv_agglomeration_towns():
+    assert find_city("м. Вишневе, вул. Київська 1") == "Вишневе"
+    assert find_city("наш заклад в Ірпені") == "Ірпінь"
+    assert find_city("Бровари, просп. Незалежності") == "Бровари"

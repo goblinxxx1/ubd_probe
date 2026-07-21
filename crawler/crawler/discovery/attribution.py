@@ -2,7 +2,7 @@ import re
 from dataclasses import dataclass
 from urllib.parse import urlsplit
 
-from crawler.discovery.blocklist import is_blocked_host
+from crawler.discovery.blocklist import is_blocked_host, is_blocked_telegram
 from crawler.extract.heuristic import _pick_target
 
 _FIRST_PERSON = re.compile(r"\b(ми|у нас|наш\w*|для наших)\b", re.IGNORECASE)
@@ -56,6 +56,8 @@ def _first_party(ctx: PageCtx) -> Attribution:
 
 def attribute(item, ctx: PageCtx) -> Attribution | None:
     if ctx.cand_type == "telegram":
+        if is_blocked_telegram(ctx.cand_url_or_handle, ctx.cand_name):
+            return None
         provider = ctx.cand_name or ctx.cand_url_or_handle
         return Attribution(provider=provider, is_first_party=True,
                            suggest_type="telegram",

@@ -37,3 +37,10 @@ def test_classify_is_deduplicated():
     # two food stems in one text still yield a single (name, slug)
     got = classify("кафе і ресторан поруч", OFFER_LEXICON)
     assert got.count(("Кафе/ресторани", "food")) == 1
+
+
+def test_target_lexicon_covers_dsns_and_police():
+    got = {slug for _, slug in classify("знижка для рятувальників ДСНС", TARGET_LEXICON)}
+    assert "dsns" in got
+    got2 = {slug for _, slug in classify("акція для поліцейських", TARGET_LEXICON)}
+    assert "police" in got2

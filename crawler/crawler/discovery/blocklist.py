@@ -26,3 +26,25 @@ def is_blocked_host(host: str | None) -> bool:
     if host == "gov.ua" or host.endswith(".gov.ua"):
         return True
     return any(host == d or host.endswith("." + d) for d in _BLOCKED)
+
+
+_TELEGRAM_HANDLES = {"nau_info"}
+
+_CHANNEL_NEWS_LEXICON = (
+    "новини", "новостей", "інфо", "news", "info", "університет", "студент",
+    "коледж", "абітурієнт", "розклад", "оголошення", "вступ",
+)
+
+
+def _tg_handle(raw: str | None) -> str:
+    s = (raw or "").strip().lower().removeprefix("@")
+    if "t.me/" in s:
+        s = s.split("t.me/", 1)[1]
+    return s.strip("/").split("/")[0].split("?")[0]
+
+
+def is_blocked_telegram(handle: str | None, name: str | None) -> bool:
+    if _tg_handle(handle) in _TELEGRAM_HANDLES:
+        return True
+    text = f"{handle or ''} {name or ''}".lower()
+    return any(w in text for w in _CHANNEL_NEWS_LEXICON)
