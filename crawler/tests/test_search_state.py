@@ -135,3 +135,18 @@ def test_degraded_flag_defaults_false_and_toggles(tmp_path):
     assert st.degraded_last_call() is True
     st.clear_degraded()
     assert st.degraded_last_call() is False
+
+
+def test_grid_cursor_defaults_zero(tmp_path):
+    st = _state(tmp_path, Clock())
+    assert st.grid_cursor == 0
+
+
+def test_set_grid_cursor_persists_and_is_independent(tmp_path):
+    path = str(tmp_path / "state.json")
+    st = SearchState(path, clock=Clock())
+    st.set_cursor(3)            # backend-rotation cursor
+    st.set_grid_cursor(42)      # grid cursor — separate field
+    reloaded = SearchState.load(path)
+    assert reloaded.grid_cursor == 42
+    assert reloaded.cursor == 3
