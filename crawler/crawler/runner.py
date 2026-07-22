@@ -114,12 +114,16 @@ class Runner:
         state = self._api.get_crawl_state(source["id"])
         last_key = state.get("last_seen_key")
         for url in plan.urls:
-            self._domain_rl.wait(plan.domain, plan.crawl_delay)
-            page_src = {"id": source["id"], "type": "website",
-                        "name": source["name"], "url_or_handle": url}
-            items, last_key = fetcher.fetch(page_src, last_key)
-            for item in items:
-                self._process_item(item, source, cats, known, summary)
+            try:
+                self._domain_rl.wait(plan.domain, plan.crawl_delay)
+                page_src = {"id": source["id"], "type": "website",
+                            "name": source["name"], "url_or_handle": url}
+                items, last_key = fetcher.fetch(page_src, last_key)
+                for item in items:
+                    self._process_item(item, source, cats, known, summary)
+            except Exception as exc:  # noqa: BLE001 — one page must not sink the domain walk
+                summary["errors"] += 1
+                log.warning("passive deep-walk page failed for %s: %s", url, exc)
         self._api.set_crawl_state(source["id"], last_key)
 
     def _process_item(self, item, source, cats, known, summary):

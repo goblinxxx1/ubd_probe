@@ -159,6 +159,35 @@ def test_passive_walk_skipped_for_telegram_source():
     assert summary["offers"] == 1                       # normal single-fetch path
 
 
+class _OneBadPageFetcher:
+    """Raises on one URL, returns an offer block on the others."""
+    platform = "website"
+    def __init__(self, bad_url): self._bad = bad_url; self.seen = []
+    def fetch(self, source, last_seen_key):
+        url = source["url_or_handle"]
+        self.seen.append(url)
+        if url == self._bad:
+            raise RuntimeError("boom page")
+        item = RawItem(source_id=source["id"], platform="website", key=f"k:{url}",
+                       text="Знижка 30% для ветеранів", url=url, links=[])
+        return [item], f"key:{url}"
+
+
+def test_passive_walk_one_bad_page_does_not_abort_domain():
+    src = {"id": 9, "type": "website", "name": "Shop", "url_or_handle": "https://shop.ua"}
+    api = FakeApi([src])
+    fetcher = _OneBadPageFetcher("https://shop.ua/sale")   # middle page blows up
+    walker = _FakeWalker(["https://shop.ua", "https://shop.ua/sale", "https://shop.ua/promo"],
+                         "shop.ua")
+    runner = Runner(api, {"website": fetcher}, get_extractor("heuristic"), _rl(),
+                    walker=walker, domain_rate_limiter=_FakeDomainRL())
+    summary = runner.run()
+    assert fetcher.seen == ["https://shop.ua", "https://shop.ua/sale", "https://shop.ua/promo"]
+    assert summary["offers"] == 2                       # first + third still processed
+    assert summary["errors"] == 1                       # the bad page counted once
+    assert api.state[9] == "key:https://shop.ua/promo"  # walk continued to the last page
+
+
 from crawler.discovery.domain_registry import DomainRegistry
 
 
