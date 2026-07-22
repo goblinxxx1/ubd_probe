@@ -49,6 +49,14 @@ class _RawSettings(BaseSettings):
     crawl_delay_cap_seconds: float = 30.0
     robots_cache_path: str = "/data/robots_cache.json"
     robots_cache_ttl_hours: int = 168
+    corpus_path: str = "/data/corpus.jsonl"
+    corpus_max_mb: float = 50.0
+    promo_lexicon_learned_path: str = "/data/promo_lexicon_learned.json"
+    snowball_state_path: str = "/data/snowball_state.json"
+    autofill_enabled: bool = False
+    miner_min_domain_support: int = 3
+    miner_min_logodds: float = 1.5
+    miner_max_candidates_per_run: int = 50
 
 
 @dataclass
@@ -93,6 +101,14 @@ class Config:
     crawl_delay_cap_seconds: float = 30.0
     robots_cache_path: str = "/data/robots_cache.json"
     robots_cache_ttl_hours: int = 168
+    corpus_path: str = "/data/corpus.jsonl"
+    corpus_max_mb: float = 50.0
+    promo_lexicon_learned_path: str = "/data/promo_lexicon_learned.json"
+    snowball_state_path: str = "/data/snowball_state.json"
+    autofill_enabled: bool = False
+    miner_min_domain_support: int = 3
+    miner_min_logodds: float = 1.5
+    miner_max_candidates_per_run: int = 50
 
 
 def _parse_accounts(platform: str, raw: str) -> list[BotCredential]:
@@ -160,4 +176,12 @@ def load_config() -> Config:
         crawl_delay_cap_seconds=s.crawl_delay_cap_seconds,
         robots_cache_path=s.robots_cache_path,
         robots_cache_ttl_hours=s.robots_cache_ttl_hours,
+        corpus_path=s.corpus_path,
+        corpus_max_mb=s.corpus_max_mb,
+        promo_lexicon_learned_path=s.promo_lexicon_learned_path,
+        snowball_state_path=s.snowball_state_path,
+        autofill_enabled=s.autofill_enabled,
+        miner_min_domain_support=s.miner_min_domain_support,
+        miner_min_logodds=s.miner_min_logodds,
+        miner_max_candidates_per_run=s.miner_max_candidates_per_run,
     )
