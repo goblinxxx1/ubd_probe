@@ -10,13 +10,15 @@ from crawler.discovery.brand_feed import (
 from crawler.discovery.harvest import ActiveHarvester
 from crawler.discovery.providers import build_search_provider
 from crawler.discovery.query_grid import QueryGrid, merge_queries
+from crawler.discovery.robots import RobotsPolicy
 from crawler.discovery.search_state import SearchState
+from crawler.discovery.walker import DomainWalker
 from crawler.extract.base import get_extractor
 from crawler.fetchers.facebook import FacebookFetcher
 from crawler.fetchers.instagram import InstagramFetcher
 from crawler.fetchers.telegram import TelegramFetcher
 from crawler.fetchers.website import WebsiteFetcher
-from crawler.ratelimit import RateLimiter
+from crawler.ratelimit import RateLimiter, DomainRateLimiter
 from crawler.runner import Runner
 
 log = logging.getLogger(__name__)
@@ -40,6 +42,22 @@ def _build_brand_feed(config):
         except Exception as exc:  # noqa: BLE001 — refresh is best-effort; feed uses cache/fallbacks
             log.warning("brand-domain refresh failed: %s", exc)
     return BrandFeed(cache, BRAND_SEEDS, per_pass=config.brand_feed_per_pass)
+
+
+def _build_walker(config, web_client):
+    domain_rl = DomainRateLimiter(config.domain_min_delay_seconds)
+    robots = RobotsPolicy(web_client, domain_rl, config.robots_cache_path,
+                          config.robots_cache_ttl_hours * 3600)
+    walker = DomainWalker(
+        web_client, robots, domain_rl,
+        domain_page_cap=config.domain_page_cap,
+        sitemap_max_docs=config.sitemap_max_docs,
+        bfs_max_depth=config.bfs_max_depth,
+        bfs_max_pages=config.bfs_max_pages,
+        bfs_trigger_min=config.bfs_trigger_min,
+        domain_min_delay=config.domain_min_delay_seconds,
+        crawl_delay_cap=config.crawl_delay_cap_seconds)
+    return walker, domain_rl
 
 
 def build_runner(config) -> Runner:
@@ -78,9 +96,14 @@ def build_runner(config) -> Runner:
             discovery = ActiveDiscovery(budget=budget, search_provider=provider)
     if config.brand_feed_enabled:
         brand_feed = _build_brand_feed(config)
+    walker = None
+    domain_rl = None
+    if config.sitemap_depth_enabled:
+        walker, domain_rl = _build_walker(config, web_client)
     if (discovery is not None or brand_feed is not None) and config.active_fetch_budget:
         harvester = ActiveHarvester(api, fetchers, extractor, rate_limiter,
-                                    fetch_budget=config.active_fetch_budget)
+                                    fetch_budget=config.active_fetch_budget,
+                                    walker=walker, domain_rate_limiter=domain_rl)
     return Runner(api, fetchers, extractor, rate_limiter,
                   discovery=discovery, keywords=keywords, harvester=harvester,
                   brand_feed=brand_feed, freshness_ttl_days=config.freshness_ttl_days)

@@ -139,3 +139,33 @@ def test_runner_skips_harvest_when_no_candidates():
                     brand_feed=None)
     runner.run()
     assert harv.called is False
+
+
+from crawler.discovery.walker import DomainWalker
+
+
+def _harvest_config(tmp_path, **over):
+    bpath = tmp_path / "brand_domains.json"
+    bpath.write_text(json.dumps({"version": 1, "refreshed_at": 9_999_999_999.0,
+                                 "domains": {"OKKO": "okko.ua"}}), encoding="utf-8")
+    base = dict(
+        internal_api_url="http://api", crawler_api_key="k", extractor="heuristic",
+        active_discovery=False, request_timeout=5.0, min_delay_seconds=0.0,
+        bot_accounts=[], proxies={},
+        brand_feed_enabled=True, brand_domains_path=str(bpath),
+        brand_feed_refresh_hours=336, active_fetch_budget=20,
+        robots_cache_path=str(tmp_path / "robots.json"),
+    )
+    base.update(over)
+    return Config(**base)
+
+
+def test_walker_built_when_sitemap_depth_enabled(tmp_path):
+    runner = build_runner(_harvest_config(tmp_path, sitemap_depth_enabled=True))
+    assert isinstance(runner._harvester._walker, DomainWalker)
+    assert runner._harvester._domain_rl is not None
+
+
+def test_no_walker_when_sitemap_depth_disabled(tmp_path):
+    runner = build_runner(_harvest_config(tmp_path, sitemap_depth_enabled=False))
+    assert runner._harvester._walker is None
