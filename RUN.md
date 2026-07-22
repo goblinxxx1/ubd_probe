@@ -250,6 +250,60 @@ cd crawler && .\register-task.ps1 -IntervalMinutes 60
 
 ---
 
+## Блок 4. Автонаповнення промо-лексикону
+
+Автоматичне розширення промо-лексикону через контекстний майніng: корпус текстів
+→ вилучення кандидат-термів за log-odds + якорі → людське рішення (approve/reject).
+Вмикається окремо: **`AUTOFILL_ENABLED=true`** у `crawler/.env`.
+
+**1. Наповнення корпусу** (one-off, за brand-feed доменами):
+
+```bash
+# хост:
+cd crawler && .venv/Scripts/python.exe -m crawler.learn.bootstrap
+# Docker:
+docker compose --profile crawler run --rm \
+  -e AUTOFILL_ENABLED=true crawler python -m crawler.learn.bootstrap
+```
+
+Збирає вебсторінки зі schemy брендів, витягує оффери і текст → файл `CORPUS_PATH`
+(`/data/corpus.jsonl`). Запускається один раз на початку (якщо `brand_feed_enabled=true`).
+
+**2. Майніng кандидатів** (вилучення потенційних промо-термів):
+
+```bash
+# хост:
+cd crawler && .venv/Scripts/python.exe -m crawler.learn.run_miner
+# Docker:
+docker compose --profile crawler run --rm \
+  -e AUTOFILL_ENABLED=true crawler python -m crawler.learn.run_miner
+```
+
+Аналізує корпус, обчислює log-odds для кожного кандидата, фільтрує за
+`MINER_MIN_DOMAIN_SUPPORT`, `MINER_MIN_LOGODDS` → список у `CANDIDATES_PATH`.
+
+**3. Аудит і промоція** (людське рішення — єдиний шлях у живий гейт):
+
+```bash
+# Список кандидатів:
+cd crawler && .venv/Scripts/python.exe -m crawler.learn.audit list \
+  --candidates <CANDIDATES_PATH>
+
+# Затвердити термін (переходить у LEARNED; видаляється з кандидатів):
+.venv/Scripts/python.exe -m crawler.learn.audit approve "<term>" \
+  --candidates <CANDIDATES_PATH> --learned <PROMO_LEXICON_LEARNED_PATH>
+
+# Відхилити термін (додається у STOPLIST; видаляється з кандидатів):
+.venv/Scripts/python.exe -m crawler.learn.audit reject "<term>" \
+  --candidates <CANDIDATES_PATH> --stoplist <STOPLIST_PATH>
+```
+
+**Важливо:** затвердження (`approve`) — це єдиний механізм потрапляння терміна
+у живий гейт лексикону. Все інше (мейнер, якорі, корпус) — передумови. Людина
+контролює, що входить в слово.
+
+---
+
 ## Тести (довідково, не для прод-запуску)
 
 ```bash
