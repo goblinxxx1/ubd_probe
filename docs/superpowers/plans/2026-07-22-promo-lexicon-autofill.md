@@ -61,14 +61,16 @@ def test_url_is_promo_matches_tokens():
 
 
 def test_learned_terms_augment_offer_triggers(tmp_path):
+    # "рібейт" — синтетичний плейсхолдер, гарантовано відсутній у SEED (не плутати з
+    # куруваними промо-термами Task 3, які В SEED)
     pl.reload_learned(None)
-    assert "уцінк" not in pl.offer_triggers()
+    assert "рібейт" not in pl.offer_triggers()
     f = tmp_path / "learned.json"
-    f.write_text(json.dumps([{"term": "уцінк"}]), encoding="utf-8")
+    f.write_text(json.dumps([{"term": "рібейт"}]), encoding="utf-8")
     pl.reload_learned(str(f))
-    assert "уцінк" in pl.offer_triggers()
+    assert "рібейт" in pl.offer_triggers()
     pl.reload_learned(None)  # reset for other tests
-    assert "уцінк" not in pl.offer_triggers()
+    assert "рібейт" not in pl.offer_triggers()
 ```
 
 - [ ] **Step 2: Запустити — має впасти**
@@ -249,7 +251,7 @@ SEED_OFFER_TRIGGERS = (
     # --- розширення (курований маркетинг-лексикон) ---
     "уцінк", "ліквідац", "бонус", "кешбек", "подарунок", "тільки сьогодні",
     "супер ціна", "супер-ціна", "гаряч пропозиц", "друга за пів ціни",
-    "спеціальна ціна", "спец ціна", "вигідна пропозиц", "знижен",
+    "спеціальна ціна", "спец ціна", "вигідна пропозиц",
 )
 SEED_URL_TOKENS = (
     # --- ядро (ТОЧНО як у walker, 26) ---
