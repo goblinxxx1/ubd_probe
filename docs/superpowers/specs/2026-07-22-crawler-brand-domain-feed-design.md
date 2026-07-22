@@ -178,7 +178,7 @@ domain that is also a tracked source from being re-harvested.
 | field | env | default | note |
 |---|---|---|---|
 | `brand_feed_enabled: bool` | `BRAND_FEED_ENABLED` | `True` | independent of `active_discovery` |
-| `brand_feed_refresh_hours: int` | `BRAND_FEED_REFRESH_HOURS` | `168` | domains are stable; refresh is rare |
+| `brand_feed_refresh_hours: int` | `BRAND_FEED_REFRESH_HOURS` | `336` | domains are stable (14 days); refresh is rare |
 | `brand_domains_path: str` | `BRAND_DOMAINS_PATH` | `/data/brand_domains.json` | beside `search_state.json` |
 | `overpass_url: str` | `OVERPASS_URL` | `https://overpass-api.de/api/interpreter` | override for mirror/self-host/tests |
 | `wikidata_url: str` | `WIKIDATA_URL` | `https://www.wikidata.org/w/api.php` | override for mirror/self-host/tests |
