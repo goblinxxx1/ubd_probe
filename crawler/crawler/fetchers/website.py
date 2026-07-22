@@ -121,6 +121,30 @@ def _has_offer_schema(tree) -> bool:
     return False
 
 
+_ARTICLE_TYPE = re.compile(
+    r'"@type"\s*:\s*"[^"]*(?:NewsArticle|BlogPosting|LiveBlogPosting|\bArticle\b)',
+    re.IGNORECASE)
+# physical-business types only — NOT generic "Organization" (a news site is a
+# NewsMediaOrganization, which must not count as a business signal).
+_BUSINESS_TYPE = re.compile(
+    r'"@type"\s*:\s*"[^"]*(?:LocalBusiness|Store|Restaurant|CafeOrCoffeeShop)',
+    re.IGNORECASE)
+
+
+def _has_article_schema(tree) -> bool:
+    for node in tree.css('script[type="application/ld+json"]'):
+        if _ARTICLE_TYPE.search(node.text() or ""):
+            return True
+    return False
+
+
+def _has_business_schema(tree) -> bool:
+    for node in tree.css('script[type="application/ld+json"]'):
+        if _BUSINESS_TYPE.search(node.text() or ""):
+            return True
+    return False
+
+
 class WebsiteFetcher:
     platform = "website"
 
@@ -138,6 +162,8 @@ class WebsiteFetcher:
             site_name = _extract_site_name(tree)
             locality = _extract_locality(tree)
             has_offer = _has_offer_schema(tree)
+            is_article = _has_article_schema(tree)
+            has_business = _has_business_schema(tree)
             items: list[RawItem] = []
             seen_keys: set[str] = set()
             for node in tree.css("article, li, p"):
@@ -155,7 +181,9 @@ class WebsiteFetcher:
                 items.append(RawItem(source_id=source["id"], platform="website",
                                      key=key, text=text, url=url, links=links,
                                      logo_url=logo, site_name=site_name,
-                                     locality=locality, has_offer_schema=has_offer))
+                                     locality=locality, has_offer_schema=has_offer,
+                                     is_article=is_article,
+                                     has_business_schema=has_business))
             new_key = items[-1].key if items else last_seen_key
             return items, new_key
         except Exception as exc:  # noqa: BLE001 — never raise up the stack

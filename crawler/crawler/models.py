@@ -21,6 +21,8 @@ class RawItem:
     site_name: str | None = None
     locality: str | None = None
     has_offer_schema: bool = False
+    is_article: bool = False
+    has_business_schema: bool = False
 
 
 @dataclass

@@ -163,3 +163,35 @@ def test_offer_schema_flag_not_set_for_incidental_word():
     items, _ = WebsiteFetcher(_Client()).fetch(
         {"id": 1, "url_or_handle": "http://shop.ua"}, None)
     assert items and items[0].has_offer_schema is False
+
+
+def _fetcher_returning(html):
+    def handle(request):
+        return httpx.Response(200, text=html)
+    return WebsiteFetcher(httpx.Client(transport=httpx.MockTransport(handle)))
+
+
+def test_news_article_schema_sets_is_article(monkeypatch):
+    html = ('<html><head>'
+            '<script type="application/ld+json">'
+            '{"@context":"https://schema.org","@type":"NewsArticle","headline":"Знижки для ветеранів"}'
+            '</script></head><body>'
+            '<article>Знижка 20% для ветеранів у місті детально розписана тут</article>'
+            '</body></html>')
+    f = _fetcher_returning(html)   # existing helper in this test module
+    items, _ = f.fetch({"id": 1, "url_or_handle": "https://news.example/a"}, None)
+    assert items and items[0].is_article is True
+    assert items[0].has_business_schema is False
+
+
+def test_localbusiness_schema_sets_business_not_article(monkeypatch):
+    html = ('<html><head>'
+            '<script type="application/ld+json">'
+            '{"@context":"https://schema.org","@type":"LocalBusiness","name":"Кафе"}'
+            '</script></head><body>'
+            '<p>Знижка 20% для ветеранів у нас щодня протягом місяця</p>'
+            '</body></html>')
+    f = _fetcher_returning(html)
+    items, _ = f.fetch({"id": 1, "url_or_handle": "https://cafe.example"}, None)
+    assert items and items[0].is_article is False
+    assert items[0].has_business_schema is True
