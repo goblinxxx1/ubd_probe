@@ -16,12 +16,15 @@ def _as_source(cand) -> dict:
 
 
 class ActiveHarvester:
-    def __init__(self, api, fetchers, extractor, rate_limiter, fetch_budget=20):
+    def __init__(self, api, fetchers, extractor, rate_limiter, fetch_budget=20,
+                 walker=None, domain_rate_limiter=None):
         self._api = api
         self._fetchers = fetchers
         self._extractor = extractor
         self._rl = rate_limiter
         self._budget = fetch_budget
+        self._walker = walker
+        self._domain_rl = domain_rate_limiter
 
     def harvest(self, candidates, cats, known, summary) -> None:
         used = 0
@@ -42,10 +45,32 @@ class ActiveHarvester:
                 summary["errors"] += 1
                 log.warning("active harvest failed for %s: %s", cand.url_or_handle, exc)
 
+    def _plan(self, cand):
+        """(urls, domain, delay) for a candidate. Website candidates expand via the walker."""
+        if self._walker is not None and cand.type == "website":
+            plan = self._walker.walk(cand)
+            return plan.urls, plan.domain, plan.crawl_delay
+        return [cand.url_or_handle], None, None
+
+    def _wait(self, cand_type, domain, delay) -> None:
+        if domain is not None and self._domain_rl is not None:
+            self._domain_rl.wait(domain, delay)
+        elif self._rl is not None:
+            self._rl.wait(cand_type)
+
     def _harvest_one(self, cand, fetcher, cats, known, summary) -> None:
-        if self._rl is not None:
-            self._rl.wait(cand.type)
-        items, _ = fetcher.fetch(_as_source(cand), None)
+        urls, domain, delay = self._plan(cand)
+        for url in urls:
+            self._wait(cand.type, domain, delay)
+            src = {"id": None, "type": cand.type, "url_or_handle": url, "name": cand.name}
+            try:
+                items, _ = fetcher.fetch(src, None)
+                self._process_page(cand, items, cats, known, summary)
+            except Exception as exc:  # noqa: BLE001 — one page must not sink the domain
+                summary["errors"] += 1
+                log.warning("harvest page failed for %s: %s", url, exc)
+
+    def _process_page(self, cand, items, cats, known, summary) -> None:
         passing = [it for it in items
                    if self._extractor.extract(it, "", cats) is not None]
         ctx = build_page_ctx(cand, passing)

@@ -94,3 +94,124 @@ def test_error_in_one_candidate_isolated():
     summary = _summary()
     h.harvest([_cand()], cats=None, known=set(), summary=summary)
     assert summary["errors"] == 1 and api.offers == []
+
+
+from crawler.discovery.walker import WalkPlan
+
+
+class _Fetcher:
+    """Records fetched URLs; returns one trivial passing item per page."""
+    def __init__(self):
+        self.urls = []
+
+    def fetch(self, source, last_seen_key):
+        self.urls.append(source["url_or_handle"])
+        item = RawItem(source_id=None, platform="website", key="k",
+                       text="Ми пропонуємо знижку 20% для ветеранів у нас",
+                       url=source["url_or_handle"], links=[], site_name="Shop")
+        return [item], None
+
+
+class _Extractor:
+    def extract(self, item, provider, cats):
+        if provider == "":
+            return object()   # passes the relevance gate
+        from crawler.models import OfferCandidate
+        return OfferCandidate(source_id=None, title="t", provider=provider, body="b")
+
+
+class _Api:
+    def __init__(self):
+        self.offers = []
+
+    def submit_offer(self, payload):
+        self.offers.append(payload)
+
+    def submit_suggestion(self, payload):
+        pass
+
+
+class _Walker:
+    def __init__(self, urls):
+        self._urls = urls
+
+    def walk(self, cand):
+        return WalkPlan(domain="shop.ua", urls=self._urls, crawl_delay=1.0)
+
+
+class _DomainRL:
+    def __init__(self):
+        self.calls = []
+
+    def wait(self, domain, delay=None):
+        self.calls.append((domain, delay))
+
+
+def _website_cand():
+    return SourceCandidate(name="Shop", type="website", url_or_handle="https://shop.ua")
+
+
+def test_walker_expands_website_candidate_to_multiple_pages(monkeypatch):
+    import crawler.discovery.harvest as h
+    monkeypatch.setattr(h, "resolve_offer_categories", lambda *a, **k: [])
+    monkeypatch.setattr(h, "attribute",
+                        lambda item, ctx: type("A", (), {
+                            "provider": "shop.ua", "suggest_url_or_handle": None,
+                            "suggest_type": "website", "suggest_name": "Shop"})())
+    fetcher = _Fetcher()
+    drl = _DomainRL()
+    harv = ActiveHarvester(_Api(), {"website": fetcher}, _Extractor(), rate_limiter=None,
+                           walker=_Walker(["https://shop.ua", "https://shop.ua/sale"]),
+                           domain_rate_limiter=drl)
+    summary = {"offers": 0, "suggestions": 0, "errors": 0}
+    harv.harvest([_website_cand()], cats=object(), known=set(), summary=summary)
+    assert fetcher.urls == ["https://shop.ua", "https://shop.ua/sale"]
+    assert drl.calls == [("shop.ua", 1.0), ("shop.ua", 1.0)]
+
+
+def test_walker_none_keeps_single_homepage_fetch(monkeypatch):
+    import crawler.discovery.harvest as h
+    monkeypatch.setattr(h, "resolve_offer_categories", lambda *a, **k: [])
+    monkeypatch.setattr(h, "attribute",
+                        lambda item, ctx: type("A", (), {
+                            "provider": "shop.ua", "suggest_url_or_handle": None,
+                            "suggest_type": "website", "suggest_name": "Shop"})())
+
+    class PlatformRL:
+        def __init__(self):
+            self.calls = []
+
+        def wait(self, platform):
+            self.calls.append(platform)
+
+    fetcher = _Fetcher()
+    prl = PlatformRL()
+    harv = ActiveHarvester(_Api(), {"website": fetcher}, _Extractor(), rate_limiter=prl)
+    summary = {"offers": 0, "suggestions": 0, "errors": 0}
+    harv.harvest([_website_cand()], cats=object(), known=set(), summary=summary)
+    assert fetcher.urls == ["https://shop.ua"]     # single homepage fetch, unchanged
+    assert prl.calls == ["website"]                 # per-platform wait, unchanged
+
+
+def test_one_broken_page_does_not_stop_the_domain(monkeypatch):
+    import crawler.discovery.harvest as h
+    monkeypatch.setattr(h, "resolve_offer_categories", lambda *a, **k: [])
+    monkeypatch.setattr(h, "attribute",
+                        lambda item, ctx: type("A", (), {
+                            "provider": "shop.ua", "suggest_url_or_handle": None,
+                            "suggest_type": "website", "suggest_name": "Shop"})())
+
+    class FlakyFetcher(_Fetcher):
+        def fetch(self, source, last_seen_key):
+            if source["url_or_handle"].endswith("/boom"):
+                raise RuntimeError("dead page")
+            return super().fetch(source, last_seen_key)
+
+    fetcher = FlakyFetcher()
+    harv = ActiveHarvester(_Api(), {"website": fetcher}, _Extractor(), rate_limiter=None,
+                           walker=_Walker(["https://shop.ua/boom", "https://shop.ua/sale"]),
+                           domain_rate_limiter=_DomainRL())
+    summary = {"offers": 0, "suggestions": 0, "errors": 0}
+    harv.harvest([_website_cand()], cats=object(), known=set(), summary=summary)
+    assert summary["errors"] == 1
+    assert "https://shop.ua/sale" in fetcher.urls    # continued after the broken page
