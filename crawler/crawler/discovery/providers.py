@@ -184,10 +184,9 @@ class SearxngProvider:
         return out
 
 
-def build_search_provider(config):
+def build_search_provider(config, state=None):
     """Combine enabled search providers into one callable, or None."""
     providers = []
-    state = None
     for name in config.search_providers:
         if name == "duckduckgo":
             if state is None:

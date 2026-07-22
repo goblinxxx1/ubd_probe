@@ -5,6 +5,8 @@ from crawler.api_client import ApiClient
 from crawler.discovery.active import ActiveDiscovery
 from crawler.discovery.harvest import ActiveHarvester
 from crawler.discovery.providers import build_search_provider
+from crawler.discovery.query_grid import QueryGrid, merge_queries
+from crawler.discovery.search_state import SearchState
 from crawler.extract.base import get_extractor
 from crawler.fetchers.facebook import FacebookFetcher
 from crawler.fetchers.instagram import InstagramFetcher
@@ -43,14 +45,20 @@ def build_runner(config) -> Runner:
 
     discovery = None
     harvester = None
+    keywords = config.search_keywords
     if config.active_discovery:
-        provider = build_search_provider(config)
+        state = SearchState.load(config.search_state_path)
+        batch, new_cursor = QueryGrid().next_batch(
+            config.search_queries_per_pass, state.grid_cursor)
+        state.set_grid_cursor(new_cursor)
+        keywords = merge_queries(batch, config.search_keywords)
+        provider = build_search_provider(config, state=state)
         if provider is not None:
-            budget = config.search_budget or len(config.search_keywords)
+            budget = config.search_budget or len(keywords)
             discovery = ActiveDiscovery(budget=budget, search_provider=provider)
             if config.active_fetch_budget:
                 harvester = ActiveHarvester(api, fetchers, extractor, rate_limiter,
                                             fetch_budget=config.active_fetch_budget)
     return Runner(api, fetchers, extractor, rate_limiter,
-                  discovery=discovery, keywords=config.search_keywords, harvester=harvester,
+                  discovery=discovery, keywords=keywords, harvester=harvester,
                   freshness_ttl_days=config.freshness_ttl_days)
