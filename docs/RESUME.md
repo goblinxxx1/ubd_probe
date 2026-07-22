@@ -32,6 +32,7 @@
 16. **Crawler авто-тематика** — курований лексикон + auto-create offer-категорій через internal-ендпоінт `POST /api/internal/offer-categories` (X-API-Key); прибрано yandex з ddgs. [[ubd-crawler-auto-category]].
 17. **Мобільний фікс фільтрів** public (панель → повноекранна модалка).
 18. **Адаптивна верстка admin+public** — `ResponsiveTable` (el-table↔картки), off-canvas drawer ≤1024, `useBreakpoint`; public overflow-wrap/audit; + усі 5 follow-ups рев'ю. [[ubd-ui-responsive]].
+19. **Self-growing discovery** — 3 треки: query-grid ([[ubd-crawler-query-grid]]), brand→domain feed ([[ubd-crawler-brand-domain-feed]]), **sitemap-глибина** ([[ubd-crawler-sitemap-depth]]): DomainWalker розкриває website-кандидата homepage→промо-сторінки (robots→sitemap→BFS≤2) з per-domain політ-шаром; crawler 269/269. Зв'язка brand-feed→глибина→модерація виробляє офери.
 
 **Свідомо НЕ роблено:** C2 (сегментація тексту в блоці) — реальні дані показали непотрібність; деталі у пам'яті [[ubd-discovery-plan]].
 
@@ -43,10 +44,11 @@
 - **Дані:** у compose-БД `ubd` **0 оферів** (видалено на запит 2026-07-20). Сайт порожній.
 - **Docker:** образи compose `admin`/`public` **застарілі** (не перезбирані після responsive-треку) — живий `:8080`/`:8082` НЕ показує адаптив. Для перевірки: `docker compose build admin public && docker compose up -d`.
 
-**Наступний трек (рекомендація):** стабілізація discovery через **курований seed-каталог +
-пасивний кроул** (без залежності від відкритого веб-пошуку/API) — лікує і rate-limit, і шум
-атрибуції одночасно. Альтернативи: посилення атрибуції проти медіа-провайдерів; IG/FB-харвест.
-Обовʼязкових немає — основні треки завершені.
+**Наступний трек (рекомендація):** усі 3 P1-важелі self-growing discovery зроблено (query-grid +
+brand-feed + sitemap-глибина) — DDG-незалежне джерело доменів + розкриття глибини вже виробляють
+офери. Далі: **маркетинг-лексикон** (розширити промо/relevance-лексикон) або **domain-rating/snowball**
+(самонаповнення списку доменів). Деталі й порядок — [[ubd-crawler-discovery-scaling-brainstorm]].
+Альтернативи: посилення атрибуції проти медіа-провайдерів; IG/FB-харвест. Обовʼязкових немає.
 
 **Як запускати:** повний довідник — `RUN.md` (окремо/разом, краулер, пошукові движки,
 потік у адмінку); Docker-деталі — `README-docker.md`.
