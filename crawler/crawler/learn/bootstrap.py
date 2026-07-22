@@ -37,3 +37,11 @@ def bootstrap(config, limit=None) -> int:
         except Exception as exc:  # noqa: BLE001 — best-effort
             log.warning("bootstrap failed for %s: %s", cand.url_or_handle, exc)
     return n
+
+
+if __name__ == "__main__":  # pragma: no cover — CLI entry point
+    from crawler.config import load_config
+
+    logging.basicConfig(level=logging.INFO)
+    n = bootstrap(load_config())
+    print(f"corpus rows recorded: {n}")

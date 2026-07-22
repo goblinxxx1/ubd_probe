@@ -18,3 +18,13 @@ def run_miner(config) -> int:
                      max_candidates=config.miner_max_candidates_per_run)
     write_candidates(config.candidates_path, keep)
     return len(keep)
+
+
+if __name__ == "__main__":  # pragma: no cover — CLI entry point
+    import logging
+
+    from crawler.config import load_config
+
+    logging.basicConfig(level=logging.INFO)
+    n = run_miner(load_config())
+    print(f"candidates written: {n}")
