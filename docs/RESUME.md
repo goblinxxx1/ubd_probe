@@ -34,6 +34,7 @@
 18. **Адаптивна верстка admin+public** — `ResponsiveTable` (el-table↔картки), off-canvas drawer ≤1024, `useBreakpoint`; public overflow-wrap/audit; + усі 5 follow-ups рев'ю. [[ubd-ui-responsive]].
 19. **Self-growing discovery** — 3 треки: query-grid ([[ubd-crawler-query-grid]]), brand→domain feed ([[ubd-crawler-brand-domain-feed]]), **sitemap-глибина** ([[ubd-crawler-sitemap-depth]]): DomainWalker розкриває website-кандидата homepage→промо-сторінки (robots→sitemap→BFS≤2) з per-domain політ-шаром; crawler 269/269. Зв'язка brand-feed→глибина→модерація виробляє офери.
 20. **Маркетинг-лексикон / автонаповнення** ([[ubd-crawler-marketing-lexicon-autofill]]) — самонавчальний промо-словник: єдиний `promo_lexicon` (SEED+LEARNED), детермінований labeler+корпус, офлайн log-odds майнер (pymorphy3), вето (multi-domain/PASS-collision/abstention), snowball з прийнятих оферів (backend `GET /api/internal/approved-offers`), людський audit-CLI (approve→LEARNED — єдиний шлях у живий гейт). Gated `autofill_enabled` (дефолт OFF). crawler 299/299, backend 84/84. Живий гейт лишається детермінованим; навчання офлайн.
+21. **Domain-rating** (self-growing discovery lever 3, [[ubd-crawler-domain-rating]]) — самонаповнюваний рейтинг доменів: `DomainRegistry` (crawler-side JSON, exp-decay score) запамʼятовує productive website-домени, `DomainFeed` DDG-незалежно ре-фідить топ як кандидатів (список росте сам); активний harvester скіпає заапрувлені домени (host-skip, економія запитів) і записує рейтинг; пасивний source-loop **глибоко краулить усі сторінки** заапрувленого домену (`DomainWalker` посторінково) заради свіжих знижок. Gated `domain_rating_enabled` (дефолт ON), OFF byte-еквівалентно. crawler 324/324; opus-рев'ю READY 0C/0I.
 
 **Свідомо НЕ роблено:** C2 (сегментація тексту в блоці) — реальні дані показали непотрібність; деталі у пам'яті [[ubd-discovery-plan]].
 
@@ -46,15 +47,16 @@
 - **Docker:** образи compose `admin`/`public` **застарілі** (не перезбирані після responsive-треку) — живий `:8080`/`:8082` НЕ показує адаптив. Для перевірки: `docker compose build admin public && docker compose up -d`.
 
 **Наступний трек (рекомендація):** усі 3 P1-важелі self-growing discovery + маркетинг-лексикон/
-автонаповнення зроблено (query-grid + brand-feed + sitemap-глибина + самонавчальний промо-словник із
-log-odds майнером/вето/snowball/audit-гейтом). Далі: **domain-rating** (рейтинг/самонаповнення списку
-доменів). Деталі й порядок — [[ubd-crawler-discovery-scaling-brainstorm]].
+автонаповнення + **domain-rating** зроблено (query-grid + brand-feed + sitemap-глибина + самонавчальний
+промо-словник + рейтинг/самонаповнення доменів). Лишилися лише **P3 (необовʼязкові)**: бренд-якорні
+запити; вузький per-domain `site:`; LLM-хвіст перефразувань (офлайн, injection-hardened); крос-платформний
+дедуп. Деталі й порядок — [[ubd-crawler-discovery-scaling-brainstorm]].
 Альтернативи: посилення атрибуції проти медіа-провайдерів; IG/FB-харвест. Обовʼязкових немає.
 
 **Як запускати:** повний довідник — `RUN.md` (окремо/разом, краулер, пошукові движки,
 потік у адмінку); Docker-деталі — `README-docker.md`.
 
-**Тести (crawler/backend перевірено 2026-07-22):** admin **84**, public **60**, crawler **299**, backend **84** —
+**Тести (crawler/backend перевірено 2026-07-22):** admin **84**, public **60**, crawler **324**, backend **84** —
 усі зелені. Фронти перед мержем — ще й `npm run build` (Vitest НЕ компілює scoped-Less, тож
 undefined-токен у `<style>` проходить тести, але валить build). Backend-тести потребують
 `mysql-container` на :3306 (`docker start mysql-container`).
