@@ -11,6 +11,10 @@ import json
 import logging
 import os
 import time
+from collections import Counter
+from urllib.parse import urlparse
+
+import httpx
 
 from crawler.discovery.query_grid import BRANDS  # noqa: F401 — referenced by the seeds invariant
 
@@ -116,3 +120,93 @@ class BrandDomainCache:
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(self._data, f, ensure_ascii=False)
         os.replace(tmp, self._path)
+
+
+DEFAULT_OVERPASS_URL = "https://overpass-api.de/api/interpreter"
+DEFAULT_WIKIDATA_URL = "https://www.wikidata.org/w/api.php"
+_RESOLVER_UA = "UBDCrawler/0.1 (+https://ubd.example; brand-domain resolver)"
+
+
+def _host(url: str) -> str | None:
+    """Bare registrable host: strip scheme, userinfo, port, path, and a leading www."""
+    if not url or not url.strip():
+        return None
+    raw = url.strip()
+    if "//" not in raw:
+        raw = "//" + raw
+    netloc = urlparse(raw).netloc.lower()
+    netloc = netloc.split("@")[-1].split(":")[0]
+    if netloc.startswith("www."):
+        netloc = netloc[4:]
+    return netloc or None
+
+
+class BrandResolver:
+    """Best-effort brand→domain resolution via Wikidata P856 and Overpass website tags.
+    HTTP is injected for testability; every failure path returns None."""
+
+    def __init__(self, client_factory=None, overpass_url=DEFAULT_OVERPASS_URL,
+                 wikidata_url=DEFAULT_WIKIDATA_URL, timeout=25.0,
+                 sleep=time.sleep, min_delay=1.0):
+        self._client_factory = client_factory or (
+            lambda: httpx.Client(timeout=timeout, headers={"User-Agent": _RESOLVER_UA}))
+        self._overpass = overpass_url
+        self._wikidata = wikidata_url
+        self._sleep = sleep
+        self._delay = min_delay
+
+    def resolve(self, brand: str, qid: str | None = None) -> str | None:
+        if qid:
+            host = self._wikidata_site(qid)
+            if host:
+                return host
+        tags = self._overpass_tags(brand)
+        if tags.get("wikidata"):
+            host = self._wikidata_site(tags["wikidata"])
+            if host:
+                return host
+        hosts = [h for h in (_host(w) for w in tags.get("websites", [])) if h]
+        if hosts:
+            return Counter(hosts).most_common(1)[0][0]
+        return None
+
+    def _wikidata_site(self, qid: str) -> str | None:
+        try:
+            if self._delay:
+                self._sleep(self._delay)
+            with self._client_factory() as client:
+                resp = client.get(self._wikidata, params={
+                    "action": "wbgetclaims", "entity": qid,
+                    "property": "P856", "format": "json"})
+                resp.raise_for_status()
+                data = resp.json()
+            for claim in data.get("claims", {}).get("P856", []):
+                value = (claim.get("mainsnak", {}).get("datavalue", {}) or {}).get("value")
+                host = _host(value) if isinstance(value, str) else None
+                if host:
+                    return host
+        except Exception as exc:  # noqa: BLE001 — resolution is best-effort
+            log.warning("wikidata P856 failed for %s: %s", qid, exc)
+        return None
+
+    def _overpass_tags(self, brand: str) -> dict:
+        query = f'[out:json][timeout:25];nwr["brand"="{brand}"];out tags 50;'
+        try:
+            if self._delay:
+                self._sleep(self._delay)
+            with self._client_factory() as client:
+                resp = client.post(self._overpass, data={"data": query})
+                resp.raise_for_status()
+                data = resp.json()
+        except Exception as exc:  # noqa: BLE001 — resolution is best-effort
+            log.warning("overpass failed for %r: %s", brand, exc)
+            return {}
+        wikidata = None
+        websites: list[str] = []
+        for el in data.get("elements", []):
+            tags = el.get("tags", {})
+            wikidata = wikidata or tags.get("brand:wikidata") or tags.get("wikidata")
+            for key in ("website", "contact:website"):
+                if tags.get(key):
+                    websites.append(tags[key])
+        return {"wikidata": wikidata, "websites": websites}
