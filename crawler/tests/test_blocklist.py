@@ -75,3 +75,24 @@ def test_business_info_handle_not_blocked():
     # but an explicit blocklisted handle and strong news terms still block
     assert is_blocked_telegram("t.me/nau_info", None) is True
     assert is_blocked_telegram("t.me/x", "Львівські новини") is True
+
+
+from crawler.discovery import blocklist
+
+
+def test_reload_learned_extends_then_clears():
+    assert blocklist.is_blocked_host("randomshop.ua") is False
+    blocklist.reload_learned(["randomshop.ua", "www.other.ua"])
+    try:
+        assert blocklist.is_blocked_host("randomshop.ua") is True
+        assert blocklist.is_blocked_host("other.ua") is True          # www-normalised
+        assert blocklist.is_blocked_host("sub.randomshop.ua") is True  # subdomain suffix
+    finally:
+        blocklist.reload_learned(None)
+    assert blocklist.is_blocked_host("randomshop.ua") is False        # cleared → SEED only
+
+
+def test_reload_learned_none_is_seed_only():
+    blocklist.reload_learned(None)
+    assert blocklist.is_blocked_host("nv.ua") is True                 # SEED intact
+    assert blocklist.is_blocked_host("randomshop.ua") is False

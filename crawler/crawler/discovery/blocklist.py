@@ -18,6 +18,19 @@ _SOCIAL = {
 }
 _BLOCKED = _MEDIA | _STOCK | _SOCIAL
 
+_LEARNED: frozenset[str] = frozenset()
+
+
+def reload_learned(hosts) -> None:
+    """Replace the learned media/aggregator host set (approved via the Vue audit).
+    None/empty ⇒ SEED-only, byte-equivalent to prior behaviour."""
+    global _LEARNED
+    if not hosts:
+        _LEARNED = frozenset()
+        return
+    norm = {h.strip().lower().removeprefix("www.") for h in hosts if h and h.strip()}
+    _LEARNED = frozenset(n for n in norm if n)
+
 
 def is_blocked_host(host: str | None) -> bool:
     if not host:
@@ -27,7 +40,9 @@ def is_blocked_host(host: str | None) -> bool:
         return False
     if host == "gov.ua" or host.endswith(".gov.ua"):
         return True
-    return any(host == d or host.endswith("." + d) for d in _BLOCKED)
+    if any(host == d or host.endswith("." + d) for d in _BLOCKED):
+        return True
+    return any(host == d or host.endswith("." + d) for d in _LEARNED)
 
 
 _TELEGRAM_HANDLES = {"nau_info"}
