@@ -6,7 +6,15 @@ query_grid.BRANDS; BRAND_SEEDS adds an optional Wikidata QID (fast-path hint) an
 required fallback domain per brand. The network (Wikidata/Overpass) is touched only
 during refresh; passes read the cache offline."""
 
+import copy
+import json
+import logging
+import os
+import time
+
 from crawler.discovery.query_grid import BRANDS  # noqa: F401 — referenced by the seeds invariant
+
+log = logging.getLogger(__name__)
 
 # brand -> (wikidata_qid | None, fallback_domain)
 # Fallback domains are best-effort BOOTSTRAP values: they seed the feed before any
@@ -63,3 +71,48 @@ BRAND_SEEDS: dict[str, tuple[str | None, str]] = {
     "Vodafone": (None, "vodafone.ua"),
     "lifecell": (None, "lifecell.ua"),
 }
+
+_EMPTY_CACHE = {"version": 1, "refreshed_at": 0.0, "domains": {}}
+
+
+class BrandDomainCache:
+    """Persistent JSON brand→domain map with a refresh-freshness gate. Atomic writes."""
+
+    def __init__(self, path: str, data: dict | None = None, clock=time.time):
+        self._path = path
+        self._clock = clock
+        self._data = data if data is not None else json.loads(json.dumps(_EMPTY_CACHE))
+
+    @classmethod
+    def load(cls, path: str, clock=time.time) -> "BrandDomainCache":
+        try:
+            with open(path, encoding="utf-8") as f:
+                data = json.load(f)
+            if not isinstance(data, dict):
+                raise ValueError("brand cache must be a JSON object")
+            for k, default in _EMPTY_CACHE.items():
+                data.setdefault(k, copy.deepcopy(default))
+        except (OSError, ValueError) as exc:
+            log.warning("brand cache load failed (%s); starting clean", exc)
+            data = None
+        return cls(path, data=data, clock=clock)
+
+    def is_stale(self, ttl_seconds: float) -> bool:
+        return self._clock() - float(self._data.get("refreshed_at", 0.0)) >= ttl_seconds
+
+    def domains(self) -> dict[str, str]:
+        return dict(self._data.get("domains", {}))
+
+    def replace(self, domains: dict[str, str]) -> None:
+        self._data["domains"] = dict(domains)
+        self._data["refreshed_at"] = self._clock()
+        self._save()
+
+    def _save(self) -> None:
+        directory = os.path.dirname(self._path)
+        if directory:
+            os.makedirs(directory, exist_ok=True)
+        tmp = f"{self._path}.tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(self._data, f, ensure_ascii=False)
+        os.replace(tmp, self._path)
