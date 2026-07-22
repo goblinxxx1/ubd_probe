@@ -62,3 +62,22 @@ def test_search_queries_per_pass_override(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("SEARCH_QUERIES_PER_PASS", "12")
     assert load_config().search_queries_per_pass == 12
+
+
+def test_brand_feed_defaults(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)      # no .env -> defaults apply
+    cfg = load_config()
+    assert cfg.brand_feed_enabled is True
+    assert cfg.brand_feed_refresh_hours == 336
+    assert cfg.brand_domains_path == "/data/brand_domains.json"
+    assert cfg.overpass_url == "https://overpass-api.de/api/interpreter"
+    assert cfg.wikidata_url == "https://www.wikidata.org/w/api.php"
+
+
+def test_brand_feed_env_overrides(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("BRAND_FEED_ENABLED", "false")
+    monkeypatch.setenv("BRAND_FEED_REFRESH_HOURS", "48")
+    cfg = load_config()
+    assert cfg.brand_feed_enabled is False
+    assert cfg.brand_feed_refresh_hours == 48

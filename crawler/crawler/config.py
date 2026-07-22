@@ -33,6 +33,11 @@ class _RawSettings(BaseSettings):
     search_queries_per_pass: int = 40
     searxng_url: str = "http://searxng:8080"
     freshness_ttl_days: int = 30
+    brand_feed_enabled: bool = True
+    brand_feed_refresh_hours: int = 336
+    brand_domains_path: str = "/data/brand_domains.json"
+    overpass_url: str = "https://overpass-api.de/api/interpreter"
+    wikidata_url: str = "https://www.wikidata.org/w/api.php"
 
 
 @dataclass
@@ -61,6 +66,11 @@ class Config:
     search_queries_per_pass: int = 40
     searxng_url: str = "http://searxng:8080"
     freshness_ttl_days: int = 30
+    brand_feed_enabled: bool = True
+    brand_feed_refresh_hours: int = 336
+    brand_domains_path: str = "/data/brand_domains.json"
+    overpass_url: str = "https://overpass-api.de/api/interpreter"
+    wikidata_url: str = "https://www.wikidata.org/w/api.php"
 
 
 def _parse_accounts(platform: str, raw: str) -> list[BotCredential]:
@@ -112,4 +122,9 @@ def load_config() -> Config:
         search_queries_per_pass=s.search_queries_per_pass,
         searxng_url=s.searxng_url,
         freshness_ttl_days=s.freshness_ttl_days,
+        brand_feed_enabled=s.brand_feed_enabled,
+        brand_feed_refresh_hours=s.brand_feed_refresh_hours,
+        brand_domains_path=s.brand_domains_path,
+        overpass_url=s.overpass_url,
+        wikidata_url=s.wikidata_url,
     )
