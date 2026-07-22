@@ -157,3 +157,47 @@ def test_passive_walk_skipped_for_telegram_source():
                     walker=walker, domain_rate_limiter=_FakeDomainRL())
     summary = runner.run()
     assert summary["offers"] == 1                       # normal single-fetch path
+
+
+from crawler.discovery.domain_registry import DomainRegistry
+
+
+class _RecordingHarvester:
+    def __init__(self): self.candidates = None; self.known_hosts = None
+    def harvest(self, candidates, cats, known, summary, known_hosts=None):
+        self.candidates = list(candidates); self.known_hosts = set(known_hosts or set())
+
+
+class _StubFeed:
+    def __init__(self, cands): self._cands = cands
+    def candidates(self, known_hosts):
+        return [c for c in self._cands if c.name not in known_hosts]
+
+
+def test_active_block_prepends_domain_feed_and_builds_known_hosts(tmp_path):
+    src = {"id": 1, "type": "website", "name": "Silpo", "url_or_handle": "https://silpo.ua"}
+    api = FakeApi([src])
+    feed_cand = SourceCandidate(name="proven.ua", type="website",
+                                url_or_handle="https://proven.ua")
+    hv = _RecordingHarvester()
+    reg = DomainRegistry(str(tmp_path / "r.json"), clock=lambda: 1.0)
+    runner = Runner(api, {"website": FakeFetcher([])}, get_extractor("heuristic"), _rl(),
+                    harvester=hv, domain_feed=_StubFeed([feed_cand]), domain_registry=reg)
+    runner.run()
+    assert hv.candidates[0].url_or_handle == "https://proven.ua"   # feed first (exploit)
+    assert hv.known_hosts == {"silpo.ua"}                          # active source host
+
+
+def test_active_block_prunes_and_saves_registry(tmp_path):
+    import os
+    p = str(tmp_path / "r.json")
+    api = FakeApi([])
+    reg = DomainRegistry(p, clock=lambda: 1e9)
+    reg.record("dead.ua", offers=0, errors=1)          # score 0, old (last_seen 1e9, ttl small)
+    runner = Runner(api, {"website": FakeFetcher([])}, get_extractor("heuristic"), _rl(),
+                    harvester=_RecordingHarvester(), domain_feed=_StubFeed([]),
+                    domain_registry=reg, domain_evict_min_score=0.1,
+                    domain_evict_ttl_seconds=0.0)
+    runner.run()
+    assert os.path.exists(p)                            # saved
+    assert DomainRegistry.load(p).top(10, set()) == [] # dead pruned

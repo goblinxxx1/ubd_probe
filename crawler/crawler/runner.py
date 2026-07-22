@@ -1,5 +1,6 @@
 import logging
 
+from crawler.discovery.brand_feed import _host
 from crawler.discovery.passive import extract_source_candidates, normalize_ref
 from crawler.extract.base import CategoryIndex
 from crawler.extract.categories import resolve_offer_categories
@@ -13,7 +14,9 @@ class Runner:
     def __init__(self, api_client, fetchers: dict, extractor, rate_limiter,
                  discovery=None, keywords=None, harvester=None, brand_feed=None,
                  freshness_ttl_days=30, corpus_recorder=None,
-                 walker=None, domain_rate_limiter=None):
+                 walker=None, domain_rate_limiter=None,
+                 domain_feed=None, domain_registry=None,
+                 domain_evict_min_score=0.1, domain_evict_ttl_seconds=2_592_000.0):
         self._api = api_client
         self._fetchers = fetchers
         self._extractor = extractor
@@ -26,6 +29,10 @@ class Runner:
         self._corpus = corpus_recorder
         self._walker = walker
         self._domain_rl = domain_rate_limiter
+        self._domain_feed = domain_feed
+        self._domain_registry = domain_registry
+        self._evict_min = domain_evict_min_score
+        self._evict_ttl = domain_evict_ttl_seconds
 
     def _fetch_for(self, source: dict, last_seen_key):
         fetcher = self._fetchers.get(source["type"])
@@ -51,16 +58,28 @@ class Runner:
 
         if self._harvester is not None:
             try:
+                known_hosts = {_host(s["url_or_handle"]) for s in sources
+                               if s["type"] == "website"}
                 candidates = []
+                if self._domain_feed is not None:
+                    candidates += self._domain_feed.candidates(known_hosts)
                 if self._discovery is not None and self._keywords:
                     candidates += self._discovery.run(self._keywords, known)
                 if self._brand_feed is not None:
                     candidates += self._brand_feed.candidates(known)
                 if candidates:
-                    self._harvester.harvest(candidates, cats, known, summary)
+                    self._harvester.harvest(candidates, cats, known, summary,
+                                            known_hosts=known_hosts)
             except Exception as exc:  # noqa: BLE001 — discovery must not crash the pass
                 summary["errors"] += 1
                 log.warning("active discovery / brand-feed harvest failed: %s", exc)
+            finally:
+                if self._domain_registry is not None:
+                    try:
+                        self._domain_registry.prune(self._evict_min, self._evict_ttl)
+                        self._domain_registry.save()
+                    except Exception as exc:  # noqa: BLE001 — persistence best-effort
+                        log.warning("domain registry persist failed: %s", exc)
 
         try:
             result = self._api.expire_stale(self._freshness_ttl_days)

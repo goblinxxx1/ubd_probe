@@ -22,7 +22,7 @@ class FakeDiscovery:
 
 class FakeHarvester:
     def __init__(self): self.calls = []
-    def harvest(self, candidates, cats, known, summary):
+    def harvest(self, candidates, cats, known, summary, known_hosts=None):
         self.calls.append(list(candidates))
         summary["offers"] += len(candidates)
 

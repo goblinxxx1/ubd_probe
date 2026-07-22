@@ -97,7 +97,7 @@ def test_runner_unions_brand_feed_and_ddg_candidates():
         def __init__(self):
             self.seen = None
 
-        def harvest(self, candidates, cats, known, summary):
+        def harvest(self, candidates, cats, known, summary, known_hosts=None):
             self.seen = list(candidates)
 
     harv = _Harvester()
