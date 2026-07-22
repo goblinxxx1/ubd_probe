@@ -17,6 +17,8 @@ from urllib.parse import urlparse
 import httpx
 
 from crawler.discovery.query_grid import BRANDS  # noqa: F401 — referenced by the seeds invariant
+from crawler.discovery.passive import normalize_ref
+from crawler.models import SourceCandidate
 
 log = logging.getLogger(__name__)
 
@@ -210,3 +212,40 @@ class BrandResolver:
                 if tags.get(key):
                     websites.append(tags[key])
         return {"wikidata": wikidata, "websites": websites}
+
+
+def refresh_brand_domains(cache: "BrandDomainCache", resolver, seeds=BRAND_SEEDS) -> None:
+    """Resolve every seed brand to a domain (best-effort), falling back to the curated
+    seed domain, and persist the result to the cache."""
+    resolved: dict[str, str] = {}
+    for brand, (qid, fallback) in seeds.items():
+        domain = None
+        try:
+            domain = resolver.resolve(brand, qid)
+        except Exception as exc:  # noqa: BLE001 — one brand must not kill the batch
+            log.warning("brand resolve failed for %s: %s", brand, exc)
+            domain = None
+        resolved[brand] = domain or fallback
+    cache.replace(resolved)
+
+
+class BrandFeed:
+    """Offline emitter: one website SourceCandidate per brand from the cache/fallback."""
+
+    def __init__(self, cache: "BrandDomainCache", seeds=BRAND_SEEDS):
+        self._cache = cache
+        self._seeds = seeds
+
+    def candidates(self, known: set[str]) -> list[SourceCandidate]:
+        domains = self._cache.domains()
+        out: list[SourceCandidate] = []
+        for brand, (qid, fallback) in self._seeds.items():
+            domain = domains.get(brand) or fallback
+            url = f"https://{domain}"
+            if normalize_ref("website", url) in known:
+                continue
+            out.append(SourceCandidate(
+                name=brand, type="website", url_or_handle=url,
+                discovered_from_source_id=None,
+                discovery_note=f"brand-feed:{brand}"))
+        return out

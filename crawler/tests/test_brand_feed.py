@@ -120,3 +120,47 @@ def test_resolve_returns_none_on_failure():
 
     r = BrandResolver(client_factory=lambda: _Boom(), sleep=lambda s: None)
     assert r.resolve("X", "Q1") is None
+
+
+from crawler.discovery.brand_feed import BrandFeed, refresh_brand_domains
+from crawler.discovery.passive import normalize_ref
+
+
+class _FakeResolver:
+    def __init__(self, mapping):
+        self._m = mapping
+
+    def resolve(self, brand, qid):
+        v = self._m.get(brand)
+        if isinstance(v, Exception):
+            raise v
+        return v
+
+
+def test_refresh_prefers_resolved_then_curated_fallback(tmp_path):
+    seeds = {"OKKO": (None, "okko.ua"),
+             "EVA": (None, "eva.ua"),          # resolver returns None -> fallback
+             "WOG": (None, "wog.ua")}          # resolver raises -> fallback
+    resolver = _FakeResolver({"OKKO": "okko.com.ua", "EVA": None,
+                              "WOG": RuntimeError("boom")})
+    cache = BrandDomainCache.load(str(tmp_path / "b.json"))
+    refresh_brand_domains(cache, resolver, seeds)
+    assert cache.domains() == {"OKKO": "okko.com.ua", "EVA": "eva.ua", "WOG": "wog.ua"}
+
+
+def test_brand_feed_emits_website_candidates_using_cache_then_fallback(tmp_path):
+    seeds = {"OKKO": (None, "okko.ua"), "EVA": (None, "eva.ua")}
+    cache = BrandDomainCache.load(str(tmp_path / "b.json"))
+    cache.replace({"OKKO": "okko.com.ua"})     # EVA absent -> falls back to seed domain
+    cands = {c.name: c for c in BrandFeed(cache, seeds).candidates(known=set())}
+    assert cands["OKKO"].type == "website"
+    assert cands["OKKO"].url_or_handle == "https://okko.com.ua"
+    assert cands["OKKO"].discovery_note == "brand-feed:OKKO"
+    assert cands["EVA"].url_or_handle == "https://eva.ua"
+
+
+def test_brand_feed_skips_known_refs(tmp_path):
+    seeds = {"OKKO": (None, "okko.ua")}
+    cache = BrandDomainCache.load(str(tmp_path / "b.json"))
+    known = {normalize_ref("website", "https://okko.ua")}
+    assert BrandFeed(cache, seeds).candidates(known) == []
