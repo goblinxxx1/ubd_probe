@@ -211,3 +211,20 @@ def test_domain_rating_on_builds_feed_registry_and_walker(tmp_path):
     assert runner._domain_feed is not None
     assert runner._domain_registry is not None
     assert runner._walker is not None                 # passive deep-walk enabled
+
+
+def test_domain_rating_on_without_sitemap_builds_walker(tmp_path):
+    # covers the wiring branch `if walker is None: walker, domain_rl = _build_walker(...)`:
+    # domain-rating alone (sitemap_depth off) must still build a walker for passive deep-walk.
+    cfg = Config(
+        internal_api_url="http://api", crawler_api_key="k", extractor="heuristic",
+        active_discovery=False, request_timeout=5.0, min_delay_seconds=0.0,
+        bot_accounts=[], proxies={},
+        brand_feed_enabled=False, sitemap_depth_enabled=False,
+        domain_rating_enabled=True,
+        domain_registry_path=str(tmp_path / "reg.json"),
+        robots_cache_path=str(tmp_path / "robots.json"),
+    )
+    runner = build_runner(cfg)
+    assert runner._walker is not None                 # built by the domain-rating branch
+    assert runner._domain_registry is not None
