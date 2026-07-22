@@ -6,16 +6,24 @@ import json
 import re
 from urllib.parse import unquote, urlsplit
 
-# --- SEED: точна копія теперішніх розкиданих токенів (без розширення на цьому кроці) ---
+# --- SEED: ядро (точна копія теперішніх розкиданих токенів) + курований розширений лексикон ---
 SEED_OFFER_TRIGGERS: tuple[str, ...] = (
+    # --- ядро (як було) ---
     "знижк", "акці", "промокод", "безкоштов", "безплатн", "діє до",
     "спецпропоз", "розпродаж",
+    # --- розширення (курований маркетинг-лексикон) ---
+    "уцінк", "ліквідац", "бонус", "кешбек", "подарунок", "тільки сьогодні",
+    "супер ціна", "супер-ціна", "гаряч пропозиц", "друга за пів ціни",
+    "спеціальна ціна", "спец ціна", "вигідна пропозиц",
 )
 SEED_URL_TOKENS: tuple[str, ...] = (
+    # --- ядро (ТОЧНО як у walker, 26) ---
     "sale", "promo", "akci", "akcii", "aktsi", "znizhk", "znyzhk", "rozprodazh",
     "discount", "discounts", "offer", "offers", "deal", "deals", "black-friday",
     "blackfriday", "specialpropoz", "spec-propoz", "cyber-monday",
     "акці", "акция", "знижк", "розпродаж", "спецпропоз", "дисконт", "вигід",
+    # --- розширення ---
+    "utsinka", "bonus", "cashback", "special", "specialna", "spec-cina", "hot",
 )
 
 DISCOUNT_CTX = re.compile(
