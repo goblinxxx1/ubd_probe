@@ -57,6 +57,8 @@ class _RawSettings(BaseSettings):
     miner_min_domain_support: int = 3
     miner_min_logodds: float = 1.5
     miner_max_candidates_per_run: int = 50
+    candidates_path: str = "/data/candidates.json"
+    stoplist_path: str = "/data/stoplist.json"
 
 
 @dataclass
@@ -109,6 +111,8 @@ class Config:
     miner_min_domain_support: int = 3
     miner_min_logodds: float = 1.5
     miner_max_candidates_per_run: int = 50
+    candidates_path: str = "/data/candidates.json"
+    stoplist_path: str = "/data/stoplist.json"
 
 
 def _parse_accounts(platform: str, raw: str) -> list[BotCredential]:
@@ -184,4 +188,6 @@ def load_config() -> Config:
         miner_min_domain_support=s.miner_min_domain_support,
         miner_min_logodds=s.miner_min_logodds,
         miner_max_candidates_per_run=s.miner_max_candidates_per_run,
+        candidates_path=s.candidates_path,
+        stoplist_path=s.stoplist_path,
     )

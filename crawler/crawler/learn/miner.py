@@ -18,7 +18,7 @@ class TermScore:
     in_neg_anchor: bool = False
 
 
-def mine(rows, known_stems=(), snowball_weight: int = 3, alpha: float = 0.5):
+def mine(rows, known_stems=(), stoplist=(), snowball_weight: int = 3, alpha: float = 0.5):
     y_pass, y_fail = defaultdict(float), defaultdict(float)
     domains = defaultdict(set)
     neg = defaultdict(bool)
@@ -42,6 +42,8 @@ def mine(rows, known_stems=(), snowball_weight: int = 3, alpha: float = 0.5):
     out = []
     for t in vocab:
         if any(k in t for k in known_stems):
+            continue
+        if t in stoplist:
             continue
         yp, yf = y_pass[t] + alpha, y_fail[t] + alpha
         delta = math.log(yp / (n_pass - yp)) - math.log(yf / (n_fail - yf))

@@ -8,3 +8,5 @@ def test_config_has_autofill_defaults():
     assert c.miner_min_domain_support == 3
     assert c.autofill_enabled is False
     assert c.corpus_max_mb > 0
+    assert c.candidates_path.endswith("candidates.json")
+    assert c.stoplist_path.endswith("stoplist.json")
