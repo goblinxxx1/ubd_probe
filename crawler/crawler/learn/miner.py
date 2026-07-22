@@ -18,12 +18,15 @@ class TermScore:
     in_neg_anchor: bool = False
 
 
-def mine(rows, known_stems=(), stoplist=(), snowball_weight: int = 3, alpha: float = 0.5):
+def mine(rows, known_stems=(), stoplist=(), snowball_weight: int = 3, alpha: float = 0.5,
+         pos_weight: float = 2.0):
     y_pass, y_fail = defaultdict(float), defaultdict(float)
     domains = defaultdict(set)
     neg = defaultdict(bool)
     for r in rows:
         w = snowball_weight if r.get("snowball") else 1
+        if r.get("pos_anchor") and r.get("label") == "pass":
+            w *= pos_weight
         toks = set(tokenize(r.get("text", "")))
         for t in toks:
             if r.get("label") == "pass":

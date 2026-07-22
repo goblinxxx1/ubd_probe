@@ -1,6 +1,7 @@
 import hashlib
 import json
 import logging
+import re
 from urllib.parse import urljoin, urlsplit
 
 import httpx
@@ -109,10 +110,13 @@ def _extract_locality(tree) -> str | None:
     return find_city(" ".join(parts))
 
 
+_OFFER_TYPE = re.compile(r'"@type"\s*:\s*"[^"]*offer', re.IGNORECASE)
+
+
 def _has_offer_schema(tree) -> bool:
     for node in tree.css('script[type="application/ld+json"]'):
         raw = node.text() or ""
-        if '"offer"' in raw.lower():
+        if _OFFER_TYPE.search(raw):
             return True
     return False
 
