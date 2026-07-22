@@ -1,8 +1,17 @@
 """Domain-depth expansion: turn a website homepage candidate into a small set of
 promo-relevant page URLs (robots + sitemap + BFS fallback) under a per-domain politeness
-layer. This module hosts the promo-URL filter; DomainWalker (added later) orchestrates."""
+layer. This module hosts the promo-URL filter and the DomainWalker orchestrator."""
 
+import logging
+from dataclasses import dataclass
 from urllib.parse import unquote, urljoin, urlsplit
+
+from selectolax.parser import HTMLParser
+
+from crawler.discovery.passive import normalize_ref
+from crawler.discovery.sitemap import collect_sitemap_urls
+
+log = logging.getLogger(__name__)
 
 # Curated promo tokens (latin + cyrillic), matched against the lowercased, percent-decoded
 # URL path. Same curation technique as query_grid.BRANDS.
@@ -18,17 +27,6 @@ def url_is_promo(url: str) -> bool:
     """True if the URL path contains any curated promo token (case/encoding insensitive)."""
     path = unquote(urlsplit(url or "").path).lower()
     return any(tok in path for tok in _PROMO_URL_TOKENS)
-
-
-import logging
-from dataclasses import dataclass
-
-from selectolax.parser import HTMLParser
-
-from crawler.discovery.passive import normalize_ref
-from crawler.discovery.sitemap import collect_sitemap_urls
-
-log = logging.getLogger(__name__)
 
 
 def _host(url: str) -> str:

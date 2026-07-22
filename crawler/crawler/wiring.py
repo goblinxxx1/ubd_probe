@@ -18,7 +18,7 @@ from crawler.fetchers.facebook import FacebookFetcher
 from crawler.fetchers.instagram import InstagramFetcher
 from crawler.fetchers.telegram import TelegramFetcher
 from crawler.fetchers.website import WebsiteFetcher
-from crawler.ratelimit import RateLimiter, DomainRateLimiter
+from crawler.ratelimit import DomainRateLimiter, RateLimiter
 from crawler.runner import Runner
 
 log = logging.getLogger(__name__)

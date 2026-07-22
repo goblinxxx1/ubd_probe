@@ -10,11 +10,6 @@ log = logging.getLogger(__name__)
 _FETCHABLE = ("website", "telegram")
 
 
-def _as_source(cand) -> dict:
-    return {"id": None, "type": cand.type, "url_or_handle": cand.url_or_handle,
-            "name": cand.name}
-
-
 class ActiveHarvester:
     def __init__(self, api, fetchers, extractor, rate_limiter, fetch_budget=20,
                  walker=None, domain_rate_limiter=None):
