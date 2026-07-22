@@ -51,3 +51,14 @@ def test_freshness_ttl_days_default_and_override(monkeypatch):
     assert load_config().freshness_ttl_days == 30
     monkeypatch.setenv("FRESHNESS_TTL_DAYS", "7")
     assert load_config().freshness_ttl_days == 7
+
+
+def test_search_queries_per_pass_default(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)      # no .env -> defaults apply
+    assert load_config().search_queries_per_pass == 40
+
+
+def test_search_queries_per_pass_override(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("SEARCH_QUERIES_PER_PASS", "12")
+    assert load_config().search_queries_per_pass == 12

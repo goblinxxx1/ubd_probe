@@ -30,6 +30,7 @@ class _RawSettings(BaseSettings):
     search_global_backoff_hours: float = 6.0
     search_budget: int = 0  # 0 = process all keywords
     active_fetch_budget: int = 20
+    search_queries_per_pass: int = 40
     searxng_url: str = "http://searxng:8080"
     freshness_ttl_days: int = 30
 
@@ -57,6 +58,7 @@ class Config:
     search_global_backoff_hours: float = 6.0
     search_budget: int | None = None
     active_fetch_budget: int = 20
+    search_queries_per_pass: int = 40
     searxng_url: str = "http://searxng:8080"
     freshness_ttl_days: int = 30
 
@@ -107,6 +109,7 @@ def load_config() -> Config:
         search_global_backoff_hours=s.search_global_backoff_hours,
         search_budget=(s.search_budget or None),
         active_fetch_budget=s.active_fetch_budget,
+        search_queries_per_pass=s.search_queries_per_pass,
         searxng_url=s.searxng_url,
         freshness_ttl_days=s.freshness_ttl_days,
     )
