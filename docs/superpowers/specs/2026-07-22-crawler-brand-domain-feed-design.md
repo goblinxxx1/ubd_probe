@@ -1,6 +1,6 @@
 # Crawler Brand→Domain Feed — Design (self-growing discovery, track 2)
 
-**Status:** design approved, ready for implementation plan.
+**Status:** design approved; implemented (Tasks 1-6). Post-review addendum: brand-emission **rotation** added (Task 7) — the harvester's `active_fetch_budget` caps fetches per pass, so the feed emits a rotating window of brands (persisted cursor in `brand_domains.json`, size = `brand_feed_per_pass`, default 20) advancing each pass, so all brands — including ones added as the curated set grows — get covered over successive passes instead of only the first N in dict order.
 
 ## Goal
 

@@ -926,6 +926,231 @@ git commit -m "feat(crawler): wire brand-domain feed into discovery (decoupled h
 
 ---
 
+### Task 7: Brand-emission rotation (+ post-review cleanups)
+
+**Context:** the harvester caps fetches at `active_fetch_budget` (default 20) per pass, but `BRAND_SEEDS` has 48 brands (and the curated set will grow). Without rotation the feed re-emits the same first-20 brands every pass (the harvester submits offers but never adds a brand homepage to `known`), so the tail is starved forever. This task makes `BrandFeed` emit a **rotating window** of brands, persisting a cursor in `brand_domains.json`, so all brands are covered over successive passes. Also folds in the trivial post-review cleanups.
+
+**Files:**
+- Modify: `crawler/crawler/discovery/brand_feed.py` (`BrandDomainCache` cursor; `BrandFeed` rotation)
+- Modify: `crawler/crawler/config.py` (`brand_feed_per_pass`)
+- Modify: `crawler/crawler/wiring.py` (pass `per_pass`)
+- Modify: `crawler/crawler/runner.py` (log-string cleanup)
+- Test: `crawler/tests/test_brand_feed.py`, `crawler/tests/test_config.py`, `crawler/tests/test_wiring.py`
+
+**Interfaces:**
+- Consumes: `BrandDomainCache`, `BrandFeed`, `BRAND_SEEDS`, `Config.brand_feed_per_pass`.
+- Produces: `BrandDomainCache.cursor() -> int` + `set_cursor(value: int) -> None`; `BrandFeed(cache, seeds=BRAND_SEEDS, per_pass=20)` whose `candidates(known)` emits only the rotating window `[cursor : cursor+per_pass)` (wrapping) and advances+persists the cursor by the window size; `Config.brand_feed_per_pass: int` (env `BRAND_FEED_PER_PASS`, default 20).
+
+- [ ] **Step 1: Write the failing tests**
+
+Append to `crawler/tests/test_brand_feed.py`:
+
+```python
+def test_cache_cursor_defaults_zero_and_persists(tmp_path):
+    path = str(tmp_path / "b.json")
+    c = BrandDomainCache.load(path)
+    assert c.cursor() == 0
+    c.set_cursor(7)
+    assert BrandDomainCache.load(path).cursor() == 7
+
+
+def test_brand_feed_rotates_window_and_advances_cursor(tmp_path):
+    seeds = {"A": (None, "a.ua"), "B": (None, "b.ua"),
+             "C": (None, "c.ua"), "D": (None, "d.ua")}
+    cache = BrandDomainCache.load(str(tmp_path / "b.json"))
+    feed = BrandFeed(cache, seeds, per_pass=2)
+    first = [c.name for c in feed.candidates(known=set())]
+    second = [c.name for c in feed.candidates(known=set())]
+    assert first == ["A", "B"]
+    assert second == ["C", "D"]
+    third = [c.name for c in feed.candidates(known=set())]
+    assert third == ["A", "B"]                    # wrapped back to start
+
+
+def test_brand_feed_full_sweep_covers_every_brand(tmp_path):
+    seeds = {"A": (None, "a.ua"), "B": (None, "b.ua"),
+             "C": (None, "c.ua"), "D": (None, "d.ua")}
+    cache = BrandDomainCache.load(str(tmp_path / "b.json"))
+    feed = BrandFeed(cache, seeds, per_pass=1)
+    seen = []
+    for _ in range(len(seeds)):
+        seen += [c.name for c in feed.candidates(known=set())]
+    assert sorted(seen) == ["A", "B", "C", "D"]   # each brand visited once per sweep
+```
+
+Append to `crawler/tests/test_config.py`:
+
+```python
+def test_brand_feed_per_pass_default(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    assert load_config().brand_feed_per_pass == 20
+
+
+def test_brand_feed_per_pass_override(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("BRAND_FEED_PER_PASS", "5")
+    assert load_config().brand_feed_per_pass == 5
+```
+
+Also append the two cheap-win tests — to `crawler/tests/test_brand_feed.py`:
+
+```python
+def test_host_returns_none_for_none():
+    assert _host(None) is None
+```
+
+and to `crawler/tests/test_wiring.py`:
+
+```python
+def test_runner_skips_harvest_when_no_candidates():
+    class _Api:
+        def list_target_categories(self):
+            return []
+
+        def list_offer_categories(self):
+            return []
+
+        def list_sources(self, is_active=True):
+            return []
+
+        def expire_stale(self, days):
+            return {"expired": 0}
+
+    class _EmptyDiscovery:
+        def run(self, keywords, known):
+            return []
+
+    class _Harvester:
+        def __init__(self):
+            self.called = False
+
+        def harvest(self, candidates, cats, known, summary):
+            self.called = True
+
+    harv = _Harvester()
+    runner = Runner(_Api(), {}, extractor=None, rate_limiter=None,
+                    discovery=_EmptyDiscovery(), keywords=["kw"], harvester=harv,
+                    brand_feed=None)
+    runner.run()
+    assert harv.called is False
+```
+
+- [ ] **Step 2: Run to verify they fail**
+
+Run: `cd crawler && ./.venv/Scripts/python.exe -m pytest tests/test_brand_feed.py tests/test_config.py tests/test_wiring.py -q`
+Expected: FAIL — `BrandDomainCache.cursor`/`set_cursor` and `Config.brand_feed_per_pass` missing; `BrandFeed` emits all brands (no rotation).
+
+- [ ] **Step 3: Add the cursor to `BrandDomainCache`**
+
+In `crawler/crawler/discovery/brand_feed.py`, add `"cursor": 0` to `_EMPTY_CACHE`:
+
+```python
+_EMPTY_CACHE = {"version": 1, "refreshed_at": 0.0, "domains": {}, "cursor": 0}
+```
+
+Then, inside `BrandDomainCache` (e.g. right after the `domains` method), add:
+
+```python
+    def cursor(self) -> int:
+        return int(self._data.get("cursor", 0))
+
+    def set_cursor(self, value: int) -> None:
+        self._data["cursor"] = int(value)
+        self._save()
+```
+
+- [ ] **Step 4: Make `BrandFeed` rotate**
+
+In `crawler/crawler/discovery/brand_feed.py`, replace the whole `BrandFeed` class with:
+
+```python
+class BrandFeed:
+    """Offline emitter: a rotating window of website SourceCandidates from the
+    cache/fallback. The window advances a persisted cursor each pass so every brand
+    (including ones added as the curated set grows) is covered over successive passes."""
+
+    def __init__(self, cache: "BrandDomainCache", seeds=BRAND_SEEDS, per_pass=20):
+        self._cache = cache
+        self._seeds = seeds
+        self._per_pass = per_pass
+
+    def candidates(self, known: set[str]) -> list[SourceCandidate]:
+        brands = list(self._seeds)
+        size = len(brands)
+        if size == 0:
+            return []
+        n = max(1, min(int(self._per_pass), size))
+        cursor = self._cache.cursor()
+        if cursor < 0 or cursor >= size:
+            cursor = 0
+        window = [brands[(cursor + i) % size] for i in range(n)]
+        self._cache.set_cursor((cursor + n) % size)
+        domains = self._cache.domains()
+        out: list[SourceCandidate] = []
+        for brand in window:
+            domain = domains.get(brand) or self._seeds[brand][1]
+            url = f"https://{domain}"
+            if normalize_ref("website", url) in known:
+                continue
+            out.append(SourceCandidate(
+                name=brand, type="website", url_or_handle=url,
+                discovered_from_source_id=None,
+                discovery_note=f"brand-feed:{brand}"))
+        return out
+```
+
+(The existing Task 4 `BrandFeed` tests use seed dicts of size ≤ 2 with the default `per_pass=20`, so `n == size` → the full set is still emitted and those tests keep passing.)
+
+- [ ] **Step 5: Add the `brand_feed_per_pass` config knob (three spots)**
+
+In `crawler/crawler/config.py`:
+
+In `_RawSettings`, after `wikidata_url: str = "https://www.wikidata.org/w/api.php"`:
+```python
+    brand_feed_per_pass: int = 20
+```
+
+In the `Config` dataclass, after `wikidata_url: str = "https://www.wikidata.org/w/api.php"`:
+```python
+    brand_feed_per_pass: int = 20
+```
+
+In `load_config()`'s `Config(...)` call, after `wikidata_url=s.wikidata_url,`:
+```python
+        brand_feed_per_pass=s.brand_feed_per_pass,
+```
+
+- [ ] **Step 6: Pass `per_pass` from wiring, and clean up the runner log string**
+
+In `crawler/crawler/wiring.py`, in `_build_brand_feed`, change the return line from `return BrandFeed(cache, BRAND_SEEDS)` to:
+
+```python
+    return BrandFeed(cache, BRAND_SEEDS, per_pass=config.brand_feed_per_pass)
+```
+
+In `crawler/crawler/runner.py`, in the discovery block's `except`, change the log message so it no longer misattributes brand-feed failures to DDG:
+
+```python
+                log.warning("active discovery / brand-feed harvest failed: %s", exc)
+```
+
+- [ ] **Step 7: Run the tests**
+
+Run: `cd crawler && ./.venv/Scripts/python.exe -m pytest tests/test_brand_feed.py tests/test_config.py tests/test_wiring.py tests/test_runner.py tests/test_runner_discovery.py -q`
+Expected: PASS — new rotation/config/cleanup tests pass; existing brand-feed/wiring/runner tests still pass.
+
+- [ ] **Step 8: Full suite + commit**
+
+Run the whole crawler suite — everything green:
+`cd crawler && ./.venv/Scripts/python.exe -m pytest -q`
+
+```bash
+git add crawler/crawler/discovery/brand_feed.py crawler/crawler/config.py crawler/crawler/wiring.py crawler/crawler/runner.py crawler/tests/test_brand_feed.py crawler/tests/test_config.py crawler/tests/test_wiring.py
+git commit -m "feat(crawler): rotate brand-feed emission window across passes (+review cleanups)"
+```
+
+---
+
 ## Notes for the implementer
 
 - Each `python -m crawler run` is a **fresh process = one pass**, so the brand cache and its `refreshed_at` MUST round-trip through `brand_domains.json` — the refresh is gated on `is_stale` at pass start (`_build_brand_feed`).
