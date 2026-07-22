@@ -4,29 +4,15 @@ layer. This module hosts the promo-URL filter and the DomainWalker orchestrator.
 
 import logging
 from dataclasses import dataclass
-from urllib.parse import unquote, urljoin, urlsplit
+from urllib.parse import urljoin, urlsplit
 
 from selectolax.parser import HTMLParser
 
 from crawler.discovery.passive import normalize_ref
+from crawler.discovery.promo_lexicon import url_is_promo  # re-export for callers
 from crawler.discovery.sitemap import collect_sitemap_urls
 
 log = logging.getLogger(__name__)
-
-# Curated promo tokens (latin + cyrillic), matched against the lowercased, percent-decoded
-# URL path. Same curation technique as query_grid.BRANDS.
-_PROMO_URL_TOKENS: tuple[str, ...] = (
-    "sale", "promo", "akci", "akcii", "aktsi", "znizhk", "znyzhk", "rozprodazh",
-    "discount", "discounts", "offer", "offers", "deal", "deals", "black-friday",
-    "blackfriday", "specialpropoz", "spec-propoz", "cyber-monday",
-    "акці", "акция", "знижк", "розпродаж", "спецпропоз", "дисконт", "вигід",
-)
-
-
-def url_is_promo(url: str) -> bool:
-    """True if the URL path contains any curated promo token (case/encoding insensitive)."""
-    path = unquote(urlsplit(url or "").path).lower()
-    return any(tok in path for tok in _PROMO_URL_TOKENS)
 
 
 def _host(url: str) -> str:

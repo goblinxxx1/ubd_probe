@@ -21,21 +21,14 @@ def _pick_target(links, source_url: str) -> str | None:
             continue
         return norm
     return None
+from crawler.discovery import promo_lexicon as pl
 from crawler.discovery.geo import find_city, is_online
 from crawler.discovery.lexicon import classify, OFFER_LEXICON, TARGET_LEXICON
 from crawler.extract.base import CategoryIndex
 from crawler.models import OfferCandidate, RawItem
 
-# Any of these signals that the text is an offer at all.
-_OFFER_TRIGGERS = (
-    "знижк", "акці", "промокод", "безкоштов", "безплатн", "діє до",
-    "спецпропоз", "розпродаж",
-)
 _PERCENT = re.compile(r"(\d{1,3})\s*%")
 _FIXED = re.compile(r"(\d[\d\s]{0,7})\s*(?:грн|₴|uah)", re.IGNORECASE)
-_FREE = re.compile(r"безкоштов|безплатн|\bfree\b", re.IGNORECASE)
-_DISCOUNT_CTX = re.compile(r"знижк|акці|розпродаж|спецпропоз|промокод|економ|вигід|-\s*\d", re.IGNORECASE)
-_INCREASE = re.compile(r"зростан|подорожч|підвищенн\w*\s+варт|дорожч|буде\s+[\d\s]+грн", re.IGNORECASE)
 _UNTIL = re.compile(r"(?:до|діє до)\s+(\d{1,2})[.\-/](\d{1,2})(?:[.\-/](\d{2,4}))?")
 
 
@@ -60,16 +53,16 @@ class HeuristicExtractor:
                 categories: CategoryIndex) -> OfferCandidate | None:
         text = item.text or ""
         low = text.lower()
-        if not any(t in low for t in _OFFER_TRIGGERS):
+        if not any(t in low for t in pl.offer_triggers()):
             return None
-        if _INCREASE.search(low) and not _DISCOUNT_CTX.search(low):
+        if pl.INCREASE.search(low) and not pl.DISCOUNT_CTX.search(low):
             return None
 
         discount_type = None
         discount_value = None
-        if _FREE.search(low):
+        if pl.FREE.search(low):
             discount_type = "free"
-        elif (m := _PERCENT.search(text)) and _DISCOUNT_CTX.search(low):
+        elif (m := _PERCENT.search(text)) and pl.DISCOUNT_CTX.search(low):
             discount_type, discount_value = "percent", m.group(1)
         elif (m := _FIXED.search(text)):
             discount_type, discount_value = "fixed", re.sub(r"\s", "", m.group(1))
