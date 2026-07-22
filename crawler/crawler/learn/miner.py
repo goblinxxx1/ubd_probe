@@ -18,7 +18,7 @@ class TermScore:
     in_neg_anchor: bool = False
 
 
-def mine(rows, known_stems=(), snowball_weight: int = 3, alpha: float = 0.01):
+def mine(rows, known_stems=(), snowball_weight: int = 3, alpha: float = 0.5):
     y_pass, y_fail = defaultdict(float), defaultdict(float)
     domains = defaultdict(set)
     neg = defaultdict(bool)
@@ -50,5 +50,5 @@ def mine(rows, known_stems=(), snowball_weight: int = 3, alpha: float = 0.01):
         out.append(TermScore(term=t, z=z, pass_count=int(y_pass[t]),
                              fail_count=int(y_fail[t]), domains=domains[t],
                              in_neg_anchor=neg[t]))
-    out.sort(key=lambda s: s.z, reverse=True)
+    out.sort(key=lambda s: (-s.z, s.term))
     return out
