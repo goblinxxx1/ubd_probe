@@ -11,7 +11,7 @@ log = logging.getLogger(__name__)
 class Runner:
     def __init__(self, api_client, fetchers: dict, extractor, rate_limiter,
                  discovery=None, keywords=None, harvester=None, brand_feed=None,
-                 freshness_ttl_days=30):
+                 freshness_ttl_days=30, corpus_recorder=None):
         self._api = api_client
         self._fetchers = fetchers
         self._extractor = extractor
@@ -21,6 +21,7 @@ class Runner:
         self._harvester = harvester
         self._brand_feed = brand_feed
         self._freshness_ttl_days = freshness_ttl_days
+        self._corpus = corpus_recorder
 
     def _fetch_for(self, source: dict, last_seen_key):
         fetcher = self._fetchers.get(source["type"])
@@ -72,6 +73,8 @@ class Runner:
         items, new_key = self._fetch_for(source, state.get("last_seen_key"))
         for item in items:
             cand = self._extractor.extract(item, source["name"], cats)
+            if self._corpus is not None:
+                self._corpus.record(item, cand is not None)
             if cand is not None:
                 cand.offer_category_ids = resolve_offer_categories(
                     self._api, cats, cand.offer_category_matches)

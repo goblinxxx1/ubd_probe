@@ -12,7 +12,7 @@ _FETCHABLE = ("website", "telegram")
 
 class ActiveHarvester:
     def __init__(self, api, fetchers, extractor, rate_limiter, fetch_budget=20,
-                 walker=None, domain_rate_limiter=None):
+                 walker=None, domain_rate_limiter=None, corpus_recorder=None):
         self._api = api
         self._fetchers = fetchers
         self._extractor = extractor
@@ -20,6 +20,7 @@ class ActiveHarvester:
         self._budget = fetch_budget
         self._walker = walker
         self._domain_rl = domain_rate_limiter
+        self._corpus = corpus_recorder
 
     def harvest(self, candidates, cats, known, summary) -> None:
         used = 0
@@ -66,8 +67,13 @@ class ActiveHarvester:
                 log.warning("harvest page failed for %s: %s", url, exc)
 
     def _process_page(self, cand, items, cats, known, summary) -> None:
-        passing = [it for it in items
-                   if self._extractor.extract(it, "", cats) is not None]
+        passing = []
+        for it in items:
+            is_offer = self._extractor.extract(it, "", cats) is not None
+            if self._corpus is not None:
+                self._corpus.record(it, is_offer)
+            if is_offer:
+                passing.append(it)
         ctx = build_page_ctx(cand, passing)
         for item in passing:
             attr = attribute(item, ctx)
