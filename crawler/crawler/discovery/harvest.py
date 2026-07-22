@@ -1,6 +1,7 @@
 import logging
 
 from crawler.discovery.attribution import attribute, build_page_ctx
+from crawler.discovery.brand_feed import _host
 from crawler.discovery.passive import normalize_ref
 from crawler.extract.categories import resolve_offer_categories
 from crawler.payloads import offer_payload
@@ -12,7 +13,8 @@ _FETCHABLE = ("website", "telegram")
 
 class ActiveHarvester:
     def __init__(self, api, fetchers, extractor, rate_limiter, fetch_budget=20,
-                 walker=None, domain_rate_limiter=None, corpus_recorder=None):
+                 walker=None, domain_rate_limiter=None, corpus_recorder=None,
+                 domain_registry=None):
         self._api = api
         self._fetchers = fetchers
         self._extractor = extractor
@@ -21,8 +23,10 @@ class ActiveHarvester:
         self._walker = walker
         self._domain_rl = domain_rate_limiter
         self._corpus = corpus_recorder
+        self._registry = domain_registry
 
-    def harvest(self, candidates, cats, known, summary) -> None:
+    def harvest(self, candidates, cats, known, summary, known_hosts=None) -> None:
+        known_hosts = known_hosts or set()
         used = 0
         for cand in candidates:
             if used >= self._budget:
@@ -31,15 +35,22 @@ class ActiveHarvester:
                 continue
             if normalize_ref(cand.type, cand.url_or_handle) in known:
                 continue
+            if cand.type == "website" and _host(cand.url_or_handle) in known_hosts:
+                continue
             fetcher = self._fetchers.get(cand.type)
             if fetcher is None:
                 continue
             used += 1
+            before_o, before_e = summary["offers"], summary["errors"]
             try:
                 self._harvest_one(cand, fetcher, cats, known, summary)
             except Exception as exc:  # noqa: BLE001 — isolate per candidate
                 summary["errors"] += 1
                 log.warning("active harvest failed for %s: %s", cand.url_or_handle, exc)
+            if self._registry is not None and cand.type == "website":
+                self._registry.record(_host(cand.url_or_handle),
+                                      summary["offers"] - before_o,
+                                      summary["errors"] - before_e)
 
     def _plan(self, cand):
         """(urls, domain, delay) for a candidate. Website candidates expand via the walker."""

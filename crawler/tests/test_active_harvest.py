@@ -215,3 +215,49 @@ def test_one_broken_page_does_not_stop_the_domain(monkeypatch):
     harv.harvest([_website_cand()], cats=object(), known=set(), summary=summary)
     assert summary["errors"] == 1
     assert "https://shop.ua/sale" in fetcher.urls    # continued after the broken page
+
+
+from crawler.discovery.domain_registry import DomainRegistry
+
+
+class _RecFetcher:
+    """One block; offer iff text has '%'."""
+    def __init__(self, text): self._text = text
+    def fetch(self, source, last_seen_key):
+        return [RawItem(source_id=None, platform="website", key="k", text=self._text,
+                        url=source["url_or_handle"], links=[], site_name="Cafe")], None
+
+
+def test_website_candidate_in_known_hosts_is_skipped(tmp_path):
+    api = FakeApi()
+    reg = DomainRegistry(str(tmp_path / "r.json"), clock=lambda: 1.0)
+    h = ActiveHarvester(api, {"website": _RecFetcher("Знижка 20% УБД")},
+                        GateExtractor(), rate_limiter=None, fetch_budget=5,
+                        domain_registry=reg)
+    summary = _summary()
+    h.harvest([_cand(url="https://cafe.example")], cats=None, known=set(),
+              summary=summary, known_hosts={"cafe.example"})
+    assert api.offers == []                       # never fetched
+    assert reg.score("cafe.example") == 0.0       # never recorded
+
+
+def test_registry_records_offers_per_domain(tmp_path):
+    api = FakeApi()
+    reg = DomainRegistry(str(tmp_path / "r.json"), clock=lambda: 1.0, offer_weight=1.0)
+    h = ActiveHarvester(api, {"website": _RecFetcher("Знижка 20% УБД")},
+                        GateExtractor(), rate_limiter=None, fetch_budget=5,
+                        domain_registry=reg)
+    summary = _summary()
+    h.harvest([_cand(url="https://cafe.example")], cats=None, known=set(), summary=summary)
+    assert summary["offers"] == 1
+    assert reg.score("cafe.example") == 1.0       # 1 offer recorded
+
+
+def test_registry_not_recorded_without_registry():
+    # regression: existing 4-arg call still works (no known_hosts, no registry)
+    api = FakeApi()
+    h = ActiveHarvester(api, {"website": _RecFetcher("Знижка 20% УБД")},
+                        GateExtractor(), rate_limiter=None, fetch_budget=5)
+    summary = _summary()
+    h.harvest([_cand(url="https://cafe.example")], cats=None, known=set(), summary=summary)
+    assert summary["offers"] == 1
