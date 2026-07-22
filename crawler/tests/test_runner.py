@@ -102,3 +102,58 @@ def test_runner_calls_expire_stale_and_reports_count():
     summary = runner.run()
     assert api.expired_calls == [14]
     assert summary["expired"] == 2
+
+
+from crawler.discovery.walker import WalkPlan
+from crawler.models import SourceCandidate
+
+
+class _MultiPageFetcher:
+    """Returns a distinct offer block per URL so we can prove every page is fetched."""
+    platform = "website"
+    def __init__(self): self.seen = []
+    def fetch(self, source, last_seen_key):
+        url = source["url_or_handle"]
+        self.seen.append(url)
+        item = RawItem(source_id=source["id"], platform="website", key=f"k:{url}",
+                       text="Знижка 30% для ветеранів", url=url, links=[])
+        return [item], f"key:{url}"
+
+
+class _FakeWalker:
+    def __init__(self, urls, domain): self._urls = urls; self._domain = domain
+    def walk(self, cand):
+        return WalkPlan(domain=self._domain, urls=self._urls, crawl_delay=0.0)
+
+
+class _FakeDomainRL:
+    def __init__(self): self.calls = []
+    def wait(self, domain, delay): self.calls.append((domain, delay))
+
+
+def test_passive_walk_fetches_every_planned_page():
+    src = {"id": 7, "type": "website", "name": "Shop", "url_or_handle": "https://shop.ua"}
+    api = FakeApi([src])
+    fetcher = _MultiPageFetcher()
+    walker = _FakeWalker(["https://shop.ua", "https://shop.ua/sale", "https://shop.ua/promo"],
+                         "shop.ua")
+    drl = _FakeDomainRL()
+    runner = Runner(api, {"website": fetcher}, get_extractor("heuristic"), _rl(),
+                    walker=walker, domain_rate_limiter=drl)
+    summary = runner.run()
+    assert fetcher.seen == ["https://shop.ua", "https://shop.ua/sale", "https://shop.ua/promo"]
+    assert summary["offers"] == 3                      # one offer per page
+    assert drl.calls == [("shop.ua", 0.0)] * 3         # per-domain limiter used
+    assert api.state[7] == "key:https://shop.ua/promo" # crawl_state = last page key
+
+
+def test_passive_walk_skipped_for_telegram_source():
+    src = {"id": 8, "type": "telegram", "name": "Chan", "url_or_handle": "https://t.me/chan"}
+    api = FakeApi([src])
+    item = RawItem(source_id=8, platform="telegram", key="k",
+                   text="Знижка 20% для ветеранів", links=[])
+    walker = _FakeWalker(["ignored"], "t.me")
+    runner = Runner(api, {"telegram": FakeFetcher([item])}, get_extractor("heuristic"), _rl(),
+                    walker=walker, domain_rate_limiter=_FakeDomainRL())
+    summary = runner.run()
+    assert summary["offers"] == 1                       # normal single-fetch path
