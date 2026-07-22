@@ -30,6 +30,12 @@ class ApiClient:
         r.raise_for_status()
         return r.json()
 
+    def list_approved_offers(self, since: str | None = None) -> list[dict]:
+        params = {"since": since} if since else {}
+        r = self._client.get("/api/internal/approved-offers", params=params)
+        r.raise_for_status()
+        return r.json()
+
     def set_crawl_state(self, source_id: int, last_seen_key: str | None) -> dict:
         r = self._client.post(f"/api/internal/sources/{source_id}/crawl-state",
                               json={"last_seen_key": last_seen_key})
