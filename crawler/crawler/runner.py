@@ -10,7 +10,8 @@ log = logging.getLogger(__name__)
 
 class Runner:
     def __init__(self, api_client, fetchers: dict, extractor, rate_limiter,
-                 discovery=None, keywords=None, harvester=None, freshness_ttl_days=30):
+                 discovery=None, keywords=None, harvester=None, brand_feed=None,
+                 freshness_ttl_days=30):
         self._api = api_client
         self._fetchers = fetchers
         self._extractor = extractor
@@ -18,6 +19,7 @@ class Runner:
         self._discovery = discovery
         self._keywords = keywords or []
         self._harvester = harvester
+        self._brand_feed = brand_feed
         self._freshness_ttl_days = freshness_ttl_days
 
     def _fetch_for(self, source: dict, last_seen_key):
@@ -42,10 +44,15 @@ class Runner:
                 summary["errors"] += 1
                 log.warning("source #%s failed: %s", source.get("id"), exc)
 
-        if self._discovery is not None and self._keywords and self._harvester is not None:
+        if self._harvester is not None:
             try:
-                candidates = self._discovery.run(self._keywords, known)
-                self._harvester.harvest(candidates, cats, known, summary)
+                candidates = []
+                if self._discovery is not None and self._keywords:
+                    candidates += self._discovery.run(self._keywords, known)
+                if self._brand_feed is not None:
+                    candidates += self._brand_feed.candidates(known)
+                if candidates:
+                    self._harvester.harvest(candidates, cats, known, summary)
             except Exception as exc:  # noqa: BLE001 — discovery must not crash the pass
                 summary["errors"] += 1
                 log.warning("active discovery failed: %s", exc)
