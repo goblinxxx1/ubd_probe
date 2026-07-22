@@ -38,6 +38,7 @@ class _RawSettings(BaseSettings):
     brand_domains_path: str = "/data/brand_domains.json"
     overpass_url: str = "https://overpass-api.de/api/interpreter"
     wikidata_url: str = "https://www.wikidata.org/w/api.php"
+    brand_feed_per_pass: int = 20
 
 
 @dataclass
@@ -71,6 +72,7 @@ class Config:
     brand_domains_path: str = "/data/brand_domains.json"
     overpass_url: str = "https://overpass-api.de/api/interpreter"
     wikidata_url: str = "https://www.wikidata.org/w/api.php"
+    brand_feed_per_pass: int = 20
 
 
 def _parse_accounts(platform: str, raw: str) -> list[BotCredential]:
@@ -127,4 +129,5 @@ def load_config() -> Config:
         brand_domains_path=s.brand_domains_path,
         overpass_url=s.overpass_url,
         wikidata_url=s.wikidata_url,
+        brand_feed_per_pass=s.brand_feed_per_pass,
     )

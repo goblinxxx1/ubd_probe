@@ -106,3 +106,36 @@ def test_runner_unions_brand_feed_and_ddg_candidates():
                     brand_feed=_Feed())
     runner.run()
     assert {c.name for c in harv.seen} == {"ddg", "OKKO"}
+
+
+def test_runner_skips_harvest_when_no_candidates():
+    class _Api:
+        def list_target_categories(self):
+            return []
+
+        def list_offer_categories(self):
+            return []
+
+        def list_sources(self, is_active=True):
+            return []
+
+        def expire_stale(self, days):
+            return {"expired": 0}
+
+    class _EmptyDiscovery:
+        def run(self, keywords, known):
+            return []
+
+    class _Harvester:
+        def __init__(self):
+            self.called = False
+
+        def harvest(self, candidates, cats, known, summary):
+            self.called = True
+
+    harv = _Harvester()
+    runner = Runner(_Api(), {}, extractor=None, rate_limiter=None,
+                    discovery=_EmptyDiscovery(), keywords=["kw"], harvester=harv,
+                    brand_feed=None)
+    runner.run()
+    assert harv.called is False

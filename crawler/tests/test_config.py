@@ -81,3 +81,14 @@ def test_brand_feed_env_overrides(monkeypatch, tmp_path):
     cfg = load_config()
     assert cfg.brand_feed_enabled is False
     assert cfg.brand_feed_refresh_hours == 48
+
+
+def test_brand_feed_per_pass_default(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    assert load_config().brand_feed_per_pass == 20
+
+
+def test_brand_feed_per_pass_override(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("BRAND_FEED_PER_PASS", "5")
+    assert load_config().brand_feed_per_pass == 5

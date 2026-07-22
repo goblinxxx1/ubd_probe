@@ -164,3 +164,39 @@ def test_brand_feed_skips_known_refs(tmp_path):
     cache = BrandDomainCache.load(str(tmp_path / "b.json"))
     known = {normalize_ref("website", "https://okko.ua")}
     assert BrandFeed(cache, seeds).candidates(known) == []
+
+
+def test_cache_cursor_defaults_zero_and_persists(tmp_path):
+    path = str(tmp_path / "b.json")
+    c = BrandDomainCache.load(path)
+    assert c.cursor() == 0
+    c.set_cursor(7)
+    assert BrandDomainCache.load(path).cursor() == 7
+
+
+def test_brand_feed_rotates_window_and_advances_cursor(tmp_path):
+    seeds = {"A": (None, "a.ua"), "B": (None, "b.ua"),
+             "C": (None, "c.ua"), "D": (None, "d.ua")}
+    cache = BrandDomainCache.load(str(tmp_path / "b.json"))
+    feed = BrandFeed(cache, seeds, per_pass=2)
+    first = [c.name for c in feed.candidates(known=set())]
+    second = [c.name for c in feed.candidates(known=set())]
+    assert first == ["A", "B"]
+    assert second == ["C", "D"]
+    third = [c.name for c in feed.candidates(known=set())]
+    assert third == ["A", "B"]                    # wrapped back to start
+
+
+def test_brand_feed_full_sweep_covers_every_brand(tmp_path):
+    seeds = {"A": (None, "a.ua"), "B": (None, "b.ua"),
+             "C": (None, "c.ua"), "D": (None, "d.ua")}
+    cache = BrandDomainCache.load(str(tmp_path / "b.json"))
+    feed = BrandFeed(cache, seeds, per_pass=1)
+    seen = []
+    for _ in range(len(seeds)):
+        seen += [c.name for c in feed.candidates(known=set())]
+    assert sorted(seen) == ["A", "B", "C", "D"]   # each brand visited once per sweep
+
+
+def test_host_returns_none_for_none():
+    assert _host(None) is None

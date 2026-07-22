@@ -55,7 +55,7 @@ class Runner:
                     self._harvester.harvest(candidates, cats, known, summary)
             except Exception as exc:  # noqa: BLE001 — discovery must not crash the pass
                 summary["errors"] += 1
-                log.warning("active discovery failed: %s", exc)
+                log.warning("active discovery / brand-feed harvest failed: %s", exc)
 
         try:
             result = self._api.expire_stale(self._freshness_ttl_days)

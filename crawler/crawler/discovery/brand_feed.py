@@ -78,7 +78,7 @@ BRAND_SEEDS: dict[str, tuple[str | None, str]] = {
     "lifecell": (None, "lifecell.ua"),
 }
 
-_EMPTY_CACHE = {"version": 1, "refreshed_at": 0.0, "domains": {}}
+_EMPTY_CACHE = {"version": 1, "refreshed_at": 0.0, "domains": {}, "cursor": 0}
 
 
 class BrandDomainCache:
@@ -108,6 +108,13 @@ class BrandDomainCache:
 
     def domains(self) -> dict[str, str]:
         return dict(self._data.get("domains", {}))
+
+    def cursor(self) -> int:
+        return int(self._data.get("cursor", 0))
+
+    def set_cursor(self, value: int) -> None:
+        self._data["cursor"] = int(value)
+        self._save()
 
     def replace(self, domains: dict[str, str]) -> None:
         self._data["domains"] = dict(domains)
@@ -230,17 +237,30 @@ def refresh_brand_domains(cache: "BrandDomainCache", resolver, seeds=BRAND_SEEDS
 
 
 class BrandFeed:
-    """Offline emitter: one website SourceCandidate per brand from the cache/fallback."""
+    """Offline emitter: a rotating window of website SourceCandidates from the
+    cache/fallback. The window advances a persisted cursor each pass so every brand
+    (including ones added as the curated set grows) is covered over successive passes."""
 
-    def __init__(self, cache: "BrandDomainCache", seeds=BRAND_SEEDS):
+    def __init__(self, cache: "BrandDomainCache", seeds=BRAND_SEEDS, per_pass=20):
         self._cache = cache
         self._seeds = seeds
+        self._per_pass = per_pass
 
     def candidates(self, known: set[str]) -> list[SourceCandidate]:
+        brands = list(self._seeds)
+        size = len(brands)
+        if size == 0:
+            return []
+        n = max(1, min(int(self._per_pass), size))
+        cursor = self._cache.cursor()
+        if cursor < 0 or cursor >= size:
+            cursor = 0
+        window = [brands[(cursor + i) % size] for i in range(n)]
+        self._cache.set_cursor((cursor + n) % size)
         domains = self._cache.domains()
         out: list[SourceCandidate] = []
-        for brand, (qid, fallback) in self._seeds.items():
-            domain = domains.get(brand) or fallback
+        for brand in window:
+            domain = domains.get(brand) or self._seeds[brand][1]
             url = f"https://{domain}"
             if normalize_ref("website", url) in known:
                 continue

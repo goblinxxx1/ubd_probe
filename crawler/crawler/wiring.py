@@ -39,7 +39,7 @@ def _build_brand_feed(config):
             refresh_brand_domains(cache, resolver, BRAND_SEEDS)
         except Exception as exc:  # noqa: BLE001 — refresh is best-effort; feed uses cache/fallbacks
             log.warning("brand-domain refresh failed: %s", exc)
-    return BrandFeed(cache, BRAND_SEEDS)
+    return BrandFeed(cache, BRAND_SEEDS, per_pass=config.brand_feed_per_pass)
 
 
 def build_runner(config) -> Runner:
