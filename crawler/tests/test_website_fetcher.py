@@ -148,7 +148,9 @@ def test_offer_schema_flag_not_set_for_incidental_word():
     html = ('<html><body><article>'
             'Знижка 20% для ветеранів у кафе на розі, діє до 31.12'
             '<script type="application/ld+json">'
-            '{"@type":"Article","headline":"our special offer"}</script>'
+            # квотований "offer" у ЧУЖОМУ полі (не @type) — тригерив старий підрядковий
+            # `"offer" in raw`, але новий regex прив'язаний до @type → має бути False
+            '{"@type":"Article","category":"offer"}</script>'
             '</article></body></html>')
 
     class _Resp:
