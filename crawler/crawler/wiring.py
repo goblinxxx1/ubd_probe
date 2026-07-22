@@ -100,10 +100,26 @@ def build_runner(config) -> Runner:
     domain_rl = None
     if config.sitemap_depth_enabled:
         walker, domain_rl = _build_walker(config, web_client)
+
+    corpus_recorder = None
+    if config.autofill_enabled:
+        from crawler.discovery import promo_lexicon
+        from crawler.learn.corpus import CorpusRecorder
+        from crawler.learn.snowball import SnowballIngestor
+
+        promo_lexicon.reload_learned(config.promo_lexicon_learned_path)
+        corpus_recorder = CorpusRecorder(config.corpus_path, config.corpus_max_mb)
+        try:
+            SnowballIngestor(api, corpus_recorder, config.snowball_state_path).ingest()
+        except Exception as exc:  # noqa: BLE001 — snowball best-effort
+            log.warning("snowball ingest failed: %s", exc)
+
     if (discovery is not None or brand_feed is not None) and config.active_fetch_budget:
         harvester = ActiveHarvester(api, fetchers, extractor, rate_limiter,
                                     fetch_budget=config.active_fetch_budget,
-                                    walker=walker, domain_rate_limiter=domain_rl)
+                                    walker=walker, domain_rate_limiter=domain_rl,
+                                    corpus_recorder=corpus_recorder)
     return Runner(api, fetchers, extractor, rate_limiter,
                   discovery=discovery, keywords=keywords, harvester=harvester,
-                  brand_feed=brand_feed, freshness_ttl_days=config.freshness_ttl_days)
+                  brand_feed=brand_feed, freshness_ttl_days=config.freshness_ttl_days,
+                  corpus_recorder=corpus_recorder)

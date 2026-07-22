@@ -169,3 +169,12 @@ def test_walker_built_when_sitemap_depth_enabled(tmp_path):
 def test_no_walker_when_sitemap_depth_disabled(tmp_path):
     runner = build_runner(_harvest_config(tmp_path, sitemap_depth_enabled=False))
     assert runner._harvester._walker is None
+
+
+def test_build_runner_autofill_off_has_no_recorder():
+    cfg = Config(internal_api_url="http://x", crawler_api_key="k", extractor="heuristic",
+                 active_discovery=False, request_timeout=1.0, min_delay_seconds=1.0,
+                 autofill_enabled=False, brand_feed_enabled=False,
+                 sitemap_depth_enabled=False)
+    r = build_runner(cfg)
+    assert r._corpus is None
