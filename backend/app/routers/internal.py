@@ -1,3 +1,6 @@
+from datetime import datetime
+from urllib.parse import urlsplit
+
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -88,3 +91,26 @@ def set_bot_account_state(platform: str, username: str, data: BotAccountStateUpd
                           db: Session = Depends(get_db)):
     return bot_account_crud.upsert_state(db, platform, username, data.state,
                                          cooldown_until=data.cooldown_until, note=data.note)
+
+
+class ApprovedOfferOut(BaseModel):
+    text: str
+    host: str
+    approved_at: datetime
+
+
+def _host(url):
+    return urlsplit(url or "").netloc.lower().removeprefix("www.")
+
+
+@router.get("/approved-offers", response_model=list[ApprovedOfferOut])
+def list_approved_offers(since: datetime | None = None, db: Session = Depends(get_db)):
+    rows = offer_crud.list_published_since(db, since)
+    return [
+        ApprovedOfferOut(
+            text=f"{o.title}\n{o.description or ''}".strip(),
+            host=_host(o.site_url or o.article_url),
+            approved_at=o.updated_at,
+        )
+        for o in rows
+    ]

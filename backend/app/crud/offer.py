@@ -135,6 +135,13 @@ def delete_offer(db: Session, offer_id: int) -> None:
     db.commit()
 
 
+def list_published_since(db: Session, since: datetime | None = None):
+    q = db.query(Offer).filter(Offer.status == OfferStatus.published)
+    if since is not None:
+        q = q.filter(Offer.updated_at > since)
+    return q.order_by(Offer.updated_at.asc()).all()
+
+
 def expire_stale(db: Session, older_than_days: int) -> int:
     cutoff = datetime.utcnow() - timedelta(days=older_than_days)
     rows = db.query(Offer).filter(

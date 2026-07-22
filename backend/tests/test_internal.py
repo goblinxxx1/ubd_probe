@@ -125,3 +125,21 @@ def test_expire_stale_endpoint(client, db_session):
     assert r.json() == {"expired": 1}
     db_session.refresh(o)
     assert o.status == OfferStatus.expired
+
+
+def test_approved_offers_returns_published(client, db_session):
+    from app.models import Offer
+    from app.models.enums import CreatedBy, OfferStatus, OfferType
+    o = Offer(type=OfferType.discount, title="Знижка 20%", description="для ветеранів",
+              provider="Shop", site_url="https://shop.ua/sale",
+              status=OfferStatus.published, created_by=CreatedBy.admin)
+    db_session.add(o); db_session.commit()
+    r = client.get("/api/internal/approved-offers",
+                   headers={"X-API-Key": settings.crawler_api_key})
+    assert r.status_code == 200
+    body = r.json()
+    assert any("Знижка 20%" in row["text"] and row["host"] == "shop.ua" for row in body)
+
+
+def test_approved_offers_requires_api_key(client):
+    assert client.get("/api/internal/approved-offers").status_code == 401
