@@ -20,6 +20,7 @@ class RawItem:
     logo_url: str | None = None
     site_name: str | None = None
     locality: str | None = None
+    has_offer_schema: bool = False
 
 
 @dataclass

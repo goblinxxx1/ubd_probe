@@ -109,6 +109,14 @@ def _extract_locality(tree) -> str | None:
     return find_city(" ".join(parts))
 
 
+def _has_offer_schema(tree) -> bool:
+    for node in tree.css('script[type="application/ld+json"]'):
+        raw = node.text() or ""
+        if '"offer"' in raw.lower():
+            return True
+    return False
+
+
 class WebsiteFetcher:
     platform = "website"
 
@@ -125,6 +133,7 @@ class WebsiteFetcher:
             logo = _extract_logo(tree, url)
             site_name = _extract_site_name(tree)
             locality = _extract_locality(tree)
+            has_offer = _has_offer_schema(tree)
             items: list[RawItem] = []
             seen_keys: set[str] = set()
             for node in tree.css("article, li, p"):
@@ -142,7 +151,7 @@ class WebsiteFetcher:
                 items.append(RawItem(source_id=source["id"], platform="website",
                                      key=key, text=text, url=url, links=links,
                                      logo_url=logo, site_name=site_name,
-                                     locality=locality))
+                                     locality=locality, has_offer_schema=has_offer))
             new_key = items[-1].key if items else last_seen_key
             return items, new_key
         except Exception as exc:  # noqa: BLE001 — never raise up the stack

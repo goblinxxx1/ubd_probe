@@ -121,3 +121,23 @@ def test_locality_from_contact_region():
             '<footer><address>м. Вишневе, вул. Київська 1</address></footer>'
             '</body></html>')
     assert _extract_locality(HTMLParser(html)) == "Вишневе"
+
+
+def test_offer_schema_flag_set(monkeypatch):
+    from crawler.fetchers.website import WebsiteFetcher
+    html = ('<html><body><article>'
+            'Знижка 20% для ветеранів у кафе на розі, діє до 31.12'
+            '<script type="application/ld+json">'
+            '{"@type":"Offer","price":"100"}</script>'
+            '</article></body></html>')
+
+    class _Resp:
+        text = html
+        def raise_for_status(self): pass
+
+    class _Client:
+        def get(self, url, follow_redirects=True): return _Resp()
+
+    items, _ = WebsiteFetcher(_Client()).fetch(
+        {"id": 1, "url_or_handle": "http://shop.ua"}, None)
+    assert items and items[0].has_offer_schema is True
