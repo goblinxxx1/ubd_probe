@@ -107,3 +107,17 @@ def test_sitemap_depth_defaults(monkeypatch, tmp_path):
     assert cfg.crawl_delay_cap_seconds == 30.0
     assert cfg.robots_cache_path == "/data/robots_cache.json"
     assert cfg.robots_cache_ttl_hours == 168
+
+
+def test_domain_rating_defaults():
+    from crawler.config import _RawSettings
+    s = _RawSettings()
+    assert s.domain_rating_enabled is True
+    assert s.domain_registry_path == "/data/domain_registry.json"
+    assert s.domain_feed_per_pass == 8
+    assert s.domain_score_decay == 0.9
+    assert s.domain_offer_weight == 1.0
+    assert s.domain_error_weight == 0.5
+    assert s.domain_promote_min_score == 0.5
+    assert s.domain_evict_min_score == 0.1
+    assert s.domain_evict_ttl_hours == 720

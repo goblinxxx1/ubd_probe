@@ -304,6 +304,42 @@ cd crawler && .venv/Scripts/python.exe -m crawler.learn.audit list \
 
 ---
 
+## Блок 5. Domain rating
+
+Персистентний реєстр доменів (`crawler/discovery/domain_registry.py`), який оцінює
+кожен активно fetch-нутий сайт-домен за exp-decay score (`+offer_weight` за
+знайдений оффер, `-error_weight` за помилку fetch). Домени з score вище
+`DOMAIN_PROMOTE_MIN_SCORE` щопасу знову подаються як кандидати через `DomainFeed` —
+незалежно від DuckDuckGo/пошуку, це третій самонавчальний важіль (після
+query-grid та brand→domain feed). Вмикається окремо: **`DOMAIN_RATING_ENABLED=true`**
+у `crawler/.env` (за замовчуванням увімкнено).
+
+Домени, вже підтверджені як активні website-джерела (`is_active` у `sources`),
+пропускаються активним пошуком (host-skip) — натомість вони глибоко обходяться
+пасивним циклом (`DomainWalker`, той самий, що й для sitemap-глибини): це означає,
+що вмикання domain rating автоматично вмикає і пасивний глибокий обхід для таких
+доменів, навіть якщо `SITEMAP_DEPTH_ENABLED=false`.
+
+Ключові знижки:
+
+```dotenv
+DOMAIN_RATING_ENABLED=true          # вимкнути → повертає попередню поведінку 1:1
+DOMAIN_REGISTRY_PATH=/data/domain_registry.json
+DOMAIN_FEED_PER_PASS=8               # скільки доменів подавати за прохід
+DOMAIN_SCORE_DECAY=0.9               # exp-decay множник на кожен прохід
+DOMAIN_OFFER_WEIGHT=1.0
+DOMAIN_ERROR_WEIGHT=0.5
+DOMAIN_PROMOTE_MIN_SCORE=0.5         # поріг для повторної подачі через DomainFeed
+DOMAIN_EVICT_MIN_SCORE=0.1           # нижче цього + TTL — видаляється з реєстру
+DOMAIN_EVICT_TTL_HOURS=720
+```
+
+**`DOMAIN_RATING_ENABLED=false`** повністю вимикає реєстр/feed (нічого не будується,
+нічого не читається/пишеться на диск) і повертає поведінку до стану без цього
+треку — байт-в-байт, якщо `SITEMAP_DEPTH_ENABLED` теж вимкнено.
+
+---
+
 ## Тести (довідково, не для прод-запуску)
 
 ```bash

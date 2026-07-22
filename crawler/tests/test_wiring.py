@@ -167,7 +167,10 @@ def test_walker_built_when_sitemap_depth_enabled(tmp_path):
 
 
 def test_no_walker_when_sitemap_depth_disabled(tmp_path):
-    runner = build_runner(_harvest_config(tmp_path, sitemap_depth_enabled=False))
+    # domain_rating_enabled=False here too: its default (True) independently builds a
+    # walker for passive deep-walk, which is exercised by the domain-rating tests below.
+    runner = build_runner(_harvest_config(tmp_path, sitemap_depth_enabled=False,
+                                          domain_rating_enabled=False))
     assert runner._harvester._walker is None
 
 
@@ -178,3 +181,33 @@ def test_build_runner_autofill_off_has_no_recorder():
                  sitemap_depth_enabled=False)
     r = build_runner(cfg)
     assert r._corpus is None
+
+
+def test_domain_rating_off_is_byte_equivalent(tmp_path):
+    cfg = Config(
+        internal_api_url="http://api", crawler_api_key="k", extractor="heuristic",
+        active_discovery=False, request_timeout=5.0, min_delay_seconds=0.0,
+        bot_accounts=[], proxies={},
+        brand_feed_enabled=False, sitemap_depth_enabled=False,
+        domain_rating_enabled=False,
+    )
+    runner = build_runner(cfg)
+    assert runner._domain_feed is None
+    assert runner._domain_registry is None
+    assert runner._walker is None
+
+
+def test_domain_rating_on_builds_feed_registry_and_walker(tmp_path):
+    cfg = Config(
+        internal_api_url="http://api", crawler_api_key="k", extractor="heuristic",
+        active_discovery=False, request_timeout=5.0, min_delay_seconds=0.0,
+        bot_accounts=[], proxies={},
+        brand_feed_enabled=False, sitemap_depth_enabled=True,   # brand_feed off → no network
+        domain_rating_enabled=True,
+        domain_registry_path=str(tmp_path / "reg.json"),
+        robots_cache_path=str(tmp_path / "robots.json"),
+    )
+    runner = build_runner(cfg)
+    assert runner._domain_feed is not None
+    assert runner._domain_registry is not None
+    assert runner._walker is not None                 # passive deep-walk enabled

@@ -7,6 +7,8 @@ from crawler.api_client import ApiClient
 from crawler.discovery.active import ActiveDiscovery
 from crawler.discovery.brand_feed import (
     BRAND_SEEDS, BrandDomainCache, BrandFeed, BrandResolver, refresh_brand_domains)
+from crawler.discovery.domain_feed import DomainFeed
+from crawler.discovery.domain_registry import DomainRegistry
 from crawler.discovery.harvest import ActiveHarvester
 from crawler.discovery.providers import build_search_provider
 from crawler.discovery.query_grid import QueryGrid, merge_queries
@@ -101,6 +103,19 @@ def build_runner(config) -> Runner:
     if config.sitemap_depth_enabled:
         walker, domain_rl = _build_walker(config, web_client)
 
+    domain_registry = None
+    domain_feed = None
+    if config.domain_rating_enabled:
+        domain_registry = DomainRegistry.load(
+            config.domain_registry_path,
+            decay=config.domain_score_decay,
+            offer_weight=config.domain_offer_weight,
+            error_weight=config.domain_error_weight,
+            promote_min_score=config.domain_promote_min_score)
+        domain_feed = DomainFeed(domain_registry, per_pass=config.domain_feed_per_pass)
+        if walker is None:
+            walker, domain_rl = _build_walker(config, web_client)   # passive deep-walk needs it
+
     corpus_recorder = None
     if config.autofill_enabled:
         from crawler.discovery import promo_lexicon
@@ -118,8 +133,13 @@ def build_runner(config) -> Runner:
         harvester = ActiveHarvester(api, fetchers, extractor, rate_limiter,
                                     fetch_budget=config.active_fetch_budget,
                                     walker=walker, domain_rate_limiter=domain_rl,
-                                    corpus_recorder=corpus_recorder)
+                                    corpus_recorder=corpus_recorder,
+                                    domain_registry=domain_registry)
     return Runner(api, fetchers, extractor, rate_limiter,
                   discovery=discovery, keywords=keywords, harvester=harvester,
                   brand_feed=brand_feed, freshness_ttl_days=config.freshness_ttl_days,
-                  corpus_recorder=corpus_recorder)
+                  corpus_recorder=corpus_recorder,
+                  walker=walker, domain_rate_limiter=domain_rl,
+                  domain_feed=domain_feed, domain_registry=domain_registry,
+                  domain_evict_min_score=config.domain_evict_min_score,
+                  domain_evict_ttl_seconds=config.domain_evict_ttl_hours * 3600)

@@ -59,6 +59,15 @@ class _RawSettings(BaseSettings):
     miner_max_candidates_per_run: int = 50
     candidates_path: str = "/data/candidates.json"
     stoplist_path: str = "/data/stoplist.json"
+    domain_rating_enabled: bool = True
+    domain_registry_path: str = "/data/domain_registry.json"
+    domain_feed_per_pass: int = 8
+    domain_score_decay: float = 0.9
+    domain_offer_weight: float = 1.0
+    domain_error_weight: float = 0.5
+    domain_promote_min_score: float = 0.5
+    domain_evict_min_score: float = 0.1
+    domain_evict_ttl_hours: int = 720
 
 
 @dataclass
@@ -113,6 +122,15 @@ class Config:
     miner_max_candidates_per_run: int = 50
     candidates_path: str = "/data/candidates.json"
     stoplist_path: str = "/data/stoplist.json"
+    domain_rating_enabled: bool = True
+    domain_registry_path: str = "/data/domain_registry.json"
+    domain_feed_per_pass: int = 8
+    domain_score_decay: float = 0.9
+    domain_offer_weight: float = 1.0
+    domain_error_weight: float = 0.5
+    domain_promote_min_score: float = 0.5
+    domain_evict_min_score: float = 0.1
+    domain_evict_ttl_hours: int = 720
 
 
 def _parse_accounts(platform: str, raw: str) -> list[BotCredential]:
@@ -190,4 +208,13 @@ def load_config() -> Config:
         miner_max_candidates_per_run=s.miner_max_candidates_per_run,
         candidates_path=s.candidates_path,
         stoplist_path=s.stoplist_path,
+        domain_rating_enabled=s.domain_rating_enabled,
+        domain_registry_path=s.domain_registry_path,
+        domain_feed_per_pass=s.domain_feed_per_pass,
+        domain_score_decay=s.domain_score_decay,
+        domain_offer_weight=s.domain_offer_weight,
+        domain_error_weight=s.domain_error_weight,
+        domain_promote_min_score=s.domain_promote_min_score,
+        domain_evict_min_score=s.domain_evict_min_score,
+        domain_evict_ttl_hours=s.domain_evict_ttl_hours,
     )
