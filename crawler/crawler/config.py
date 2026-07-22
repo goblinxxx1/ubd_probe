@@ -39,6 +39,16 @@ class _RawSettings(BaseSettings):
     overpass_url: str = "https://overpass-api.de/api/interpreter"
     wikidata_url: str = "https://www.wikidata.org/w/api.php"
     brand_feed_per_pass: int = 20
+    sitemap_depth_enabled: bool = True
+    domain_page_cap: int = 10
+    sitemap_max_docs: int = 20
+    bfs_max_depth: int = 2
+    bfs_max_pages: int = 8
+    bfs_trigger_min: int = 3
+    domain_min_delay_seconds: float = 3.0
+    crawl_delay_cap_seconds: float = 30.0
+    robots_cache_path: str = "/data/robots_cache.json"
+    robots_cache_ttl_hours: int = 168
 
 
 @dataclass
@@ -73,6 +83,16 @@ class Config:
     overpass_url: str = "https://overpass-api.de/api/interpreter"
     wikidata_url: str = "https://www.wikidata.org/w/api.php"
     brand_feed_per_pass: int = 20
+    sitemap_depth_enabled: bool = True
+    domain_page_cap: int = 10
+    sitemap_max_docs: int = 20
+    bfs_max_depth: int = 2
+    bfs_max_pages: int = 8
+    bfs_trigger_min: int = 3
+    domain_min_delay_seconds: float = 3.0
+    crawl_delay_cap_seconds: float = 30.0
+    robots_cache_path: str = "/data/robots_cache.json"
+    robots_cache_ttl_hours: int = 168
 
 
 def _parse_accounts(platform: str, raw: str) -> list[BotCredential]:
@@ -130,4 +150,14 @@ def load_config() -> Config:
         overpass_url=s.overpass_url,
         wikidata_url=s.wikidata_url,
         brand_feed_per_pass=s.brand_feed_per_pass,
+        sitemap_depth_enabled=s.sitemap_depth_enabled,
+        domain_page_cap=s.domain_page_cap,
+        sitemap_max_docs=s.sitemap_max_docs,
+        bfs_max_depth=s.bfs_max_depth,
+        bfs_max_pages=s.bfs_max_pages,
+        bfs_trigger_min=s.bfs_trigger_min,
+        domain_min_delay_seconds=s.domain_min_delay_seconds,
+        crawl_delay_cap_seconds=s.crawl_delay_cap_seconds,
+        robots_cache_path=s.robots_cache_path,
+        robots_cache_ttl_hours=s.robots_cache_ttl_hours,
     )

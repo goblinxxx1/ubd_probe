@@ -92,3 +92,18 @@ def test_brand_feed_per_pass_override(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("BRAND_FEED_PER_PASS", "5")
     assert load_config().brand_feed_per_pass == 5
+
+
+def test_sitemap_depth_defaults(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)      # no .env -> defaults apply
+    cfg = load_config()
+    assert cfg.sitemap_depth_enabled is True
+    assert cfg.domain_page_cap == 10
+    assert cfg.sitemap_max_docs == 20
+    assert cfg.bfs_max_depth == 2
+    assert cfg.bfs_max_pages == 8
+    assert cfg.bfs_trigger_min == 3
+    assert cfg.domain_min_delay_seconds == 3.0
+    assert cfg.crawl_delay_cap_seconds == 30.0
+    assert cfg.robots_cache_path == "/data/robots_cache.json"
+    assert cfg.robots_cache_ttl_hours == 168
