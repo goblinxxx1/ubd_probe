@@ -16,7 +16,7 @@
 - **Best-effort everywhere:** registry/feed/walk never raise up and never crash a pass.
 - **Website-only.** Registry keyed by bare host; telegram/IG/FB out of scope.
 - **`domain_rating_enabled=False` ⇒ byte-equivalent** to current behaviour (no record, no feed, no host-skip).
-- **Single host function:** everywhere a bare host is derived (registry keys, `known_hosts`, feed emission), use `crawler.discovery.walker._host` so keys always match.
+- **Single host function:** everywhere a bare host is derived (registry keys, `known_hosts`, feed emission), use `crawler.discovery.brand_feed._host` so keys always match. (NOT `walker._host` — that one is URL-only: `walker._host("silpo.ua") == ""` because a scheme-less string lands in `urlsplit().path`. `brand_feed._host` is idempotent — it prepends `//` first — so it works on both bare hosts and full URLs, and returns the same value as `walker._host` for full URLs, keeping `WalkPlan.domain` and registry keys consistent.)
 - **Backend untouched.** No schema/endpoint/migration.
 - Atomic JSON writes: `tmp` file + `os.replace` (as `BrandDomainCache._save`).
 - Commit after each task with the message shown in its final step.
@@ -30,7 +30,7 @@
 - Test: `crawler/tests/test_domain_registry.py`
 
 **Interfaces:**
-- Consumes: `crawler.discovery.walker._host` (bare host).
+- Consumes: `crawler.discovery.brand_feed._host` (idempotent bare-host).
 - Produces:
   - `DomainRegistry(path, data=None, clock=time.time, *, decay=0.9, offer_weight=1.0, error_weight=0.5, promote_min_score=0.5)`
   - `DomainRegistry.load(path, clock=time.time, **score_kw) -> DomainRegistry`
@@ -153,7 +153,7 @@ import logging
 import os
 import time
 
-from crawler.discovery.walker import _host  # single source of truth for bare host
+from crawler.discovery.brand_feed import _host  # idempotent bare-host (bare or full URL)
 
 log = logging.getLogger(__name__)
 
@@ -353,7 +353,7 @@ git commit -m "feat(crawler): DomainFeed — re-feed top-rated domains as candid
 - Test: `crawler/tests/test_active_harvest.py` (append)
 
 **Interfaces:**
-- Consumes: `DomainRegistry.record(host, offers, errors)` (Task 1); `crawler.discovery.walker._host`.
+- Consumes: `DomainRegistry.record(host, offers, errors)` (Task 1); `crawler.discovery.brand_feed._host`.
 - Produces: `ActiveHarvester(..., domain_registry=None)`; new signature
   `harvest(self, candidates, cats, known, summary, known_hosts=None)`.
 - Behaviour: website candidate whose `_host(url) in known_hosts` is skipped **before** walking;
@@ -420,7 +420,7 @@ Expected: FAIL — `ActiveHarvester.__init__() got an unexpected keyword argumen
 Add the import near the top (after existing imports):
 
 ```python
-from crawler.discovery.walker import _host
+from crawler.discovery.brand_feed import _host
 ```
 
 Change `__init__` signature to accept the registry (add the trailing param):
@@ -661,7 +661,7 @@ git commit -m "feat(crawler): passive deep-walk website sources via DomainWalker
 
 **Interfaces:**
 - Consumes: `DomainFeed.candidates(known_hosts)` (Task 2); `DomainRegistry.save()/prune()` (Task 1);
-  `ActiveHarvester.harvest(..., known_hosts=...)` (Task 3); `walker._host`.
+  `ActiveHarvester.harvest(..., known_hosts=...)` (Task 3); `brand_feed._host`.
 - Produces: `Runner(..., domain_feed=None, domain_registry=None, domain_evict_min_score=0.1,
   domain_evict_ttl_seconds=2_592_000.0)`. Active block prepends domain_feed candidates
   (exploit) before discovery+brand_feed (explore), builds `known_hosts` from active website
@@ -725,7 +725,7 @@ Expected: FAIL — `Runner.__init__() got an unexpected keyword argument 'domain
 Add import at top:
 
 ```python
-from crawler.discovery.walker import _host
+from crawler.discovery.brand_feed import _host
 ```
 
 Extend `__init__` (add params + attrs after `self._domain_rl`):
@@ -748,8 +748,11 @@ Replace the active harvester block in `run()` (the `if self._harvester is not No
 ```python
         if self._harvester is not None:
             try:
-                known_hosts = {_host(s["url_or_handle"]) for s in sources
-                               if s["type"] == "website"}
+                # host-skip is a domain-rating feature: gate known_hosts on rating being on,
+                # so domain_rating_enabled=False stays byte-equivalent (empty set = no skip).
+                rating_on = self._domain_registry is not None or self._domain_feed is not None
+                known_hosts = ({_host(s["url_or_handle"]) for s in sources
+                                if s["type"] == "website"} if rating_on else set())
                 candidates = []
                 if self._domain_feed is not None:
                     candidates += self._domain_feed.candidates(known_hosts)
@@ -850,6 +853,23 @@ def test_domain_rating_on_builds_feed_registry_and_walker(tmp_path):
     assert runner._domain_feed is not None
     assert runner._domain_registry is not None
     assert runner._walker is not None                 # passive deep-walk enabled
+
+
+def test_domain_rating_on_without_sitemap_builds_walker(tmp_path):
+    # covers the wiring branch `if walker is None: walker, domain_rl = _build_walker(...)`:
+    # domain-rating alone (sitemap_depth off) must still build a walker for passive deep-walk.
+    cfg = Config(
+        internal_api_url="http://api", crawler_api_key="k", extractor="heuristic",
+        active_discovery=False, request_timeout=5.0, min_delay_seconds=0.0,
+        bot_accounts=[], proxies={},
+        brand_feed_enabled=False, sitemap_depth_enabled=False,
+        domain_rating_enabled=True,
+        domain_registry_path=str(tmp_path / "reg.json"),
+        robots_cache_path=str(tmp_path / "robots.json"),
+    )
+    runner = build_runner(cfg)
+    assert runner._walker is not None                 # built by the domain-rating branch
+    assert runner._domain_registry is not None
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
