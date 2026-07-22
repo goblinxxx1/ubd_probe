@@ -14,7 +14,8 @@ SEED_OFFER_TRIGGERS: tuple[str, ...] = (
 SEED_URL_TOKENS: tuple[str, ...] = (
     "sale", "promo", "akci", "akcii", "aktsi", "znizhk", "znyzhk", "rozprodazh",
     "discount", "discounts", "offer", "offers", "deal", "deals", "black-friday",
-    "%d0%b0%d0%ba%d1%86",  # 'акц' percent-encoded
+    "blackfriday", "specialpropoz", "spec-propoz", "cyber-monday",
+    "акці", "акция", "знижк", "розпродаж", "спецпропоз", "дисконт", "вигід",
 )
 
 DISCOUNT_CTX = re.compile(
@@ -45,6 +46,5 @@ def offer_triggers() -> tuple[str, ...]:
 
 
 def url_is_promo(url: str) -> bool:
-    path = unquote(urlsplit(url).path).lower()
-    raw = urlsplit(url).path.lower()  # keep percent-form for %d0%b0.. token
-    return any(tok in path or tok in raw for tok in SEED_URL_TOKENS)
+    path = unquote(urlsplit(url or "").path).lower()
+    return any(tok in path for tok in SEED_URL_TOKENS)

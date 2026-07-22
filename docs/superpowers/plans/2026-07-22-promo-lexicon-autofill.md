@@ -93,10 +93,11 @@ SEED_OFFER_TRIGGERS: tuple[str, ...] = (
     "знижк", "акці", "промокод", "безкоштов", "безплатн", "діє до",
     "спецпропоз", "розпродаж",
 )
-SEED_URL_TOKENS: tuple[str, ...] = (
+SEED_URL_TOKENS: tuple[str, ...] = (  # ТОЧНА копія walker._PROMO_URL_TOKENS (26)
     "sale", "promo", "akci", "akcii", "aktsi", "znizhk", "znyzhk", "rozprodazh",
     "discount", "discounts", "offer", "offers", "deal", "deals", "black-friday",
-    "%d0%b0%d0%ba%d1%86",  # 'акц' percent-encoded
+    "blackfriday", "specialpropoz", "spec-propoz", "cyber-monday",
+    "акці", "акция", "знижк", "розпродаж", "спецпропоз", "дисконт", "вигід",
 )
 
 DISCOUNT_CTX = re.compile(
@@ -126,10 +127,9 @@ def offer_triggers() -> tuple[str, ...]:
     return SEED_OFFER_TRIGGERS + _learned_terms
 
 
-def url_is_promo(url: str) -> bool:
-    path = unquote(urlsplit(url).path).lower()
-    raw = urlsplit(url).path.lower()  # keep percent-form for %d0%b0.. token
-    return any(tok in path or tok in raw for tok in SEED_URL_TOKENS)
+def url_is_promo(url: str) -> bool:  # семантика як у walker.url_is_promo
+    path = unquote(urlsplit(url or "").path).lower()
+    return any(tok in path for tok in SEED_URL_TOKENS)
 ```
 
 - [ ] **Step 4: Запустити — має пройти**
@@ -252,10 +252,12 @@ SEED_OFFER_TRIGGERS = (
     "спеціальна ціна", "спец ціна", "вигідна пропозиц", "знижен",
 )
 SEED_URL_TOKENS = (
+    # --- ядро (ТОЧНО як у walker, 26) ---
     "sale", "promo", "akci", "akcii", "aktsi", "znizhk", "znyzhk", "rozprodazh",
     "discount", "discounts", "offer", "offers", "deal", "deals", "black-friday",
-    "%d0%b0%d0%ba%d1%86",
-    # розширення
+    "blackfriday", "specialpropoz", "spec-propoz", "cyber-monday",
+    "акці", "акция", "знижк", "розпродаж", "спецпропоз", "дисконт", "вигід",
+    # --- розширення ---
     "utsinka", "bonus", "cashback", "special", "specialna", "spec-cina", "hot",
 )
 ```

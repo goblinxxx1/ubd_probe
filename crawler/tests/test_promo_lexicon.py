@@ -3,7 +3,7 @@ from crawler.discovery import promo_lexicon as pl
 
 
 def test_seed_offer_triggers_match_current_gate():
-    # ті самі 7 стемів, що були в heuristic._OFFER_TRIGGERS
+    # ті самі 8 стемів, що були в heuristic._OFFER_TRIGGERS
     for stem in ("знижк", "акці", "промокод", "безкоштов", "безплатн", "діє до",
                  "спецпропоз", "розпродаж"):
         assert stem in pl.SEED_OFFER_TRIGGERS
