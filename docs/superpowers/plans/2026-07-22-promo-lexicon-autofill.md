@@ -559,12 +559,14 @@ def test_record_appends_jsonl(tmp_path):
 
 def test_rotation_trims_oldest(tmp_path):
     p = tmp_path / "corpus.jsonl"
-    rec = CorpusRecorder(str(p), max_mb=0.0001)  # ~100 bytes
+    rec = CorpusRecorder(str(p), max_mb=0.0001)  # ~100 bytes → keeps only newest row(s)
     for i in range(200):
         rec.record(_item(f"Знижка номер {i} " * 3), True)
-    size_mb = p.stat().st_size / (1024 * 1024)
-    assert size_mb <= 0.0002  # ротація тримає розмір біля межі
-    assert len(read_corpus(str(p))) >= 1
+    rows = read_corpus(str(p))
+    # ротація відрізала старі рядки, але ніколи не спорожнила файл (лишає ≥1 рядок,
+    # навіть якщо один рядок сам по собі > max_bytes). Поведінковий бавунд, не крихкий байт-точний.
+    assert 1 <= len(rows) < 200
+    assert p.stat().st_size <= 1024  # далеко під розміром 200 нерозротованих рядків
 ```
 
 - [ ] **Step 2: Запустити — падає**
