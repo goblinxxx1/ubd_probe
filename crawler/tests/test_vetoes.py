@@ -20,3 +20,17 @@ def test_pass_collision_and_abstention():
     lowz = _ts("може", 0.5, ["a.ua", "b.ua", "c.ua"])
     out = survivors([collide, lowz], min_domains=3, min_z=1.5)
     assert out == []
+
+
+def test_empty_domains_not_counted():
+    # порожній рядок-домен не має надувати support: {a,b,""} == 2 distinct < 3
+    weak = _ts("акціятест", 3.0, ["a.ua", "b.ua", ""])
+    out = survivors([weak], min_domains=3, min_z=1.5)
+    assert out == []
+
+
+def test_max_candidates_caps_output_in_order():
+    scores = [_ts(f"term{i}", 3.0, ["a.ua", "b.ua", "c.ua"]) for i in range(10)]
+    out = survivors(scores, min_domains=3, min_z=1.5, max_candidates=4)
+    assert len(out) == 4
+    assert [s.term for s in out] == ["term0", "term1", "term2", "term3"]  # prefix, input order
