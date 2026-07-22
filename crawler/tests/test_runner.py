@@ -188,6 +188,18 @@ def test_active_block_prepends_domain_feed_and_builds_known_hosts(tmp_path):
     assert hv.known_hosts == {"silpo.ua"}                          # active source host
 
 
+def test_off_path_passes_empty_known_hosts():
+    src = {"id": 1, "type": "website", "name": "Silpo", "url_or_handle": "https://silpo.ua"}
+    api = FakeApi([src])
+    hv = _RecordingHarvester()
+    # domain_feed / domain_registry both None → rating OFF
+    runner = Runner(api, {"website": FakeFetcher([])}, get_extractor("heuristic"), _rl(),
+                    harvester=hv, brand_feed=_StubFeed([SourceCandidate(
+                        name="x.ua", type="website", url_or_handle="https://x.ua")]))
+    runner.run()
+    assert hv.known_hosts == set()   # no host-skip when rating off
+
+
 def test_active_block_prunes_and_saves_registry(tmp_path):
     import os
     p = str(tmp_path / "r.json")

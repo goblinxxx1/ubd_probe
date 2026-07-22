@@ -58,8 +58,11 @@ class Runner:
 
         if self._harvester is not None:
             try:
-                known_hosts = {_host(s["url_or_handle"]) for s in sources
-                               if s["type"] == "website"}
+                # host-skip is a domain-rating feature: gate known_hosts on rating being on,
+                # so domain_rating_enabled=False stays byte-equivalent (empty set = no skip).
+                rating_on = self._domain_registry is not None or self._domain_feed is not None
+                known_hosts = ({_host(s["url_or_handle"]) for s in sources
+                                if s["type"] == "website"} if rating_on else set())
                 candidates = []
                 if self._domain_feed is not None:
                     candidates += self._domain_feed.candidates(known_hosts)
