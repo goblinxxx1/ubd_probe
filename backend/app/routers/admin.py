@@ -2,14 +2,16 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.crud import admin_user as admin_user_crud
+from app.crud import blocked_host as blocked_host_crud
 from app.crud import category as category_crud
 from app.crud import offer as offer_crud
 from app.crud import source as source_crud
 from app.crud import suggested_source as suggestion_crud
 from app.deps import get_current_admin, get_db, require_super_admin
 from app.models import OfferCategory, TargetCategory
-from app.models.enums import CreatedBy, OfferStatus, OfferType, SuggestionStatus
+from app.models.enums import BlockedHostStatus, CreatedBy, OfferStatus, OfferType, SuggestionStatus
 from app.schemas.admin_user import AdminUserCreate, AdminUserOut
+from app.schemas.blocked_host import BlockedHostOut
 from app.schemas.category import CategoryCreate, CategoryOut, CategoryUpdate
 from app.schemas.common import Page
 from app.schemas.offer import OfferCreate, OfferOut, OfferUpdate
@@ -127,6 +129,24 @@ def approve_suggestion(suggestion_id: int, db: Session = Depends(get_db),
 def reject_suggestion(suggestion_id: int, db: Session = Depends(get_db),
                       admin=Depends(get_current_admin)):
     return suggestion_crud.reject(db, suggestion_id, admin.id)
+
+
+@router.get("/host-candidates", response_model=list[BlockedHostOut])
+def list_host_candidates(status: BlockedHostStatus | None = None,
+                         db: Session = Depends(get_db), _=Depends(get_current_admin)):
+    return blocked_host_crud.list_hosts(db, status)
+
+
+@router.post("/host-candidates/{host_id}/approve", response_model=BlockedHostOut)
+def approve_host_candidate(host_id: int, db: Session = Depends(get_db),
+                           admin=Depends(get_current_admin)):
+    return blocked_host_crud.approve(db, host_id, admin.id)
+
+
+@router.post("/host-candidates/{host_id}/reject", response_model=BlockedHostOut)
+def reject_host_candidate(host_id: int, db: Session = Depends(get_db),
+                          admin=Depends(get_current_admin)):
+    return blocked_host_crud.reject(db, host_id, admin.id)
 
 
 @router.post("/users", response_model=AdminUserOut)
