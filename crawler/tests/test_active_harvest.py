@@ -261,3 +261,19 @@ def test_registry_not_recorded_without_registry():
     summary = _summary()
     h.harvest([_cand(url="https://cafe.example")], cats=None, known=set(), summary=summary)
     assert summary["offers"] == 1
+
+
+def test_harvester_threads_aggregator_threshold(monkeypatch):
+    import crawler.discovery.harvest as hv
+    seen = {}
+    def spy(item, ctx, **kw):
+        seen.update(kw)
+        return None                      # drop → no offer submitted
+    monkeypatch.setattr(hv, "attribute", spy)
+    api = FakeApi()
+    h = ActiveHarvester(api, {"website": FakeFetcher([_item("Знижка 20% для УБД у нас",
+                                                            site_name="Cafe")])},
+                        GateExtractor(), rate_limiter=None, fetch_budget=5,
+                        aggregator_min_outbound=7)
+    h.harvest([_cand()], cats=None, known=set(), summary=_summary())
+    assert seen.get("aggregator_min_outbound") == 7

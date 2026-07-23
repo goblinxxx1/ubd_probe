@@ -142,7 +142,8 @@ def build_runner(config) -> Runner:
                                     walker=walker, domain_rate_limiter=domain_rl,
                                     corpus_recorder=corpus_recorder,
                                     domain_registry=domain_registry,
-                                    hardening_enabled=config.attribution_hardening_enabled)
+                                    hardening_enabled=config.attribution_hardening_enabled,
+                                    aggregator_min_outbound=config.aggregator_min_outbound)
     return Runner(api, fetchers, extractor, rate_limiter,
                   discovery=discovery, keywords=keywords, harvester=harvester,
                   brand_feed=brand_feed, freshness_ttl_days=config.freshness_ttl_days,
