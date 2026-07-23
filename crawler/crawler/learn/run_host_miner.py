@@ -1,15 +1,26 @@
 """Офлайн-оркестратор host-blocklist: корпус → host_miner → host_vetoes → сабміт кандидатів
 у backend (audit-черга). Дзеркало run_miner.py. protected_hosts подає викликач."""
 
+from urllib.parse import urlsplit
+
 from crawler.learn.corpus import read_corpus
 from crawler.learn.host_miner import mine_hosts
 from crawler.learn.host_vetoes import survivors
 
 
+def _bare_host(h: str) -> str:
+    """Bare host from either a full URL ("https://shop.ua") or an already-bare
+    host ("shop.ua"); also strips a leading "www."."""
+    h = (h or "").strip()
+    netloc = urlsplit(h if "//" in h else "//" + h).netloc
+    return netloc.lower().removeprefix("www.")
+
+
 def run_host_miner(config, api, protected_hosts) -> int:
     rows = read_corpus(config.corpus_path)
     scores = mine_hosts(rows, aggregator_min_outbound=config.aggregator_min_outbound)
-    keep = survivors(scores, protected_hosts=protected_hosts,
+    protected = {_bare_host(h) for h in (protected_hosts or set())}
+    keep = survivors(scores, protected_hosts=protected,
                      min_support=config.host_miner_min_support,
                      media_min=config.host_miner_media_min,
                      aggregator_min=config.host_miner_aggregator_min,

@@ -34,3 +34,14 @@ def test_run_host_miner_respects_protected(tmp_path, monkeypatch):
     monkeypatch.setattr(m, "read_corpus", lambda p: rows)
     api = _Api()
     assert run_host_miner(_Cfg(), api, protected_hosts={"blog.ua"}) == 0
+
+
+def test_run_host_miner_respects_protected_full_url(tmp_path, monkeypatch):
+    # CLI passes url_or_handle for website sources, which is a full URL
+    # (e.g. "https://blog.ua"), not a bare host — must still veto.
+    import crawler.learn.run_host_miner as m
+    rows = [{"host": "blog.ua", "label": "pass", "is_article": True,
+             "outbound_hosts": 0, "pos_anchor": False, "text": "u"} for _ in range(4)]
+    monkeypatch.setattr(m, "read_corpus", lambda p: rows)
+    api = _Api()
+    assert run_host_miner(_Cfg(), api, protected_hosts={"https://blog.ua"}) == 0
