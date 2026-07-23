@@ -91,13 +91,13 @@ Retire six accumulated, non-blocking tech-debt items surfaced by prior review wa
 
 ---
 
-## Item E — move mid-file import to the top in `blocklist.py`
+## Item E — move mid-file import to the top in `test_blocklist.py`
 
-**Problem:** the attribution track added an import mid-file in `crawler/crawler/discovery/blocklist.py` (cosmetic, flagged Task-3 Minor).
+**Problem:** the attribution track added a module-level import mid-file in `crawler/tests/test_blocklist.py` (cosmetic, flagged Task-3 Minor).
 
 **Change:** move it into the top import block. No behavior change; covered by the existing `test_blocklist` suite.
 
-**Files:** `blocklist.py`.
+**Files:** `crawler/tests/test_blocklist.py`.
 
 ---
 
