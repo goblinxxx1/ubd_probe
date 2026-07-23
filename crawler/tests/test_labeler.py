@@ -19,3 +19,10 @@ def test_negative_anchor_from_blocklist():
     rec = label_item(_item("https://nv.ua/news"), False)
     assert rec.label == "fail"
     assert rec.neg_anchor is True
+
+
+def test_label_carries_is_article():
+    it = RawItem(source_id=None, platform="website", key="k",
+                 text="Знижка", url="https://blog.example/a", is_article=True)
+    rec = label_item(it, extracted_is_offer=False)
+    assert rec.is_article is True

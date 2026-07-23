@@ -1,3 +1,5 @@
+import json
+
 from crawler.learn.corpus import CorpusRecorder, read_corpus
 from crawler.models import RawItem
 
@@ -27,3 +29,14 @@ def test_rotation_trims_oldest(tmp_path):
     # навіть якщо один рядок сам по собі > max_bytes). Поведінковий бавунд, не крихкий байт-точний.
     assert 1 <= len(rows) < 200
     assert p.stat().st_size <= 1024  # далеко під розміром 200 нерозротованих рядків
+
+
+def test_corpus_row_has_article_and_outbound(tmp_path):
+    p = str(tmp_path / "c.jsonl")
+    it = RawItem(source_id=None, platform="website", key="k", text="Знижка 20%",
+                 url="https://blog.example/a", links=["https://shop.ua/x", "https://blog.example/y"],
+                 is_article=True)
+    CorpusRecorder(p, max_mb=50).record(it, extracted_is_offer=True)
+    rows = read_corpus(p)
+    assert rows[0]["is_article"] is True
+    assert rows[0]["outbound_hosts"] == 1        # shop.ua external; blog.example internal

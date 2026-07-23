@@ -3,8 +3,19 @@
 import json
 import os
 import time
+from urllib.parse import urlsplit
 
 from crawler.learn.labeler import label_item
+
+
+def _outbound_count(item) -> int:
+    src = urlsplit(getattr(item, "url", None) or "").netloc.lower().removeprefix("www.")
+    hosts = set()
+    for raw in getattr(item, "links", None) or []:
+        h = urlsplit(raw or "").netloc.lower().removeprefix("www.")
+        if h and h != src:
+            hosts.add(h)
+    return len(hosts)
 
 
 class CorpusRecorder:
@@ -18,6 +29,7 @@ class CorpusRecorder:
             "text": getattr(item, "text", "") or "",
             "label": rec.label, "host": rec.host,
             "neg_anchor": rec.neg_anchor, "pos_anchor": rec.pos_anchor,
+            "is_article": rec.is_article, "outbound_hosts": _outbound_count(item),
             "snowball": snowball, "ts": int(time.time()),
         }
         os.makedirs(os.path.dirname(self._path) or ".", exist_ok=True)
