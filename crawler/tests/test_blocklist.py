@@ -1,4 +1,5 @@
 from crawler.discovery.blocklist import is_blocked_host
+from crawler.discovery import blocklist
 
 
 def test_exact_media_host_blocked():
@@ -75,9 +76,6 @@ def test_business_info_handle_not_blocked():
     # but an explicit blocklisted handle and strong news terms still block
     assert is_blocked_telegram("t.me/nau_info", None) is True
     assert is_blocked_telegram("t.me/x", "Львівські новини") is True
-
-
-from crawler.discovery import blocklist
 
 
 def test_reload_learned_extends_then_clears():
