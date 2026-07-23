@@ -143,3 +143,20 @@ def test_approved_offers_returns_published(client, db_session):
 
 def test_approved_offers_requires_api_key(client):
     assert client.get("/api/internal/approved-offers").status_code == 401
+
+
+def test_submit_host_candidate_and_list_approved(client, db_session):
+    h = {"X-API-Key": settings.crawler_api_key}
+    r = client.post("/api/internal/host-candidates",
+                    json={"host": "media.example", "media_ratio": 0.9,
+                          "aggregator_ratio": 0.0, "support": 4,
+                          "sample_urls": ["https://media.example/a"]},
+                    headers=h)
+    assert r.status_code == 200 and r.json()["status"] == "pending"
+    # not approved yet → not in the crawler-facing list
+    assert client.get("/api/internal/blocked-hosts", headers=h).json() == []
+
+
+def test_host_candidates_requires_api_key(client):
+    r = client.post("/api/internal/host-candidates", json={"host": "x.example"})
+    assert r.status_code == 401

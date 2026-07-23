@@ -155,7 +155,7 @@ def test_walker_expands_website_candidate_to_multiple_pages(monkeypatch):
     import crawler.discovery.harvest as h
     monkeypatch.setattr(h, "resolve_offer_categories", lambda *a, **k: [])
     monkeypatch.setattr(h, "attribute",
-                        lambda item, ctx: type("A", (), {
+                        lambda item, ctx, **kw: type("A", (), {
                             "provider": "shop.ua", "suggest_url_or_handle": None,
                             "suggest_type": "website", "suggest_name": "Shop"})())
     fetcher = _Fetcher()
@@ -173,7 +173,7 @@ def test_walker_none_keeps_single_homepage_fetch(monkeypatch):
     import crawler.discovery.harvest as h
     monkeypatch.setattr(h, "resolve_offer_categories", lambda *a, **k: [])
     monkeypatch.setattr(h, "attribute",
-                        lambda item, ctx: type("A", (), {
+                        lambda item, ctx, **kw: type("A", (), {
                             "provider": "shop.ua", "suggest_url_or_handle": None,
                             "suggest_type": "website", "suggest_name": "Shop"})())
 
@@ -197,7 +197,7 @@ def test_one_broken_page_does_not_stop_the_domain(monkeypatch):
     import crawler.discovery.harvest as h
     monkeypatch.setattr(h, "resolve_offer_categories", lambda *a, **k: [])
     monkeypatch.setattr(h, "attribute",
-                        lambda item, ctx: type("A", (), {
+                        lambda item, ctx, **kw: type("A", (), {
                             "provider": "shop.ua", "suggest_url_or_handle": None,
                             "suggest_type": "website", "suggest_name": "Shop"})())
 

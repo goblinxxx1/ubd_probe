@@ -121,3 +121,15 @@ def test_domain_rating_defaults():
     assert s.domain_promote_min_score == 0.5
     assert s.domain_evict_min_score == 0.1
     assert s.domain_evict_ttl_hours == 720
+
+
+def test_attribution_hardening_defaults():
+    from crawler.config import _RawSettings
+    s = _RawSettings()
+    assert s.attribution_hardening_enabled is True
+    assert s.blocked_hosts_fetch_enabled is True
+    assert s.aggregator_min_outbound == 3
+    assert s.host_miner_min_support == 3
+    assert s.host_miner_media_min == 0.5
+    assert s.host_miner_aggregator_min == 0.5
+    assert s.host_miner_max_candidates == 50

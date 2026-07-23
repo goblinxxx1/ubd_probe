@@ -43,6 +43,7 @@ function logout() {
         </router-link>
         <router-link :to="{ name: 'sources' }" @click="drawerOpen = false">Джерела</router-link>
         <router-link :to="{ name: 'suggested-sources' }" @click="drawerOpen = false">Запропоновані джерела</router-link>
+        <router-link :to="{ name: 'host-candidates' }" @click="drawerOpen = false">Медіа-блоклист</router-link>
         <router-link v-if="isSuperAdmin" :to="{ name: 'categories' }" @click="drawerOpen = false">Категорії</router-link>
         <router-link v-if="isSuperAdmin" :to="{ name: 'users' }" @click="drawerOpen = false">Адміни</router-link>
       </nav>

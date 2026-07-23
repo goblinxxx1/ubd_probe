@@ -13,6 +13,7 @@ class LabelRecord:
     host: str
     neg_anchor: bool
     pos_anchor: bool
+    is_article: bool = False
 
 
 def _host(url: str | None) -> str:
@@ -26,4 +27,5 @@ def label_item(item, extracted_is_offer: bool) -> LabelRecord:
         host=host,
         neg_anchor=is_blocked_host(host),
         pos_anchor=bool(getattr(item, "has_offer_schema", False)),
+        is_article=bool(getattr(item, "is_article", False)),
     )

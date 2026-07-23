@@ -228,3 +228,37 @@ def test_domain_rating_on_without_sitemap_builds_walker(tmp_path):
     runner = build_runner(cfg)
     assert runner._walker is not None                 # built by the domain-rating branch
     assert runner._domain_registry is not None
+
+
+def test_build_runner_reloads_blocked_hosts(monkeypatch, tmp_path):
+    import crawler.wiring as w
+    from crawler.discovery import blocklist
+    captured = {}
+    monkeypatch.setattr(blocklist, "reload_learned",
+                        lambda hosts: captured.setdefault("hosts", hosts))
+    # make ApiClient.list_blocked_hosts return a fixed set without network
+    monkeypatch.setattr(w.ApiClient, "list_blocked_hosts",
+                        lambda self: ["learned.example"], raising=False)
+    cfg = Config(
+        internal_api_url="http://api", crawler_api_key="k", extractor="heuristic",
+        active_discovery=False, request_timeout=5.0, min_delay_seconds=0.0,
+        bot_accounts=[], proxies={},
+        brand_feed_enabled=False, sitemap_depth_enabled=False, domain_rating_enabled=False,
+        blocked_hosts_fetch_enabled=True,
+    )
+    w.build_runner(cfg)
+    assert captured["hosts"] == ["learned.example"]
+
+
+def test_build_runner_blocked_hosts_fetch_best_effort(monkeypatch):
+    import crawler.wiring as w
+    def boom(self): raise RuntimeError("net down")
+    monkeypatch.setattr(w.ApiClient, "list_blocked_hosts", boom, raising=False)
+    cfg = Config(
+        internal_api_url="http://api", crawler_api_key="k", extractor="heuristic",
+        active_discovery=False, request_timeout=5.0, min_delay_seconds=0.0,
+        bot_accounts=[], proxies={},
+        brand_feed_enabled=False, sitemap_depth_enabled=False, domain_rating_enabled=False,
+        blocked_hosts_fetch_enabled=True,
+    )
+    w.build_runner(cfg)   # must not raise

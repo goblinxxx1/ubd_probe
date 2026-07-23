@@ -14,7 +14,7 @@ _FETCHABLE = ("website", "telegram")
 class ActiveHarvester:
     def __init__(self, api, fetchers, extractor, rate_limiter, fetch_budget=20,
                  walker=None, domain_rate_limiter=None, corpus_recorder=None,
-                 domain_registry=None):
+                 domain_registry=None, hardening_enabled=True):
         self._api = api
         self._fetchers = fetchers
         self._extractor = extractor
@@ -24,6 +24,7 @@ class ActiveHarvester:
         self._domain_rl = domain_rate_limiter
         self._corpus = corpus_recorder
         self._registry = domain_registry
+        self._hardening_enabled = hardening_enabled
 
     def harvest(self, candidates, cats, known, summary, known_hosts=None) -> None:
         known_hosts = known_hosts or set()
@@ -87,7 +88,7 @@ class ActiveHarvester:
                 passing.append(it)
         ctx = build_page_ctx(cand, passing)
         for item in passing:
-            attr = attribute(item, ctx)
+            attr = attribute(item, ctx, hardening_enabled=self._hardening_enabled)
             if attr is None:
                 continue
             offer = self._extractor.extract(item, attr.provider, cats)
