@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.crud import blocked_host as blocked_host_crud
 from app.crud import bot_account as bot_account_crud
 from app.crud import category as category_crud
 from app.crud import crawl_state as crawl_state_crud
@@ -14,6 +15,7 @@ from app.crud import suggested_source as suggestion_crud
 from app.deps import get_db, require_api_key
 from app.models import OfferCategory
 from app.models.enums import CreatedBy, OfferStatus
+from app.schemas.blocked_host import BlockedHostOut, HostCandidateCreate
 from app.schemas.bot_account import BotAccountOut, BotAccountStateUpdate
 from app.schemas.category import CategoryCreate, CategoryOut
 from app.schemas.crawl_state import CrawlStateOut, CrawlStateUpdate
@@ -114,3 +116,13 @@ def list_approved_offers(since: datetime | None = None, db: Session = Depends(ge
         )
         for o in rows
     ]
+
+
+@router.post("/host-candidates", response_model=BlockedHostOut)
+def submit_host_candidate(data: HostCandidateCreate, db: Session = Depends(get_db)):
+    return blocked_host_crud.upsert_candidate(db, data)
+
+
+@router.get("/blocked-hosts", response_model=list[str])
+def list_blocked_hosts(db: Session = Depends(get_db)):
+    return blocked_host_crud.list_approved_hosts(db)
