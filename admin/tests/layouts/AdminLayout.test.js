@@ -19,6 +19,7 @@ function makeRouter() {
       { path: "/moderation", name: "moderation", component: stub },
       { path: "/sources", name: "sources", component: stub },
       { path: "/suggested-sources", name: "suggested-sources", component: stub },
+      { path: "/host-candidates", name: "host-candidates", component: stub },
       { path: "/login", name: "login", component: stub },
     ],
   });
