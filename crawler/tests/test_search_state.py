@@ -150,3 +150,29 @@ def test_set_grid_cursor_persists_and_is_independent(tmp_path):
     reloaded = SearchState.load(path)
     assert reloaded.grid_cursor == 42
     assert reloaded.cursor == 3
+
+
+def test_site_cursor_defaults_zero(tmp_path):
+    st = _state(tmp_path, Clock())
+    assert st.site_cursor == 0
+
+
+def test_set_site_cursor_persists_and_is_independent(tmp_path):
+    path = str(tmp_path / "state.json")
+    st = SearchState(path, clock=Clock())
+    st.set_grid_cursor(42)      # grid cursor — separate field
+    st.set_site_cursor(5)       # site cursor — separate field
+    reloaded = SearchState.load(path)
+    assert reloaded.site_cursor == 5
+    assert reloaded.grid_cursor == 42
+
+
+def test_old_state_file_without_site_cursor_loads(tmp_path):
+    import json as _json
+    path = tmp_path / "partial.json"
+    path.write_text(_json.dumps({"version": 1, "cursor": 0, "grid_cursor": 3,
+                                 "next_allowed_at": 0.0, "backends": {}, "cache": {}}),
+                    encoding="utf-8")
+    st = SearchState.load(str(path), clock=Clock())
+    assert st.site_cursor == 0          # missing key defaults cleanly
+    assert st.grid_cursor == 3
