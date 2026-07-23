@@ -8,7 +8,8 @@ from crawler.models import SourceCandidate
 
 log = logging.getLogger(__name__)
 
-_EMPTY = {"version": 1, "cursor": 0, "grid_cursor": 0,
+_EMPTY = {"version": 1, "cursor": 0, "grid_cursor": 0, "site_cursor": 0,
+          "approved_cursor": 0,
           "next_allowed_at": 0.0, "backends": {}, "cache": {}}
 
 
@@ -52,6 +53,24 @@ class SearchState:
 
     def set_grid_cursor(self, value: int) -> None:
         self._data["grid_cursor"] = int(value)
+        self._save()
+
+    # --- site-query rotation cursor (separate from grid/backend cursors) ---
+    @property
+    def site_cursor(self) -> int:
+        return int(self._data.get("site_cursor", 0))
+
+    def set_site_cursor(self, value: int) -> None:
+        self._data["site_cursor"] = int(value)
+        self._save()
+
+    # --- approved-partner rotation cursor (site: lever; independent of term phase) ---
+    @property
+    def approved_cursor(self) -> int:
+        return int(self._data.get("approved_cursor", 0))
+
+    def set_approved_cursor(self, value: int) -> None:
+        self._data["approved_cursor"] = int(value)
         self._save()
 
     # --- backend health ---

@@ -277,3 +277,20 @@ def test_harvester_threads_aggregator_threshold(monkeypatch):
                         aggregator_min_outbound=7)
     h.harvest([_cand()], cats=None, known=set(), summary=_summary())
     assert seen.get("aggregator_min_outbound") == 7
+
+
+def test_source_candidate_defaults_no_bypass():
+    assert SourceCandidate(name="x", type="website",
+                           url_or_handle="https://x.ua").bypass_host_skip is False
+
+
+def test_bypass_host_skip_forces_fetch_of_known_host(tmp_path):
+    api = FakeApi()
+    cand = _cand(url="https://cafe.example")
+    cand.bypass_host_skip = True                       # site:-sourced candidate
+    h = ActiveHarvester(api, {"website": _RecFetcher("Знижка 20% УБД")},
+                        GateExtractor(), rate_limiter=None, fetch_budget=5)
+    summary = _summary()
+    h.harvest([cand], cats=None, known=set(), summary=summary,
+              known_hosts={"cafe.example"})            # host normally skipped
+    assert summary["offers"] == 1                      # fetched anyway

@@ -31,6 +31,8 @@ class _RawSettings(BaseSettings):
     search_budget: int = 0  # 0 = process all keywords
     active_fetch_budget: int = 20
     search_queries_per_pass: int = 40
+    site_query_enabled: bool = True
+    site_query_budget: int = 5
     searxng_url: str = "http://searxng:8080"
     freshness_ttl_days: int = 30
     brand_feed_enabled: bool = True
@@ -101,6 +103,8 @@ class Config:
     search_budget: int | None = None
     active_fetch_budget: int = 20
     search_queries_per_pass: int = 40
+    site_query_enabled: bool = True
+    site_query_budget: int = 5
     searxng_url: str = "http://searxng:8080"
     freshness_ttl_days: int = 30
     brand_feed_enabled: bool = True
@@ -194,6 +198,8 @@ def load_config() -> Config:
         search_budget=(s.search_budget or None),
         active_fetch_budget=s.active_fetch_budget,
         search_queries_per_pass=s.search_queries_per_pass,
+        site_query_enabled=s.site_query_enabled,
+        site_query_budget=s.site_query_budget,
         searxng_url=s.searxng_url,
         freshness_ttl_days=s.freshness_ttl_days,
         brand_feed_enabled=s.brand_feed_enabled,

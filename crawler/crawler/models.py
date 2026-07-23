@@ -54,3 +54,5 @@ class SourceCandidate:
     url_or_handle: str
     discovered_from_source_id: int | None = None
     discovery_note: str | None = None
+    bypass_host_skip: bool = False   # site:-sourced candidates set True; host-skip only guarded
+                                     # passive-walk duplication, which a site:-page is not

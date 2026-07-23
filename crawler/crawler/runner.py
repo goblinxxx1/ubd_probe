@@ -1,4 +1,5 @@
 import logging
+from itertools import zip_longest
 
 from crawler.discovery.brand_feed import _host
 from crawler.discovery.passive import extract_source_candidates, normalize_ref
@@ -16,7 +17,8 @@ class Runner:
                  freshness_ttl_days=30, corpus_recorder=None,
                  walker=None, domain_rate_limiter=None,
                  domain_feed=None, domain_registry=None,
-                 domain_evict_min_score=0.1, domain_evict_ttl_seconds=2_592_000.0):
+                 domain_evict_min_score=0.1, domain_evict_ttl_seconds=2_592_000.0,
+                 site_planner=None, site_state=None, site_query_budget=5):
         self._api = api_client
         self._fetchers = fetchers
         self._extractor = extractor
@@ -33,6 +35,9 @@ class Runner:
         self._domain_registry = domain_registry
         self._evict_min = domain_evict_min_score
         self._evict_ttl = domain_evict_ttl_seconds
+        self._site_planner = site_planner
+        self._site_state = site_state
+        self._site_query_budget = site_query_budget
 
     def _fetch_for(self, source: dict, last_seen_key):
         fetcher = self._fetchers.get(source["type"])
@@ -70,6 +75,28 @@ class Runner:
                     candidates += self._discovery.run(self._keywords, known)
                 if self._brand_feed is not None:
                     candidates += self._brand_feed.candidates(known)
+                if (self._site_planner is not None and self._site_state is not None
+                        and self._discovery is not None and self._domain_registry is not None):
+                    cur = self._site_state.site_cursor
+                    reg = self._domain_registry.top(self._site_query_budget, known_hosts)
+                    approved = sorted(known_hosts)
+                    if approved:
+                        # rotate by a dedicated monotonic cursor so a partner set larger than
+                        # len(terms) is still fully swept over passes (term phase != partner phase)
+                        off = self._site_state.approved_cursor % len(approved)
+                        approved = approved[off:] + approved[:off]
+                    pool = [d for pair in zip_longest(reg, approved) for d in pair if d]
+                    site_queries, new_cur = self._site_planner.next_batch(
+                        pool, self._site_query_budget, cur)
+                    if site_queries:
+                        site_cands = self._discovery.run(site_queries, known)
+                        for c in site_cands:
+                            c.bypass_host_skip = True
+                        candidates += site_cands
+                        self._site_state.set_site_cursor(new_cur)
+                        if approved:
+                            self._site_state.set_approved_cursor(
+                                self._site_state.approved_cursor + 1)
                 if candidates:
                     self._harvester.harvest(candidates, cats, known, summary,
                                             known_hosts=known_hosts)

@@ -242,3 +242,68 @@ def test_active_block_prunes_and_saves_registry(tmp_path):
     runner.run()
     assert os.path.exists(p)                            # saved
     assert DomainRegistry.load(p).top(10, set()) == [] # dead pruned
+
+
+from crawler.discovery.search_state import SearchState
+from crawler.discovery.site_query import SiteQueryPlanner
+
+
+class _MutatingDiscovery:
+    """Records each keyword list passed; returns one candidate per call."""
+    def __init__(self): self.calls = []
+    def run(self, keywords, known):
+        self.calls.append(list(keywords))
+        return [SourceCandidate(name="site", type="website",
+                                url_or_handle="https://proven.ua/promo")]
+
+
+def test_site_query_block_generates_flags_and_advances_cursor(tmp_path):
+    src = {"id": 1, "type": "website", "name": "Silpo", "url_or_handle": "https://silpo.ua"}
+    api = FakeApi([src])
+    reg = DomainRegistry(str(tmp_path / "r.json"), clock=lambda: 1.0)
+    reg.record("proven.ua", offers=2, errors=0)          # productive, non-approved
+    state = SearchState(str(tmp_path / "s.json"), clock=lambda: 1.0)
+    disc = _MutatingDiscovery()
+    hv = _RecordingHarvester()
+    runner = Runner(api, {"website": FakeFetcher([])}, get_extractor("heuristic"), _rl(),
+                    harvester=hv, discovery=disc, domain_registry=reg,
+                    site_planner=SiteQueryPlanner(terms=("знижка", "акція")),
+                    site_state=state, site_query_budget=5)
+    runner.run()
+
+    site_qs = disc.calls[-1]
+    assert "site:proven.ua знижка" in site_qs             # productive domain
+    assert "site:silpo.ua акція" in site_qs               # approved partner (interleaved, next term)
+    assert hv.candidates and all(c.bypass_host_skip for c in hv.candidates)
+    assert SearchState.load(str(tmp_path / "s.json")).site_cursor == 1   # advanced & persisted
+
+
+def test_approved_partners_fully_swept_across_passes(tmp_path):
+    srcs = [{"id": i, "type": "website", "name": h, "url_or_handle": f"https://{h}"}
+            for i, h in enumerate(["a.ua", "b.ua", "c.ua", "d.ua"], start=1)]
+    api = FakeApi(srcs)
+    reg = DomainRegistry(str(tmp_path / "r.json"), clock=lambda: 1.0)   # empty registry
+    state = SearchState(str(tmp_path / "s.json"), clock=lambda: 1.0)
+    disc = _MutatingDiscovery()
+    runner = Runner(api, {"website": FakeFetcher([])}, get_extractor("heuristic"), _rl(),
+                    harvester=_RecordingHarvester(), discovery=disc, domain_registry=reg,
+                    site_planner=SiteQueryPlanner(terms=("t1", "t2")),
+                    site_state=state, site_query_budget=2)
+    for _ in range(3):
+        runner.run()
+    hosts = {q.split()[0].removeprefix("site:") for qlist in disc.calls for q in qlist}
+    assert {"a.ua", "b.ua", "c.ua", "d.ua"} <= hosts   # full sweep — impossible if off tied to bounded site_cursor
+
+
+def test_site_query_off_is_byte_equivalent(tmp_path):
+    src = {"id": 1, "type": "website", "name": "Silpo", "url_or_handle": "https://silpo.ua"}
+    api = FakeApi([src])
+    reg = DomainRegistry(str(tmp_path / "r.json"), clock=lambda: 1.0)
+    reg.record("proven.ua", offers=2, errors=0)
+    disc = _MutatingDiscovery()
+    runner = Runner(api, {"website": FakeFetcher([])}, get_extractor("heuristic"), _rl(),
+                    harvester=_RecordingHarvester(), discovery=disc, domain_registry=reg,
+                    domain_feed=_StubFeed([]),
+                    site_planner=None, site_state=None)   # lever off
+    runner.run()
+    assert disc.calls == []                               # no site queries issued

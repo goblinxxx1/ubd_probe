@@ -133,3 +133,19 @@ def test_attribution_hardening_defaults():
     assert s.host_miner_media_min == 0.5
     assert s.host_miner_aggregator_min == 0.5
     assert s.host_miner_max_candidates == 50
+
+
+def test_site_query_defaults(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)      # no .env -> defaults apply
+    cfg = load_config()
+    assert cfg.site_query_enabled is True
+    assert cfg.site_query_budget == 5
+
+
+def test_site_query_env_overrides(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("SITE_QUERY_ENABLED", "false")
+    monkeypatch.setenv("SITE_QUERY_BUDGET", "9")
+    cfg = load_config()
+    assert cfg.site_query_enabled is False
+    assert cfg.site_query_budget == 9
