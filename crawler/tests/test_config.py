@@ -149,3 +149,25 @@ def test_site_query_env_overrides(monkeypatch, tmp_path):
     cfg = load_config()
     assert cfg.site_query_enabled is False
     assert cfg.site_query_budget == 9
+
+
+def test_osm_feed_defaults(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)      # no .env -> defaults apply
+    cfg = load_config()
+    assert cfg.osm_feed_enabled is True
+    assert cfg.osm_feed_refresh_hours == 336
+    assert cfg.osm_feed_per_pass == 20
+    assert cfg.osm_domains_path == "/data/osm_domains.json"
+    assert cfg.osm_feed_max_domains == 500
+    assert cfg.osm_min_pois == 2
+
+
+def test_osm_feed_env_overrides(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("OSM_FEED_ENABLED", "false")
+    monkeypatch.setenv("OSM_FEED_MAX_DOMAINS", "50")
+    monkeypatch.setenv("OSM_MIN_POIS", "3")
+    cfg = load_config()
+    assert cfg.osm_feed_enabled is False
+    assert cfg.osm_feed_max_domains == 50
+    assert cfg.osm_min_pois == 3
