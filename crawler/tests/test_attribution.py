@@ -137,3 +137,14 @@ def test_non_media_first_person_still_first_party():
     it = _item2("У нас знижка 20% для ветеранів", links=["https://ig.example/x"])
     attr = attribute(it, _ctx())
     assert attr is not None and attr.is_first_party is True   # outbound must NOT win here
+
+
+def test_hardening_disabled_reverts_article_veto_to_legacy_first_party():
+    # article page + first-person marker + brand: hardening ON (default) vetoes it
+    # (never-first-party); hardening OFF must reproduce pre-track (a084b19) behaviour,
+    # which has no is_article veto and lets rule 1 (first-person marker) win.
+    it = _item2("Ми зібрали знижки для ветеранів", is_article=True)
+    ctx = _ctx(host="blog.example", brand="Blog")
+    assert attribute(it, ctx) is None  # hardening enabled by default
+    attr = attribute(it, ctx, hardening_enabled=False)
+    assert attr is not None and attr.is_first_party is True and attr.provider == "Blog"

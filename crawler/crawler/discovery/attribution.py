@@ -67,7 +67,32 @@ def _first_party(ctx: PageCtx) -> Attribution:
                        suggest_name=ctx.brand)
 
 
-def attribute(item, ctx: PageCtx, aggregator_min_outbound: int = 3) -> Attribution | None:
+def _attribute_legacy(item, ctx: PageCtx) -> Attribution | None:
+    """Pre-attribution-hardening website logic (byte-equivalent to merge-base a084b19).
+    Used when the attribution_hardening_enabled kill switch is off: no is_article/
+    aggregator veto, no outbound salvage — a blocked host just drops with no salvage."""
+    if is_blocked_host(ctx.host):
+        return None
+    low = (item.text or "").lower()
+    # 1. first-party via first-person marker (wins over an outbound link)
+    if _FIRST_PERSON.search(low) and ctx.brand:
+        return _first_party(ctx)
+    # 2. third-party via an external business link (skip blocked targets)
+    ext = _pick_target(getattr(item, "links", None), item.url or "")
+    if ext and not is_blocked_host(_host(ext)):
+        host = _host(ext) or ext
+        return Attribution(provider=host, is_first_party=False,
+                           suggest_type="website", suggest_url_or_handle=_origin(ext),
+                           suggest_name=host)
+    # 3. first-party via a single-business page (narrowed: essentially one block)
+    if ctx.offer_block_count <= 1 and ctx.brand:
+        return _first_party(ctx)
+    # 4. generic info -> no attributable provider
+    return None
+
+
+def attribute(item, ctx: PageCtx, aggregator_min_outbound: int = 3,
+              hardening_enabled: bool = True) -> Attribution | None:
     if ctx.cand_type == "telegram":
         if is_blocked_telegram(ctx.cand_url_or_handle, ctx.cand_name):
             return None
@@ -78,6 +103,9 @@ def attribute(item, ctx: PageCtx, aggregator_min_outbound: int = 3) -> Attributi
                            suggest_name=ctx.cand_name or provider)
 
     # --- website ---
+    if not hardening_enabled:
+        return _attribute_legacy(item, ctx)
+
     is_media = (
         is_blocked_host(ctx.host)
         or (getattr(item, "is_article", False)
