@@ -122,7 +122,7 @@ def _has_offer_schema(tree) -> bool:
 
 
 _ARTICLE_TYPE = re.compile(
-    r'"@type"\s*:\s*"[^"]*(?:NewsArticle|BlogPosting|LiveBlogPosting|\bArticle\b)',
+    r'"@type"\s*:\s*"[^"]*(?:NewsArticle|BlogPosting|LiveBlogPosting|Report|Article)',
     re.IGNORECASE)
 # physical-business types only — NOT generic "Organization" (a news site is a
 # NewsMediaOrganization, which must not count as a business signal).

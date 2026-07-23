@@ -195,3 +195,28 @@ def test_localbusiness_schema_sets_business_not_article(monkeypatch):
     items, _ = f.fetch({"id": 1, "url_or_handle": "https://cafe.example"}, None)
     assert items and items[0].is_article is False
     assert items[0].has_business_schema is True
+
+
+def test_tech_article_subtype_sets_is_article():
+    html = ('<html><head>'
+            '<script type="application/ld+json">'
+            '{"@context":"https://schema.org","@type":"TechArticle","headline":"Огляд"}'
+            '</script></head><body>'
+            '<article>Знижка 20% для ветеранів детально розписана тут</article>'
+            '</body></html>')
+    f = _fetcher_returning(html)
+    items, _ = f.fetch({"id": 1, "url_or_handle": "https://news.example/a"}, None)
+    assert items and items[0].is_article is True
+    assert items[0].has_business_schema is False
+
+
+def test_report_type_sets_is_article():
+    html = ('<html><head>'
+            '<script type="application/ld+json">'
+            '{"@context":"https://schema.org","@type":"Report","headline":"Звіт"}'
+            '</script></head><body>'
+            '<p>Знижка 20% для ветеранів у місті протягом місяця</p>'
+            '</body></html>')
+    f = _fetcher_returning(html)
+    items, _ = f.fetch({"id": 1, "url_or_handle": "https://ngo.example/r"}, None)
+    assert items and items[0].is_article is True
