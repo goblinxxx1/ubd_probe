@@ -1,8 +1,6 @@
 import importlib.util
 import pathlib
 
-from sqlalchemy import text
-
 from app.models import Offer
 from app.models.enums import CreatedBy, OfferStatus, OfferType
 
