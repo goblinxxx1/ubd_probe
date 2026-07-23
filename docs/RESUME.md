@@ -4,7 +4,7 @@
 Уся потрібна пам'ять автозавантажується з `~/.claude/projects/D--ubd-probe/memory/`
 (файл `MEMORY.md` + пов'язані), тож нова сесія одразу знає стан проєкту.
 
-## Стан проєкту (станом на 2026-07-20) — усе в `main` і на GitHub
+## Стан проєкту (станом на 2026-07-23) — усе в `main` і на GitHub
 
 `main` синхронізовано з `origin` (`https://github.com/goblinxxx1/ubd_probe.git`), дерево чисте.
 
@@ -35,6 +35,8 @@
 19. **Self-growing discovery** — 3 треки: query-grid ([[ubd-crawler-query-grid]]), brand→domain feed ([[ubd-crawler-brand-domain-feed]]), **sitemap-глибина** ([[ubd-crawler-sitemap-depth]]): DomainWalker розкриває website-кандидата homepage→промо-сторінки (robots→sitemap→BFS≤2) з per-domain політ-шаром; crawler 269/269. Зв'язка brand-feed→глибина→модерація виробляє офери.
 20. **Маркетинг-лексикон / автонаповнення** ([[ubd-crawler-marketing-lexicon-autofill]]) — самонавчальний промо-словник: єдиний `promo_lexicon` (SEED+LEARNED), детермінований labeler+корпус, офлайн log-odds майнер (pymorphy3), вето (multi-domain/PASS-collision/abstention), snowball з прийнятих оферів (backend `GET /api/internal/approved-offers`), людський audit-CLI (approve→LEARNED — єдиний шлях у живий гейт). Gated `autofill_enabled` (дефолт OFF). crawler 299/299, backend 84/84. Живий гейт лишається детермінованим; навчання офлайн.
 21. **Domain-rating** (self-growing discovery lever 3, [[ubd-crawler-domain-rating]]) — самонаповнюваний рейтинг доменів: `DomainRegistry` (crawler-side JSON, exp-decay score) запамʼятовує productive website-домени, `DomainFeed` DDG-незалежно ре-фідить топ як кандидатів (список росте сам); активний harvester скіпає заапрувлені домени (host-skip, економія запитів) і записує рейтинг; пасивний source-loop **глибоко краулить усі сторінки** заапрувленого домену (`DomainWalker` посторінково) заради свіжих знижок. Gated `domain_rating_enabled` (дефолт ON), OFF byte-еквівалентно. crawler 324/324; opus-рев'ю READY 0C/0I.
+
+22. **Посилення атрибуції** (self-growing медіа/агрегатор host-blocklist, [[ubd-crawler-attribution-hardening]]) — 3 шари: **A (живий гейт)** `RawItem.is_article`/`has_business_schema` зі schema.org; `attribute()` трактує article/агрегатор-сторінки як never-first-party зі salvage через outbound-лінк; `is_blocked_host` = статичний SEED + фетчнутий LEARNED; майстер-кноб `ATTRIBUTION_HARDENING_ENABLED` (OFF → byte-еквівалентний відкат живого гейту до pre-track). **B (офлайн)** корпус адитивно (`is_article`/`outbound_hosts`/`url`); `host_miner` per-host агрегація медіа/агрегатор-доказів проти provider-evidence; `host_vetoes` (support/provider/protected bare-host-нормалізовані/already-blocked); `run_host_miner` сабмітить кандидатів у backend-аудит-чергу. **C (backend+Vue)** таблиця `blocked_hosts` + crud + internal/admin ендпоінти + Vue-в'ю «Медіа-блоклист» (http-guarded sample-лінки). 14 TDD-тасок + opus whole-branch рев'ю + fix-хвиля (3 Important: kill-switch, protected scheme-mismatch, sample_urls=URL). crawler 350 / backend 92 / admin 89. Merge `6dd4e48`. Живий гейт детермінований, навчання офлайн, людське затвердження — єдиний шлях у живий блоклист.
 
 **Свідомо НЕ роблено:** C2 (сегментація тексту в блоці) — реальні дані показали непотрібність; деталі у пам'яті [[ubd-discovery-plan]].
 
