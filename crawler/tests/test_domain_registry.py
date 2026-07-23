@@ -86,3 +86,10 @@ def test_load_corrupt_starts_clean(tmp_path):
         f.write("{ not json")
     r = DomainRegistry.load(p)
     assert r.top(10, set()) == []
+
+
+def test_top_tie_break_by_host_on_equal_scores(tmp_path):
+    r = _reg(tmp_path, offer_weight=1.0)
+    r.record("b.ua", offers=5, errors=0)      # recorded first
+    r.record("a.ua", offers=5, errors=0)      # equal score
+    assert r.top(10, set()) == ["a.ua", "b.ua"]   # host asc, not insertion order
