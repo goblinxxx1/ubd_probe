@@ -42,6 +42,8 @@
 
 24. **Вузький per-domain `site:`** (self-growing discovery P3-recall, [[ubd-crawler-site-query]]) — gated левер: для productive (`DomainRegistry.top`) **та заапрувлених партнерів** видає вузькі `site:{домен} {intent-термін}` через наявний пошуковий шлях, щоб дістати промо-сторінки поза sitemap/BFS walker'а. `SiteQueryPlanner` (intent-only терміни, ротація term-фази), `SearchState.site_cursor` + незалежний `approved_cursor` (повний sweep великого набору партнерів), `SourceCandidate.bypass_host_skip` + гейт harvester (site:-сторінки заапрувлених доменів фетчаться, бо host-skip захищав лише дубль пасивного walk), union-пул у Runner (registry ⋈ ротовані approved через `zip_longest`). Прапори `site_query_enabled` (дефолт ON) / `site_query_budget` (5). Стріляє лише коли site_query_enabled **І** active_discovery **І** domain_rating_enabled; OFF байт-еквівалентно. Merge `fc693a0`. crawler 381 (361+20). Фінальне opus-рев'ю зловило Important (моя план-помилка: ротація партнерів була прив'язана до term-курсора → обрізала покриття >7 партнерів) — виправлено окремим `approved_cursor` + регресійний full-sweep тест; re-review чисто.
 
+25. **Канонічний дедуп оферів** (backend, закриття гепу #2 аудиту цілісності, [[ubd-backend-dedup-canonical]]) — мердж оферів матчив по **сирому** `target_url`, тож дублі, що різнилися лише utm/click-id/`www.`/схемою, не зливались. Додано бекенд-обчислюваний ключ `Offer.target_url_canonical` (єдине джерело істини) + індекс + Alembic-міграція з backfill (без ретро-мерджу). `canonicalize_target_url` у `app/core/urlnorm.py` (drop www, http↔https-злиття, strip utm_*+курований click-id, sorted query). `create_offer` дедупить по canonical (+`order_by(id)` детермінізм), `update_offer` перераховує; merge-політика збережена (адмін дедуп не запускає; краулер→адмін мердж лишається). Сирий `target_url` лишається для кліку; API/схеми/public незмінні. Merge `174d02a`. backend 104 (92+12). Фінальне opus-рев'ю READY 0C/0I.
+
 **Свідомо НЕ роблено:** C2 (сегментація тексту в блоці) — реальні дані показали непотрібність; деталі у пам'яті [[ubd-discovery-plan]].
 
 ## ⚠️ Відкриті пункти (для наступних сесій)
@@ -52,16 +54,23 @@
 - **Дані:** у compose-БД `ubd` **0 оферів** (видалено на запит 2026-07-20). Сайт порожній.
 - **Docker:** образи compose `admin`/`public` **застарілі** (не перезбирані після responsive-треку) — живий `:8080`/`:8082` НЕ показує адаптив. Для перевірки: `docker compose build admin public && docker compose up -d`.
 
+**Аудит цілісності (2026-07-23, [[ubd-design-for-whole-picture]]):** пройдено весь проєкт. Геп #2
+(крос-платформний дедуп) — **закрито** (трек 25). Лишаються: **#1 тріщина** — discovery стоїть на
+мертвому DDG-каналі; рекомендований reframe (курований seed-каталог + пасивний кроул, ретайр
+DDG-залежних левер + вестиж SearXNG) НЕ збудовано — найбільший важіль, але спершу стратегічне рішення;
+атрибуція інертна без людського сіду (cold-start); асиметрія осей (target курована vs offer self-growing).
+
 **Наступний трек (рекомендація):** усі 3 P1-важелі self-growing discovery + маркетинг-лексикон/
-автонаповнення + **domain-rating** + **вузький per-domain `site:`** зроблено. Лишилися лише **P3
-(необовʼязкові)**: бренд-якорні запити; LLM-хвіст перефразувань (офлайн, injection-hardened);
-крос-платформний дедуп. Деталі й порядок — [[ubd-crawler-discovery-scaling-brainstorm]].
+автонаповнення + **domain-rating** + **вузький per-domain `site:`** + **канонічний дедуп** зроблено.
+Лишилися лише **P3 (необовʼязкові)**: бренд-якорні запити; LLM-хвіст перефразувань (офлайн,
+injection-hardened). Найбільший важіль цілісності — **discovery-reframe (аудит #1)**, але це спершу
+стратегічне рішення (оживляти пошук vs розвернутись на seed+passive). Деталі — [[ubd-crawler-discovery-scaling-brainstorm]].
 Альтернативи: посилення атрибуції проти медіа-провайдерів; IG/FB-харвест. Обовʼязкових немає.
 
 **Як запускати:** повний довідник — `RUN.md` (окремо/разом, краулер, пошукові движки,
 потік у адмінку); Docker-деталі — `README-docker.md`.
 
-**Тести (crawler перевірено 2026-07-23):** admin **84**, public **60**, crawler **381**, backend **92** —
+**Тести (crawler+backend перевірено 2026-07-23):** admin **84**, public **60**, crawler **381**, backend **104** —
 усі зелені. Фронти перед мержем — ще й `npm run build` (Vitest НЕ компілює scoped-Less, тож
 undefined-токен у `<style>` проходить тести, але валить build). Backend-тести потребують
 `mysql-container` на :3306 (`docker start mysql-container`).
