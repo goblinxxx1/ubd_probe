@@ -38,3 +38,12 @@ def test_sample_urls_carry_real_urls_not_body_text():
     assert s.sample_urls == ["https://blog.ua/a", "https://blog.ua/b"]
     for u in s.sample_urls:
         assert u.startswith("http")
+
+
+def test_none_outbound_hosts_treated_as_zero():
+    rows = [{"host": "x.ua", "label": "pass", "is_article": True,
+             "outbound_hosts": None, "pos_anchor": False, "url": "https://x.ua/a"}
+            for _ in range(3)]
+    s = {x.host: x for x in mine_hosts(rows)}["x.ua"]
+    assert s.aggregator_ratio == 0.0
+    assert s.support == 3
