@@ -34,6 +34,7 @@ class Offer(Base):
     article_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     image_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     target_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    target_url_canonical: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     source_id: Mapped[int | None] = mapped_column(ForeignKey("sources.id"), nullable=True)
     content_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
@@ -58,4 +59,5 @@ class Offer(Base):
     __table_args__ = (
         UniqueConstraint("source_id", "content_hash", name="uq_offer_source_content_hash"),
         Index("ix_offers_target_url", "target_url", mysql_length=255),
+        Index("ix_offers_target_url_canonical", "target_url_canonical", mysql_length=255),
     )
