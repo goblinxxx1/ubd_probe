@@ -93,6 +93,7 @@ def build_runner(config) -> Runner:
     harvester = None
     brand_feed = None
     keywords = config.search_keywords
+    state = None
     if config.active_discovery:
         state = SearchState.load(config.search_state_path)
         batch, new_cursor = QueryGrid().next_batch(
@@ -123,6 +124,13 @@ def build_runner(config) -> Runner:
         if walker is None:
             walker, domain_rl = _build_walker(config, web_client)   # passive deep-walk needs it
 
+    site_planner = None
+    site_state = None
+    if config.site_query_enabled:
+        from crawler.discovery.site_query import SiteQueryPlanner
+        site_planner = SiteQueryPlanner()
+        site_state = state if config.active_discovery else None   # rotate only when search runs
+
     corpus_recorder = None
     if config.autofill_enabled:
         from crawler.discovery import promo_lexicon
@@ -151,4 +159,6 @@ def build_runner(config) -> Runner:
                   walker=walker, domain_rate_limiter=domain_rl,
                   domain_feed=domain_feed, domain_registry=domain_registry,
                   domain_evict_min_score=config.domain_evict_min_score,
-                  domain_evict_ttl_seconds=config.domain_evict_ttl_hours * 3600)
+                  domain_evict_ttl_seconds=config.domain_evict_ttl_hours * 3600,
+                  site_planner=site_planner, site_state=site_state,
+                  site_query_budget=config.site_query_budget)

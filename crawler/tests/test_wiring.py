@@ -262,3 +262,38 @@ def test_build_runner_blocked_hosts_fetch_best_effort(monkeypatch):
         blocked_hosts_fetch_enabled=True,
     )
     w.build_runner(cfg)   # must not raise
+
+
+from crawler.discovery.site_query import SiteQueryPlanner
+
+
+def _base_cfg(tmp_path, **kw):
+    defaults = dict(
+        internal_api_url="http://api", crawler_api_key="k", extractor="heuristic",
+        request_timeout=5.0, min_delay_seconds=0.0, bot_accounts=[], proxies={},
+        search_providers=[], search_state_path=str(tmp_path / "state.json"),
+        brand_feed_enabled=False, domain_registry_path=str(tmp_path / "r.json"))
+    defaults.update(kw)
+    return Config(**defaults)
+
+
+def test_build_runner_wires_site_query_lever(tmp_path):
+    cfg = _base_cfg(tmp_path, active_discovery=True, site_query_enabled=True,
+                    site_query_budget=7, domain_rating_enabled=True)
+    runner = build_runner(cfg)
+    assert isinstance(runner._site_planner, SiteQueryPlanner)
+    assert runner._site_state is not None            # active_discovery on → shared state
+    assert runner._site_query_budget == 7
+
+
+def test_build_runner_site_query_disabled(tmp_path):
+    cfg = _base_cfg(tmp_path, active_discovery=True, site_query_enabled=False)
+    runner = build_runner(cfg)
+    assert runner._site_planner is None
+
+
+def test_build_runner_site_state_none_without_active_discovery(tmp_path):
+    cfg = _base_cfg(tmp_path, active_discovery=False, site_query_enabled=True)
+    runner = build_runner(cfg)
+    assert runner._site_planner is not None
+    assert runner._site_state is None                # no active search → no state to rotate
