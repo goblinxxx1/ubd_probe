@@ -176,3 +176,14 @@ def test_old_state_file_without_site_cursor_loads(tmp_path):
     st = SearchState.load(str(path), clock=Clock())
     assert st.site_cursor == 0          # missing key defaults cleanly
     assert st.grid_cursor == 3
+
+
+def test_approved_cursor_defaults_zero_persists_and_is_independent(tmp_path):
+    path = str(tmp_path / "state.json")
+    st = SearchState(path, clock=Clock())
+    assert st.approved_cursor == 0
+    st.set_approved_cursor(4)
+    st.set_site_cursor(2)
+    reloaded = SearchState.load(path)
+    assert reloaded.approved_cursor == 4
+    assert reloaded.site_cursor == 2      # independent cursors

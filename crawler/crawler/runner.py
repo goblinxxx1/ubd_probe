@@ -81,17 +81,22 @@ class Runner:
                     reg = self._domain_registry.top(self._site_query_budget, known_hosts)
                     approved = sorted(known_hosts)
                     if approved:
-                        off = cur % len(approved)
-                        approved = approved[off:] + approved[:off]   # rotate large partner sets
+                        # rotate by a dedicated monotonic cursor so a partner set larger than
+                        # len(terms) is still fully swept over passes (term phase != partner phase)
+                        off = self._site_state.approved_cursor % len(approved)
+                        approved = approved[off:] + approved[:off]
                     pool = [d for pair in zip_longest(reg, approved) for d in pair if d]
                     site_queries, new_cur = self._site_planner.next_batch(
                         pool, self._site_query_budget, cur)
-                    self._site_state.set_site_cursor(new_cur)
                     if site_queries:
                         site_cands = self._discovery.run(site_queries, known)
                         for c in site_cands:
                             c.bypass_host_skip = True
                         candidates += site_cands
+                        self._site_state.set_site_cursor(new_cur)
+                        if approved:
+                            self._site_state.set_approved_cursor(
+                                self._site_state.approved_cursor + 1)
                 if candidates:
                     self._harvester.harvest(candidates, cats, known, summary,
                                             known_hosts=known_hosts)

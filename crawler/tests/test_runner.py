@@ -278,6 +278,23 @@ def test_site_query_block_generates_flags_and_advances_cursor(tmp_path):
     assert SearchState.load(str(tmp_path / "s.json")).site_cursor == 1   # advanced & persisted
 
 
+def test_approved_partners_fully_swept_across_passes(tmp_path):
+    srcs = [{"id": i, "type": "website", "name": h, "url_or_handle": f"https://{h}"}
+            for i, h in enumerate(["a.ua", "b.ua", "c.ua", "d.ua"], start=1)]
+    api = FakeApi(srcs)
+    reg = DomainRegistry(str(tmp_path / "r.json"), clock=lambda: 1.0)   # empty registry
+    state = SearchState(str(tmp_path / "s.json"), clock=lambda: 1.0)
+    disc = _MutatingDiscovery()
+    runner = Runner(api, {"website": FakeFetcher([])}, get_extractor("heuristic"), _rl(),
+                    harvester=_RecordingHarvester(), discovery=disc, domain_registry=reg,
+                    site_planner=SiteQueryPlanner(terms=("t1", "t2")),
+                    site_state=state, site_query_budget=2)
+    for _ in range(3):
+        runner.run()
+    hosts = {q.split()[0].removeprefix("site:") for qlist in disc.calls for q in qlist}
+    assert {"a.ua", "b.ua", "c.ua", "d.ua"} <= hosts   # full sweep — impossible if off tied to bounded site_cursor
+
+
 def test_site_query_off_is_byte_equivalent(tmp_path):
     src = {"id": 1, "type": "website", "name": "Silpo", "url_or_handle": "https://silpo.ua"}
     api = FakeApi([src])
