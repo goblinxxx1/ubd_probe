@@ -11,6 +11,7 @@ from crawler.discovery.brand_feed import (
 from crawler.discovery.domain_feed import DomainFeed
 from crawler.discovery.domain_registry import DomainRegistry
 from crawler.discovery.harvest import ActiveHarvester
+from crawler.discovery.osm_feed import OsmDomainFeed, OsmEnumerator
 from crawler.discovery.providers import build_search_provider
 from crawler.discovery.query_grid import QueryGrid, merge_queries
 from crawler.discovery.robots import RobotsPolicy
@@ -45,6 +46,21 @@ def _build_brand_feed(config):
         except Exception as exc:  # noqa: BLE001 — refresh is best-effort; feed uses cache/fallbacks
             log.warning("brand-domain refresh failed: %s", exc)
     return BrandFeed(cache, BRAND_SEEDS, per_pass=config.brand_feed_per_pass)
+
+
+def _build_osm_feed(config):
+    cache = BrandDomainCache.load(config.osm_domains_path)
+    if cache.is_stale(config.osm_feed_refresh_hours * 3600):
+        try:
+            domains = OsmEnumerator(
+                overpass_url=config.overpass_url, timeout=config.request_timeout,
+                min_pois=config.osm_min_pois,
+                max_domains=config.osm_feed_max_domains).enumerate()
+            if domains:
+                cache.replace(domains)
+        except Exception as exc:  # noqa: BLE001 — refresh best-effort; feed uses cache
+            log.warning("osm-domain enumeration failed: %s", exc)
+    return OsmDomainFeed(cache, per_pass=config.osm_feed_per_pass)
 
 
 def _build_walker(config, web_client):
@@ -106,6 +122,9 @@ def build_runner(config) -> Runner:
             discovery = ActiveDiscovery(budget=budget, search_provider=provider)
     if config.brand_feed_enabled:
         brand_feed = _build_brand_feed(config)
+    osm_feed = None
+    if config.osm_feed_enabled:
+        osm_feed = _build_osm_feed(config)
     walker = None
     domain_rl = None
     if config.sitemap_depth_enabled:
@@ -161,4 +180,5 @@ def build_runner(config) -> Runner:
                   domain_evict_min_score=config.domain_evict_min_score,
                   domain_evict_ttl_seconds=config.domain_evict_ttl_hours * 3600,
                   site_planner=site_planner, site_state=site_state,
-                  site_query_budget=config.site_query_budget)
+                  site_query_budget=config.site_query_budget,
+                  osm_feed=osm_feed)

@@ -18,7 +18,8 @@ class Runner:
                  walker=None, domain_rate_limiter=None,
                  domain_feed=None, domain_registry=None,
                  domain_evict_min_score=0.1, domain_evict_ttl_seconds=2_592_000.0,
-                 site_planner=None, site_state=None, site_query_budget=5):
+                 site_planner=None, site_state=None, site_query_budget=5,
+                 osm_feed=None):
         self._api = api_client
         self._fetchers = fetchers
         self._extractor = extractor
@@ -38,6 +39,7 @@ class Runner:
         self._site_planner = site_planner
         self._site_state = site_state
         self._site_query_budget = site_query_budget
+        self._osm_feed = osm_feed
 
     def _fetch_for(self, source: dict, last_seen_key):
         fetcher = self._fetchers.get(source["type"])
@@ -75,6 +77,8 @@ class Runner:
                     candidates += self._discovery.run(self._keywords, known)
                 if self._brand_feed is not None:
                     candidates += self._brand_feed.candidates(known)
+                if self._osm_feed is not None:
+                    candidates += self._osm_feed.candidates(known)
                 if (self._site_planner is not None and self._site_state is not None
                         and self._discovery is not None and self._domain_registry is not None):
                     cur = self._site_state.site_cursor

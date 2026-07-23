@@ -307,3 +307,19 @@ def test_site_query_off_is_byte_equivalent(tmp_path):
                     site_planner=None, site_state=None)   # lever off
     runner.run()
     assert disc.calls == []                               # no site queries issued
+
+
+class _StubOsm:
+    def __init__(self, cands): self._cands = cands
+    def candidates(self, known): return list(self._cands)
+
+
+def test_runner_unions_osm_feed_candidates():
+    src = {"id": 1, "type": "website", "name": "Silpo", "url_or_handle": "https://silpo.ua"}
+    api = FakeApi([src])
+    hv = _RecordingHarvester()
+    osm_cand = SourceCandidate(name="Foo", type="website", url_or_handle="https://foo.ua")
+    runner = Runner(api, {"website": FakeFetcher([])}, get_extractor("heuristic"), _rl(),
+                    harvester=hv, osm_feed=_StubOsm([osm_cand]))
+    runner.run()
+    assert any(c.url_or_handle == "https://foo.ua" for c in hv.candidates)
