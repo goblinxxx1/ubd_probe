@@ -40,6 +40,8 @@
 
 23. **Cleanup-minors краулера** ([[ubd-crawler-cleanup-minors]]) — прибиральний трек, 6 tech-debt пунктів (A–F), crawler-only: (A) `AGGREGATOR_MIN_OUTBOUND` протягнуто у живий гейт (дефолт 3 byte-eq); (B) `_ARTICLE_TYPE` ловить `*Article`-підтипи + `Report`; (C) None-guard у host_miner; (D) консолідація ~10 копіпаст bare-host ідіом на спільний `util/hosts.py::bare_host` (D1 хелпер+тести, D2 міграція, контракти str|None/str через обгортки); (E) hoist import у test_blocklist; (F) tie-break тест `DomainRegistry.top()`. 7 TDD-тасок, фінальне opus рев'ю Ready-to-merge 0C/0I. crawler 361. Merge `3f95fa0`.
 
+24. **Вузький per-domain `site:`** (self-growing discovery P3-recall, [[ubd-crawler-site-query]]) — gated левер: для productive (`DomainRegistry.top`) **та заапрувлених партнерів** видає вузькі `site:{домен} {intent-термін}` через наявний пошуковий шлях, щоб дістати промо-сторінки поза sitemap/BFS walker'а. `SiteQueryPlanner` (intent-only терміни, ротація term-фази), `SearchState.site_cursor` + незалежний `approved_cursor` (повний sweep великого набору партнерів), `SourceCandidate.bypass_host_skip` + гейт harvester (site:-сторінки заапрувлених доменів фетчаться, бо host-skip захищав лише дубль пасивного walk), union-пул у Runner (registry ⋈ ротовані approved через `zip_longest`). Прапори `site_query_enabled` (дефолт ON) / `site_query_budget` (5). Стріляє лише коли site_query_enabled **І** active_discovery **І** domain_rating_enabled; OFF байт-еквівалентно. Merge `fc693a0`. crawler 381 (361+20). Фінальне opus-рев'ю зловило Important (моя план-помилка: ротація партнерів була прив'язана до term-курсора → обрізала покриття >7 партнерів) — виправлено окремим `approved_cursor` + регресійний full-sweep тест; re-review чисто.
+
 **Свідомо НЕ роблено:** C2 (сегментація тексту в блоці) — реальні дані показали непотрібність; деталі у пам'яті [[ubd-discovery-plan]].
 
 ## ⚠️ Відкриті пункти (для наступних сесій)
@@ -51,16 +53,15 @@
 - **Docker:** образи compose `admin`/`public` **застарілі** (не перезбирані після responsive-треку) — живий `:8080`/`:8082` НЕ показує адаптив. Для перевірки: `docker compose build admin public && docker compose up -d`.
 
 **Наступний трек (рекомендація):** усі 3 P1-важелі self-growing discovery + маркетинг-лексикон/
-автонаповнення + **domain-rating** зроблено (query-grid + brand-feed + sitemap-глибина + самонавчальний
-промо-словник + рейтинг/самонаповнення доменів). Лишилися лише **P3 (необовʼязкові)**: бренд-якорні
-запити; вузький per-domain `site:`; LLM-хвіст перефразувань (офлайн, injection-hardened); крос-платформний
-дедуп. Деталі й порядок — [[ubd-crawler-discovery-scaling-brainstorm]].
+автонаповнення + **domain-rating** + **вузький per-domain `site:`** зроблено. Лишилися лише **P3
+(необовʼязкові)**: бренд-якорні запити; LLM-хвіст перефразувань (офлайн, injection-hardened);
+крос-платформний дедуп. Деталі й порядок — [[ubd-crawler-discovery-scaling-brainstorm]].
 Альтернативи: посилення атрибуції проти медіа-провайдерів; IG/FB-харвест. Обовʼязкових немає.
 
 **Як запускати:** повний довідник — `RUN.md` (окремо/разом, краулер, пошукові движки,
 потік у адмінку); Docker-деталі — `README-docker.md`.
 
-**Тести (crawler/backend перевірено 2026-07-22):** admin **84**, public **60**, crawler **324**, backend **84** —
+**Тести (crawler перевірено 2026-07-23):** admin **84**, public **60**, crawler **381**, backend **92** —
 усі зелені. Фронти перед мержем — ще й `npm run build` (Vitest НЕ компілює scoped-Less, тож
 undefined-токен у `<style>` проходить тести, але валить build). Backend-тести потребують
 `mysql-container` на :3306 (`docker start mysql-container`).
