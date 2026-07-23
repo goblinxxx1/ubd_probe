@@ -38,7 +38,8 @@ class ActiveHarvester:
                 continue
             if normalize_ref(cand.type, cand.url_or_handle) in known:
                 continue
-            if cand.type == "website" and _host(cand.url_or_handle) in known_hosts:
+            if (cand.type == "website" and not cand.bypass_host_skip
+                    and _host(cand.url_or_handle) in known_hosts):
                 continue
             fetcher = self._fetchers.get(cand.type)
             if fetcher is None:
