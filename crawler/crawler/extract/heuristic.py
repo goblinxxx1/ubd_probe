@@ -3,18 +3,19 @@ from urllib.parse import urlsplit
 
 from crawler.dedup import content_hash
 from crawler.discovery.providers import _normalize_url
+from crawler.util.hosts import bare_host
 
 _SOCIAL_HOSTS = ("facebook.com", "instagram.com", "t.me", "telegram.me",
                  "twitter.com", "x.com", "youtube.com", "youtu.be")
 
 
 def _pick_target(links, source_url: str) -> str | None:
-    src_host = urlsplit(source_url or "").netloc.lower().removeprefix("www.")
+    src_host = bare_host(source_url)
     for raw in links or []:
         norm = _normalize_url(raw or "")
         if not norm:
             continue
-        host = urlsplit(norm).netloc.lower().removeprefix("www.")
+        host = bare_host(norm)
         if not host or host == src_host:
             continue
         if any(host == s or host.endswith("." + s) for s in _SOCIAL_HOSTS):

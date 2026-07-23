@@ -2,9 +2,9 @@
 (negative = blocklist-host, positive = schema.org Offer)."""
 
 from dataclasses import dataclass
-from urllib.parse import urlsplit
 
 from crawler.discovery.blocklist import is_blocked_host
+from crawler.util.hosts import bare_host
 
 
 @dataclass
@@ -17,7 +17,7 @@ class LabelRecord:
 
 
 def _host(url: str | None) -> str:
-    return urlsplit(url or "").netloc.lower().removeprefix("www.")
+    return bare_host(url)
 
 
 def label_item(item, extracted_is_offer: bool) -> LabelRecord:

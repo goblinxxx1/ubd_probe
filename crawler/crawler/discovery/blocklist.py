@@ -3,6 +3,8 @@ news media, government, stock-photo banks, social-video aggregators."""
 
 import re
 
+from crawler.util.hosts import bare_host
+
 _MEDIA = {
     "nv.ua", "24tv.ua", "061.ua", "pravda.com.ua", "unian.ua", "tsn.ua",
     "rbc.ua", "censor.net", "obozrevatel.com", "segodnya.ua",
@@ -28,14 +30,14 @@ def reload_learned(hosts) -> None:
     if not hosts:
         _LEARNED = frozenset()
         return
-    norm = {h.strip().lower().removeprefix("www.") for h in hosts if h and h.strip()}
+    norm = {bare_host(h) for h in hosts if h and h.strip()}
     _LEARNED = frozenset(n for n in norm if n)
 
 
 def is_blocked_host(host: str | None) -> bool:
     if not host:
         return False
-    host = host.strip().lower().removeprefix("www.")
+    host = bare_host(host)
     if not host:
         return False
     if host == "gov.ua" or host.endswith(".gov.ua"):
