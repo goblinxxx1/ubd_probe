@@ -40,3 +40,12 @@ def test_corpus_row_has_article_and_outbound(tmp_path):
     rows = read_corpus(p)
     assert rows[0]["is_article"] is True
     assert rows[0]["outbound_hosts"] == 1        # shop.ua external; blog.example internal
+
+
+def test_corpus_row_has_source_url(tmp_path):
+    p = str(tmp_path / "c.jsonl")
+    it = RawItem(source_id=None, platform="website", key="k", text="Знижка 20%",
+                 url="https://blog.example/a")
+    CorpusRecorder(p, max_mb=50).record(it, extracted_is_offer=True)
+    rows = read_corpus(p)
+    assert rows[0]["url"] == "https://blog.example/a"

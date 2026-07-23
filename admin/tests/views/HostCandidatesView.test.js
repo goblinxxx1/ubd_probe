@@ -6,7 +6,8 @@ import HostCandidatesView from "@/views/HostCandidatesView.vue";
 vi.mock("@/api/hostCandidates", () => ({
   list: vi.fn(() => Promise.resolve([
     { id: 1, host: "media.example", status: "pending", media_ratio: 0.9,
-      aggregator_ratio: 0.1, support: 4, sample_urls: ["https://media.example/a"] },
+      aggregator_ratio: 0.1, support: 4,
+      sample_urls: ["https://media.example/a", "javascript:alert(1)"] },
   ])),
   approve: vi.fn(() => Promise.resolve({})),
   reject: vi.fn(() => Promise.resolve({})),
@@ -52,5 +53,13 @@ describe("HostCandidatesView", () => {
     const link = wrapper.find('a[href="https://media.example/a"]');
     expect(link.exists()).toBe(true);
     expect(link.attributes("target")).toBe("_blank");
+  });
+
+  it("does not render a non-http sample as a live link", async () => {
+    const wrapper = mount(HostCandidatesView, { global: { plugins: [ElementPlus] } });
+    await flushPromises();
+    expect(wrapper.text()).toContain("javascript:alert(1)");
+    const badLink = wrapper.find('a[href="javascript:alert(1)"]');
+    expect(badLink.exists()).toBe(false);
   });
 });

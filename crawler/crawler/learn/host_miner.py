@@ -29,8 +29,8 @@ def mine_hosts(rows, aggregator_min_outbound: int = 3) -> list[HostScore]:
             a["aggr"] += 1
         if r.get("pos_anchor") and int(r.get("outbound_hosts", 0)) == 0:
             a["provider"] += 1
-        if len(a["samples"]) < 3 and r.get("text"):
-            a["samples"].append(r["text"])
+        if len(a["samples"]) < 3 and r.get("url"):
+            a["samples"].append(r["url"])
     out = []
     for host, a in agg.items():
         n = a["n"]

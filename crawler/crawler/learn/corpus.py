@@ -30,6 +30,7 @@ class CorpusRecorder:
             "label": rec.label, "host": rec.host,
             "neg_anchor": rec.neg_anchor, "pos_anchor": rec.pos_anchor,
             "is_article": rec.is_article, "outbound_hosts": _outbound_count(item),
+            "url": getattr(item, "url", None) or "",
             "snowball": snowball, "ts": int(time.time()),
         }
         os.makedirs(os.path.dirname(self._path) or ".", exist_ok=True)

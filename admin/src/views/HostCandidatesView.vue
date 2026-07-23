@@ -3,7 +3,7 @@ import { ref, onMounted } from "vue";
 import { ElMessage } from "element-plus";
 import * as hosts from "@/api/hostCandidates";
 import { SUGGESTION_STATUSES } from "@/constants/enums";
-import { enumLabel } from "@/utils/format";
+import { enumLabel, isHttpUrl } from "@/utils/format";
 import { extractError } from "@/utils/errors";
 import ResponsiveTable from "@/components/ResponsiveTable.vue";
 
@@ -67,7 +67,8 @@ defineExpose({ items, load, onApprove, onReject, status });
       <template #col-aggr="{ row }">{{ (row.aggregator_ratio * 100).toFixed(0) }}%</template>
       <template #col-samples="{ row }">
         <div v-for="u in row.sample_urls || []" :key="u">
-          <el-link :href="u" type="primary" target="_blank" rel="noopener noreferrer">{{ u }}</el-link>
+          <el-link v-if="isHttpUrl(u)" :href="u" type="primary" target="_blank" rel="noopener noreferrer">{{ u }}</el-link>
+          <span v-else>{{ u }}</span>
         </div>
       </template>
       <template #actions="{ row }">
