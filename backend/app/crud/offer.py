@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 
 from app.core.errors import not_found, validation_error
+from app.core.urlnorm import canonicalize_target_url
 from app.models import Offer, OfferCategory, TargetCategory
 from app.models.enums import CreatedBy, DiscountType, OfferStatus, OfferType
 from app.schemas.offer import OfferCreate, OfferUpdate
@@ -23,6 +24,8 @@ def create_offer(db: Session, data: OfferCreate, created_by: CreatedBy,
         return OfferLink(provider=data.provider, site_url=data.site_url,
                          article_url=data.article_url)
 
+    canon = canonicalize_target_url(data.target_url) if data.target_url else None
+
     if content_hash is not None and created_by == CreatedBy.crawler:
         q = db.query(Offer).filter(Offer.content_hash == content_hash)
         q = (q.filter(Offer.source_id == source_id) if source_id is not None
@@ -34,8 +37,9 @@ def create_offer(db: Session, data: OfferCreate, created_by: CreatedBy,
             db.refresh(existing)
             return existing
 
-    if created_by == CreatedBy.crawler and data.target_url:
-        existing = db.query(Offer).filter(Offer.target_url == data.target_url).first()
+    if created_by == CreatedBy.crawler and canon:
+        existing = (db.query(Offer).filter(Offer.target_url_canonical == canon)
+                    .order_by(Offer.id).first())
         if existing is not None:
             already = any(l.provider == data.provider and l.site_url == data.site_url
                           and l.article_url == data.article_url for l in existing.links)
@@ -52,7 +56,7 @@ def create_offer(db: Session, data: OfferCreate, created_by: CreatedBy,
         location=data.location, valid_from=data.valid_from, valid_until=data.valid_until,
         discount_type=data.discount_type, discount_value=data.discount_value,
         site_url=data.site_url, article_url=data.article_url, image_url=data.image_url,
-        target_url=data.target_url, source_id=source_id,
+        target_url=data.target_url, target_url_canonical=canon, source_id=source_id,
         status=status, created_by=created_by, content_hash=content_hash,
         last_seen_at=datetime.utcnow(),
         target_categories=targets, offer_categories=offers,
@@ -101,6 +105,8 @@ def update_offer(db: Session, offer_id: int, data: OfferUpdate) -> Offer:
     offer_ids = payload.pop("offer_category_ids", None)
     for field, value in payload.items():
         setattr(obj, field, value)
+    if "target_url" in payload:
+        obj.target_url_canonical = canonicalize_target_url(obj.target_url)
     if target_ids is not None:
         obj.target_categories = _load_categories(db, target_ids, [])[0]
     if offer_ids is not None:
