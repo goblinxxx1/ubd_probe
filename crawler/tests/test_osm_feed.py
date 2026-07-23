@@ -72,3 +72,41 @@ def test_missing_brand_or_website_skipped():
 
 def test_http_failure_returns_empty():
     assert _enum([], boom=True).enumerate() == {}
+
+
+from crawler.discovery.brand_feed import BrandDomainCache
+from crawler.discovery.osm_feed import OsmDomainFeed
+from crawler.discovery.passive import normalize_ref
+
+
+def _cache(tmp_path, mapping):
+    c = BrandDomainCache.load(str(tmp_path / "osm.json"))
+    c.replace(mapping)
+    return c
+
+
+def test_feed_emits_website_candidates(tmp_path):
+    c = _cache(tmp_path, {"OKKO": "okko.ua", "EVA": "eva.ua"})
+    cands = {x.name: x for x in OsmDomainFeed(c).candidates(known=set())}
+    assert cands["OKKO"].type == "website"
+    assert cands["OKKO"].url_or_handle == "https://okko.ua"
+    assert cands["OKKO"].discovery_note == "osm-feed:okko.ua"
+
+
+def test_feed_skips_known(tmp_path):
+    c = _cache(tmp_path, {"OKKO": "okko.ua"})
+    known = {normalize_ref("website", "https://okko.ua")}
+    assert OsmDomainFeed(c).candidates(known) == []
+
+
+def test_feed_empty_cache_is_safe(tmp_path):
+    c = BrandDomainCache.load(str(tmp_path / "osm.json"))   # no replace → empty
+    assert OsmDomainFeed(c).candidates(known=set()) == []
+
+
+def test_feed_rotates_window_and_advances_cursor(tmp_path):
+    c = _cache(tmp_path, {"A": "a.ua", "B": "b.ua", "C": "c.ua", "D": "d.ua"})
+    feed = OsmDomainFeed(c, per_pass=2)
+    assert [x.name for x in feed.candidates(set())] == ["A", "B"]
+    assert [x.name for x in feed.candidates(set())] == ["C", "D"]
+    assert [x.name for x in feed.candidates(set())] == ["A", "B"]   # wrapped

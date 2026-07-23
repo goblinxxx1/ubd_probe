@@ -9,6 +9,8 @@ from collections import Counter, defaultdict
 import httpx
 
 from crawler.discovery.blocklist import is_blocked_host
+from crawler.discovery.passive import normalize_ref
+from crawler.models import SourceCandidate
 from crawler.util.hosts import bare_host
 
 log = logging.getLogger(__name__)
@@ -78,3 +80,37 @@ class OsmEnumerator:
         except Exception as exc:  # noqa: BLE001 — enumeration best-effort
             log.warning("osm enumeration query failed: %s", exc)
             return []
+
+
+class OsmDomainFeed:
+    """Offline emitter: a rotating window of website SourceCandidates from the OSM cache,
+    advancing the cache's persisted cursor each pass so the whole set is covered over passes."""
+
+    def __init__(self, cache, per_pass=20):
+        self._cache = cache
+        self._per_pass = per_pass
+
+    def candidates(self, known: set[str]) -> list[SourceCandidate]:
+        brands = sorted(self._cache.domains())
+        size = len(brands)
+        if size == 0:
+            return []
+        n = max(1, min(int(self._per_pass), size))
+        cursor = self._cache.cursor()
+        if cursor < 0 or cursor >= size:
+            cursor = 0
+        window = [brands[(cursor + i) % size] for i in range(n)]
+        self._cache.set_cursor((cursor + n) % size)
+        domains = self._cache.domains()
+        out: list[SourceCandidate] = []
+        for brand in window:
+            host = domains.get(brand)
+            if not host:
+                continue
+            url = f"https://{host}"
+            if normalize_ref("website", url) in known:
+                continue
+            out.append(SourceCandidate(
+                name=brand, type="website", url_or_handle=url,
+                discovered_from_source_id=None, discovery_note=f"osm-feed:{host}"))
+        return out
