@@ -3,16 +3,16 @@
 import json
 import os
 import time
-from urllib.parse import urlsplit
 
 from crawler.learn.labeler import label_item
+from crawler.util.hosts import bare_host
 
 
 def _outbound_count(item) -> int:
-    src = urlsplit(getattr(item, "url", None) or "").netloc.lower().removeprefix("www.")
+    src = bare_host(getattr(item, "url", None))
     hosts = set()
     for raw in getattr(item, "links", None) or []:
-        h = urlsplit(raw or "").netloc.lower().removeprefix("www.")
+        h = bare_host(raw)
         if h and h != src:
             hosts.add(h)
     return len(hosts)

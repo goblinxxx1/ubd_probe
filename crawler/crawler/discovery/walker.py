@@ -4,21 +4,20 @@ layer. This module hosts the promo-URL filter and the DomainWalker orchestrator.
 
 import logging
 from dataclasses import dataclass
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import urljoin
 
 from selectolax.parser import HTMLParser
 
 from crawler.discovery.passive import normalize_ref
 from crawler.discovery.promo_lexicon import url_is_promo  # re-export for callers
 from crawler.discovery.sitemap import collect_sitemap_urls
+from crawler.util.hosts import bare_host
 
 log = logging.getLogger(__name__)
 
 
 def _host(url: str) -> str:
-    netloc = urlsplit(url or "").netloc.lower()
-    netloc = netloc.split("@")[-1].split(":")[0]
-    return netloc[4:] if netloc.startswith("www.") else netloc
+    return bare_host(url)
 
 
 def _same_domain(url: str, domain: str) -> bool:

@@ -8,6 +8,7 @@ from ddgs import DDGS
 
 from crawler.discovery.search_state import SearchState
 from crawler.models import SourceCandidate
+from crawler.util.hosts import bare_host
 
 log = logging.getLogger(__name__)
 
@@ -34,7 +35,7 @@ def classify_candidate(url: str) -> tuple[str, str] | None:
     if not norm:
         return None
     parts = urlsplit(norm)
-    host = parts.netloc.lower().removeprefix("www.")
+    host = bare_host(norm)
     path = parts.path or "/"
     if host in ("t.me", "telegram.me"):
         return ("telegram", norm)

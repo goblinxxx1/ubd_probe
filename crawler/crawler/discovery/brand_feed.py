@@ -12,13 +12,12 @@ import logging
 import os
 import time
 from collections import Counter
-from urllib.parse import urlparse
-
 import httpx
 
 from crawler.discovery.query_grid import BRANDS  # noqa: F401 — referenced by the seeds invariant
 from crawler.discovery.passive import normalize_ref
 from crawler.models import SourceCandidate
+from crawler.util.hosts import bare_host
 
 log = logging.getLogger(__name__)
 
@@ -138,16 +137,7 @@ _RESOLVER_UA = "UBDCrawler/0.1 (+https://ubd.example; brand-domain resolver)"
 
 def _host(url: str) -> str | None:
     """Bare registrable host: strip scheme, userinfo, port, path, and a leading www."""
-    if not url or not url.strip():
-        return None
-    raw = url.strip()
-    if "//" not in raw:
-        raw = "//" + raw
-    netloc = urlparse(raw).netloc.lower()
-    netloc = netloc.split("@")[-1].split(":")[0]
-    if netloc.startswith("www."):
-        netloc = netloc[4:]
-    return netloc or None
+    return bare_host(url) or None
 
 
 class BrandResolver:

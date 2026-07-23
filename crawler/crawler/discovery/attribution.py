@@ -4,6 +4,7 @@ from urllib.parse import urlsplit
 
 from crawler.discovery.blocklist import is_blocked_host, is_blocked_telegram
 from crawler.extract.heuristic import _pick_target
+from crawler.util.hosts import bare_host
 
 _FIRST_PERSON = re.compile(r"\b(ми|у нас|наш\w*|для наших)\b", re.IGNORECASE)
 
@@ -29,8 +30,7 @@ class Attribution:
 
 
 def _host(url: str) -> str | None:
-    netloc = urlsplit(url or "").netloc.lower().removeprefix("www.")
-    return netloc or None
+    return bare_host(url) or None
 
 
 def _origin(url: str) -> str | None:

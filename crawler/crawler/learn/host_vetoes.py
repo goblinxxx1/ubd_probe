@@ -2,11 +2,12 @@
 не provider-evidence; не protected (активні sources / domain-rating-productive); не вже-blocked."""
 
 from crawler.discovery.blocklist import is_blocked_host
+from crawler.util.hosts import bare_host
 
 
 def survivors(scores, *, protected_hosts, min_support: int = 3, media_min: float = 0.5,
               aggregator_min: float = 0.5, max_candidates: int = 50):
-    protected = {h.strip().lower().removeprefix("www.") for h in (protected_hosts or set())}
+    protected = {bare_host(h) for h in (protected_hosts or set())}
     out = []
     for s in scores:
         if s.support < min_support:
