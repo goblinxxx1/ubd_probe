@@ -68,6 +68,13 @@ class _RawSettings(BaseSettings):
     domain_promote_min_score: float = 0.5
     domain_evict_min_score: float = 0.1
     domain_evict_ttl_hours: int = 720
+    attribution_hardening_enabled: bool = True
+    blocked_hosts_fetch_enabled: bool = True
+    aggregator_min_outbound: int = 3
+    host_miner_min_support: int = 3
+    host_miner_media_min: float = 0.5
+    host_miner_aggregator_min: float = 0.5
+    host_miner_max_candidates: int = 50
 
 
 @dataclass
@@ -131,6 +138,13 @@ class Config:
     domain_promote_min_score: float = 0.5
     domain_evict_min_score: float = 0.1
     domain_evict_ttl_hours: int = 720
+    attribution_hardening_enabled: bool = True
+    blocked_hosts_fetch_enabled: bool = True
+    aggregator_min_outbound: int = 3
+    host_miner_min_support: int = 3
+    host_miner_media_min: float = 0.5
+    host_miner_aggregator_min: float = 0.5
+    host_miner_max_candidates: int = 50
 
 
 def _parse_accounts(platform: str, raw: str) -> list[BotCredential]:
@@ -217,4 +231,11 @@ def load_config() -> Config:
         domain_promote_min_score=s.domain_promote_min_score,
         domain_evict_min_score=s.domain_evict_min_score,
         domain_evict_ttl_hours=s.domain_evict_ttl_hours,
+        attribution_hardening_enabled=s.attribution_hardening_enabled,
+        blocked_hosts_fetch_enabled=s.blocked_hosts_fetch_enabled,
+        aggregator_min_outbound=s.aggregator_min_outbound,
+        host_miner_min_support=s.host_miner_min_support,
+        host_miner_media_min=s.host_miner_media_min,
+        host_miner_aggregator_min=s.host_miner_aggregator_min,
+        host_miner_max_candidates=s.host_miner_max_candidates,
     )

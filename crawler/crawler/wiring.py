@@ -5,6 +5,7 @@ import httpx
 from crawler.accounts.pool import AccountPool
 from crawler.api_client import ApiClient
 from crawler.discovery.active import ActiveDiscovery
+from crawler.discovery import blocklist
 from crawler.discovery.brand_feed import (
     BRAND_SEEDS, BrandDomainCache, BrandFeed, BrandResolver, refresh_brand_domains)
 from crawler.discovery.domain_feed import DomainFeed
@@ -64,6 +65,12 @@ def _build_walker(config, web_client):
 
 def build_runner(config) -> Runner:
     api = ApiClient(config.internal_api_url, config.crawler_api_key, config.request_timeout)
+
+    if config.blocked_hosts_fetch_enabled:
+        try:
+            blocklist.reload_learned(api.list_blocked_hosts())
+        except Exception as exc:  # noqa: BLE001 — learned-host fetch is best-effort
+            log.warning("blocked-hosts fetch failed: %s", exc)
 
     web_client = _http_client(config.request_timeout)
     ig_creds = [c for c in config.bot_accounts if c.platform == "instagram"]
