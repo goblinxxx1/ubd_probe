@@ -1,11 +1,21 @@
 from datetime import datetime, timezone
+from urllib.parse import urlsplit
 
 from sqlalchemy.orm import Session
 
-from app.core.errors import not_found
+from app.core.errors import not_found, validation_error
 from app.models import BlockedHost
 from app.models.enums import BlockedHostStatus
 from app.schemas.blocked_host import HostCandidateCreate
+
+
+def _bare_host(value: str) -> str:
+    """Bare registrable host from a host or full URL: no scheme/path/port/www., lowercased."""
+    raw = (value or "").strip()
+    if not raw:
+        return ""
+    host = urlsplit(raw if "//" in raw else "//" + raw).hostname or ""
+    return host.lower().removeprefix("www.")
 
 
 def upsert_candidate(db: Session, data: HostCandidateCreate) -> BlockedHost:
@@ -59,6 +69,27 @@ def approve(db: Session, host_id: int, reviewed_by: int) -> BlockedHost:
 
 def reject(db: Session, host_id: int, reviewed_by: int) -> BlockedHost:
     return _review(db, host_id, BlockedHostStatus.rejected, reviewed_by)
+
+
+def add_manual(db: Session, host: str, reviewed_by: int) -> BlockedHost:
+    """Human directly blocks a host via admin: upsert to `approved` (the crawler's
+    LEARNED list). No miner evidence, so ratios/support stay 0."""
+    h = _bare_host(host)
+    if not h:
+        raise validation_error("host is required")
+    now = datetime.now(timezone.utc)
+    obj = db.query(BlockedHost).filter(BlockedHost.host == h).first()
+    if obj is None:
+        obj = BlockedHost(host=h, status=BlockedHostStatus.approved,
+                          reviewed_by=reviewed_by, reviewed_at=now)
+        db.add(obj)
+    else:
+        obj.status = BlockedHostStatus.approved
+        obj.reviewed_by = reviewed_by
+        obj.reviewed_at = now
+    db.commit()
+    db.refresh(obj)
+    return obj
 
 
 def list_approved_hosts(db: Session) -> list[str]:

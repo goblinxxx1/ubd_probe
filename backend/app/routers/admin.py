@@ -11,7 +11,7 @@ from app.deps import get_current_admin, get_db, require_super_admin
 from app.models import OfferCategory, TargetCategory
 from app.models.enums import BlockedHostStatus, CreatedBy, OfferStatus, OfferType, SuggestionStatus
 from app.schemas.admin_user import AdminUserCreate, AdminUserOut
-from app.schemas.blocked_host import BlockedHostOut
+from app.schemas.blocked_host import BlockedHostCreate, BlockedHostOut
 from app.schemas.category import CategoryCreate, CategoryOut, CategoryUpdate
 from app.schemas.common import Page
 from app.schemas.offer import OfferCreate, OfferOut, OfferUpdate
@@ -135,6 +135,12 @@ def reject_suggestion(suggestion_id: int, db: Session = Depends(get_db),
 def list_host_candidates(status: BlockedHostStatus | None = None,
                          db: Session = Depends(get_db), _=Depends(get_current_admin)):
     return blocked_host_crud.list_hosts(db, status)
+
+
+@router.post("/host-candidates", response_model=BlockedHostOut)
+def add_blocked_host(data: BlockedHostCreate, db: Session = Depends(get_db),
+                     admin=Depends(get_current_admin)):
+    return blocked_host_crud.add_manual(db, data.host, admin.id)
 
 
 @router.post("/host-candidates/{host_id}/approve", response_model=BlockedHostOut)

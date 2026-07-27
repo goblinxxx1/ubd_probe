@@ -25,3 +25,20 @@ def test_admin_lists_and_approves(client, db_session):
 def test_admin_requires_auth(client, db_session):
     c = bh_crud.upsert_candidate(db_session, HostCandidateCreate(host="x.example"))
     assert client.post(f"/api/admin/host-candidates/{c.id}/reject").status_code == 401
+
+
+def test_admin_adds_host_directly_as_approved(client, db_session):
+    token = _admin_token(db_session)
+    h = {"Authorization": f"Bearer {token}"}
+    # a pasted URL with www should normalize to the bare host
+    r = client.post("/api/admin/host-candidates", json={"host": "https://www.Veteran.com.ua/news"}, headers=h)
+    assert r.status_code == 200
+    assert r.json()["host"] == "veteran.com.ua"
+    assert r.json()["status"] == "approved"
+    # and it shows up in the crawler's approved (LEARNED) list
+    lst = client.get("/api/admin/host-candidates?status=approved", headers=h)
+    assert any(row["host"] == "veteran.com.ua" for row in lst.json())
+
+
+def test_admin_add_host_requires_auth(client):
+    assert client.post("/api/admin/host-candidates", json={"host": "x.example"}).status_code == 401
