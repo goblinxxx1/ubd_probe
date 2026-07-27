@@ -15,6 +15,28 @@ def _load_categories(db: Session, target_ids, offer_ids):
     return targets, offers
 
 
+def _apply_content(obj, data, canon, content_hash, targets, offers, mk_link):
+    obj.type = data.type
+    obj.title = data.title
+    obj.description = data.description
+    obj.provider = data.provider
+    obj.location = data.location
+    obj.valid_from = data.valid_from
+    obj.valid_until = data.valid_until
+    obj.discount_type = data.discount_type
+    obj.discount_value = data.discount_value
+    obj.site_url = data.site_url
+    obj.article_url = data.article_url
+    obj.image_url = data.image_url
+    obj.target_url = data.target_url
+    obj.target_url_canonical = canon
+    obj.content_hash = content_hash
+    obj.target_categories = targets
+    obj.offer_categories = offers
+    obj.links = [mk_link()]
+    obj.last_seen_at = datetime.utcnow()
+
+
 def create_offer(db: Session, data: OfferCreate, created_by: CreatedBy,
                  status: OfferStatus, source_id: int | None = None,
                  content_hash: str | None = None) -> Offer:
@@ -25,19 +47,94 @@ def create_offer(db: Session, data: OfferCreate, created_by: CreatedBy,
                          article_url=data.article_url)
 
     canon = canonicalize_target_url(data.target_url) if data.target_url else None
+    crawler = created_by == CreatedBy.crawler
 
-    if content_hash is not None and created_by == CreatedBy.crawler:
-        q = db.query(Offer).filter(Offer.content_hash == content_hash)
+    # 1) Unchanged (or idempotent repeat of an existing shadow): same source + content_hash.
+    if content_hash is not None and crawler:
+        # Ignore expired rows here: a revert to an expired offer's content must fall through to
+        # branch 2 for re-moderation, not short-circuit onto the dead row. Published/pending/
+        # rejected still short-circuit (rejected stays final; unchanged live just bumps).
+        q = db.query(Offer).filter(Offer.content_hash == content_hash,
+                                   Offer.status != OfferStatus.expired)
         q = (q.filter(Offer.source_id == source_id) if source_id is not None
              else q.filter(Offer.source_id.is_(None)))
         existing = q.first()
         if existing is not None:
             existing.last_seen_at = datetime.utcnow()
+            if existing.supersedes_offer_id is not None:
+                parent = db.get(Offer, existing.supersedes_offer_id)
+                if parent is not None:
+                    parent.last_seen_at = datetime.utcnow()
+            elif existing.status == OfferStatus.published:
+                # Content reverted to this published offer's live value -> any pending
+                # shadow proposing a now-gone change is stale; drop it from the queue.
+                stale = (db.query(Offer)
+                         .filter(Offer.supersedes_offer_id == existing.id,
+                                 Offer.status == OfferStatus.pending_review)
+                         .all())
+                for sh in stale:
+                    sh.status = OfferStatus.rejected
             db.commit()
             db.refresh(existing)
             return existing
 
-    if created_by == CreatedBy.crawler and canon:
+    # Same-source change detection needs a canonical key and a source.
+    if crawler and canon and source_id is not None:
+        # 2) Change of a live (published) offer from this same source+target -> shadow.
+        parent = (db.query(Offer)
+                  .filter(Offer.source_id == source_id,
+                          Offer.target_url_canonical == canon,
+                          Offer.status == OfferStatus.published)
+                  .order_by(Offer.id).first())
+        if parent is not None:
+            targets, offers = _load_categories(db, data.target_category_ids, data.offer_category_ids)
+            # The shadow row is uniquely keyed by (source_id, content_hash). If a physical row with
+            # this exact content already exists it can only be an expired one (branch 1 caught any
+            # live/rejected match) — revive it so a revert to a previously-seen discount re-enters
+            # moderation without colliding with the unique constraint. Otherwise reuse the in-flight
+            # pending shadow for this parent, else create a fresh shadow.
+            live_shadow = (db.query(Offer)
+                           .filter(Offer.supersedes_offer_id == parent.id,
+                                   Offer.status == OfferStatus.pending_review)
+                           .order_by(Offer.id).first())
+            revive = (db.query(Offer)
+                      .filter(Offer.source_id == source_id, Offer.content_hash == content_hash)
+                      .first()) if content_hash is not None else None
+            if revive is not None:
+                # Keep at most one pending shadow per parent: drop a different in-flight one.
+                if live_shadow is not None and live_shadow.id != revive.id:
+                    live_shadow.status = OfferStatus.rejected
+                revive.supersedes_offer_id = parent.id
+                revive.status = OfferStatus.pending_review
+                shadow = revive
+            elif live_shadow is not None:
+                shadow = live_shadow
+            else:
+                shadow = Offer(status=OfferStatus.pending_review, created_by=CreatedBy.crawler,
+                               source_id=source_id, supersedes_offer_id=parent.id)
+                db.add(shadow)
+            _apply_content(shadow, data, canon, content_hash, targets, offers, _mk_link)
+            parent.last_seen_at = datetime.utcnow()
+            db.commit()
+            db.refresh(shadow)
+            return shadow
+
+        # 3) First submission still pending (not yet approved) -> update in place, no shadow.
+        pending = (db.query(Offer)
+                   .filter(Offer.source_id == source_id,
+                           Offer.target_url_canonical == canon,
+                           Offer.status == OfferStatus.pending_review,
+                           Offer.supersedes_offer_id.is_(None))
+                   .order_by(Offer.id).first())
+        if pending is not None:
+            targets, offers = _load_categories(db, data.target_category_ids, data.offer_category_ids)
+            _apply_content(pending, data, canon, content_hash, targets, offers, _mk_link)
+            db.commit()
+            db.refresh(pending)
+            return pending
+
+    # 4) Cross-source canonical merge (aggregator / cross-platform) — existing behavior.
+    if crawler and canon:
         existing = (db.query(Offer).filter(Offer.target_url_canonical == canon)
                     .order_by(Offer.id).first())
         if existing is not None:
@@ -130,6 +227,15 @@ def set_status(db: Session, offer_id: int, status: OfferStatus, reviewed_by: int
     obj.reviewed_by = reviewed_by
     if status == OfferStatus.published:
         obj.last_seen_at = datetime.utcnow()
+        if obj.supersedes_offer_id is not None:
+            parent = db.get(Offer, obj.supersedes_offer_id)
+            if parent is not None and parent.status == OfferStatus.published:
+                parent.status = OfferStatus.expired
+            # A published offer is the canonical live row — it no longer "supersedes" anything.
+            # Clearing this after the parent-expire keeps the supersede graph acyclic (pending ->
+            # published -> null), so reviving a former parent as a shadow can't form a 2-node FK
+            # cycle (which selectin eager-load would flush as CircularDependencyError).
+            obj.supersedes_offer_id = None
     db.commit()
     db.refresh(obj)
     return obj

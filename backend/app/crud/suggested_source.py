@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from app.core.errors import conflict, not_found
+from app.core.urlnorm import normalize_ref
 from app.crud import source as source_crud
 from app.models import Source, SuggestedSource
 from app.models.enums import CreatedBy, SuggestionStatus
@@ -10,7 +11,12 @@ from app.schemas.source import SourceCreate
 from app.schemas.suggested_source import SuggestedSourceCreate
 
 
-def create_suggestion(db: Session, data: SuggestedSourceCreate) -> SuggestedSource:
+def create_suggestion(db: Session, data: SuggestedSourceCreate) -> SuggestedSource | None:
+    ref = normalize_ref(data.type, data.url_or_handle)
+    active = db.query(Source).filter(Source.type == data.type, Source.is_active.is_(True)).all()
+    if any(normalize_ref(s.type.value if hasattr(s.type, "value") else s.type,
+                         s.url_or_handle) == ref for s in active):
+        return None
     existing = (db.query(SuggestedSource)
                 .filter(SuggestedSource.type == data.type,
                         SuggestedSource.url_or_handle == data.url_or_handle)
