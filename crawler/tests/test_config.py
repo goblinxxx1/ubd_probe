@@ -178,3 +178,21 @@ def test_osm_feed_query_timeout_default_and_override(monkeypatch, tmp_path):
     assert load_config().osm_feed_query_timeout == 200.0
     monkeypatch.setenv("OSM_FEED_QUERY_TIMEOUT", "150")
     assert load_config().osm_feed_query_timeout == 150.0
+
+
+def test_aggregator_feed_defaults(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)      # no .env -> defaults apply
+    cfg = load_config()
+    assert cfg.aggregator_feed_enabled is True
+    assert cfg.aggregator_feed_per_pass == 20
+    assert cfg.aggregator_domains_path == "/data/aggregator_domains.json"
+    assert cfg.aggregator_max_domains == 500
+
+
+def test_aggregator_feed_env_overrides(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AGGREGATOR_FEED_ENABLED", "false")
+    monkeypatch.setenv("AGGREGATOR_MAX_DOMAINS", "50")
+    cfg = load_config()
+    assert cfg.aggregator_feed_enabled is False
+    assert cfg.aggregator_max_domains == 50
