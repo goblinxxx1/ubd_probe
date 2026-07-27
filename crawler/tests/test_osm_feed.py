@@ -38,10 +38,10 @@ def test_contact_website_fallback():
 
 
 def test_dedup_by_host_stable_first_brand_wins():
-    els = [{"tags": {"brand": "Aaa", "website": "https://same.ua"}},
-           {"tags": {"brand": "Aaa", "website": "https://same.ua"}},
+    els = [{"tags": {"brand": "Bbb", "website": "https://same.ua"}},
            {"tags": {"brand": "Bbb", "website": "https://same.ua"}},
-           {"tags": {"brand": "Bbb", "website": "https://same.ua"}}]
+           {"tags": {"brand": "Aaa", "website": "https://same.ua"}},
+           {"tags": {"brand": "Aaa", "website": "https://same.ua"}}]
     assert _enum(els, min_pois=2).enumerate() == {"Aaa": "same.ua"}
 
 

@@ -70,15 +70,17 @@ class Runner:
                 rating_on = self._domain_registry is not None or self._domain_feed is not None
                 known_hosts = ({_host(s["url_or_handle"]) for s in sources
                                 if s["type"] == "website"} if rating_on else set())
-                candidates = []
+                feeds = []
                 if self._domain_feed is not None:
-                    candidates += self._domain_feed.candidates(known_hosts)
+                    feeds.append(self._domain_feed.candidates(known_hosts))
                 if self._discovery is not None and self._keywords:
-                    candidates += self._discovery.run(self._keywords, known)
+                    feeds.append(self._discovery.run(self._keywords, known))
                 if self._brand_feed is not None:
-                    candidates += self._brand_feed.candidates(known)
+                    feeds.append(self._brand_feed.candidates(known))
                 if self._osm_feed is not None:
-                    candidates += self._osm_feed.candidates(known)
+                    feeds.append(self._osm_feed.candidates(known))
+                # round-robin interleave so no single feed starves the others under fetch_budget
+                candidates = [c for group in zip_longest(*feeds) for c in group if c is not None]
                 if (self._site_planner is not None and self._site_state is not None
                         and self._discovery is not None and self._domain_registry is not None):
                     cur = self._site_state.site_cursor

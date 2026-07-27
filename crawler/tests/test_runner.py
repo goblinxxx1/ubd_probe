@@ -323,3 +323,18 @@ def test_runner_unions_osm_feed_candidates():
                     harvester=hv, osm_feed=_StubOsm([osm_cand]))
     runner.run()
     assert any(c.url_or_handle == "https://foo.ua" for c in hv.candidates)
+
+
+def test_runner_interleaves_feeds_round_robin():
+    src = {"id": 1, "type": "website", "name": "S", "url_or_handle": "https://s.ua"}
+    api = FakeApi([src])
+    hv = _RecordingHarvester()
+    df = _StubFeed([SourceCandidate(name="d1", type="website", url_or_handle="https://d1.ua"),
+                    SourceCandidate(name="d2", type="website", url_or_handle="https://d2.ua")])
+    of = _StubOsm([SourceCandidate(name="o1", type="website", url_or_handle="https://o1.ua"),
+                   SourceCandidate(name="o2", type="website", url_or_handle="https://o2.ua")])
+    runner = Runner(api, {"website": FakeFetcher([])}, get_extractor("heuristic"), _rl(),
+                    harvester=hv, domain_feed=df, domain_registry=None, osm_feed=of)
+    runner.run()
+    names = [c.name for c in hv.candidates]
+    assert names == ["d1", "o1", "d2", "o2"]   # round-robin: domain, osm, domain, osm

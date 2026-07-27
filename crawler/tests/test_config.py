@@ -171,3 +171,10 @@ def test_osm_feed_env_overrides(monkeypatch, tmp_path):
     assert cfg.osm_feed_enabled is False
     assert cfg.osm_feed_max_domains == 50
     assert cfg.osm_min_pois == 3
+
+
+def test_osm_feed_query_timeout_default_and_override(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    assert load_config().osm_feed_query_timeout == 200.0
+    monkeypatch.setenv("OSM_FEED_QUERY_TIMEOUT", "150")
+    assert load_config().osm_feed_query_timeout == 150.0

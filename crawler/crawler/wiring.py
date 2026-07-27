@@ -53,7 +53,7 @@ def _build_osm_feed(config):
     if cache.is_stale(config.osm_feed_refresh_hours * 3600):
         try:
             domains = OsmEnumerator(
-                overpass_url=config.overpass_url, timeout=config.request_timeout,
+                overpass_url=config.overpass_url, timeout=config.osm_feed_query_timeout,
                 min_pois=config.osm_min_pois,
                 max_domains=config.osm_feed_max_domains).enumerate()
             if domains:
@@ -163,7 +163,9 @@ def build_runner(config) -> Runner:
         except Exception as exc:  # noqa: BLE001 — snowball best-effort
             log.warning("snowball ingest failed: %s", exc)
 
-    if (discovery is not None or brand_feed is not None) and config.active_fetch_budget:
+    if ((discovery is not None or brand_feed is not None
+         or osm_feed is not None or domain_feed is not None)
+            and config.active_fetch_budget):
         harvester = ActiveHarvester(api, fetchers, extractor, rate_limiter,
                                     fetch_budget=config.active_fetch_budget,
                                     walker=walker, domain_rate_limiter=domain_rl,

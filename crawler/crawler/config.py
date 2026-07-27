@@ -47,6 +47,7 @@ class _RawSettings(BaseSettings):
     osm_domains_path: str = "/data/osm_domains.json"
     osm_feed_max_domains: int = 500
     osm_min_pois: int = 2
+    osm_feed_query_timeout: float = 200.0
     sitemap_depth_enabled: bool = True
     domain_page_cap: int = 10
     sitemap_max_docs: int = 20
@@ -125,6 +126,7 @@ class Config:
     osm_domains_path: str = "/data/osm_domains.json"
     osm_feed_max_domains: int = 500
     osm_min_pois: int = 2
+    osm_feed_query_timeout: float = 200.0
     sitemap_depth_enabled: bool = True
     domain_page_cap: int = 10
     sitemap_max_docs: int = 20
@@ -226,6 +228,7 @@ def load_config() -> Config:
         osm_domains_path=s.osm_domains_path,
         osm_feed_max_domains=s.osm_feed_max_domains,
         osm_min_pois=s.osm_min_pois,
+        osm_feed_query_timeout=s.osm_feed_query_timeout,
         sitemap_depth_enabled=s.sitemap_depth_enabled,
         domain_page_cap=s.domain_page_cap,
         sitemap_max_docs=s.sitemap_max_docs,

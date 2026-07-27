@@ -331,3 +331,20 @@ def test_build_runner_osm_feed_disabled(tmp_path):
         bot_accounts=[], proxies={}, brand_feed_enabled=False, osm_feed_enabled=False)
     runner = build_runner(cfg)
     assert runner._osm_feed is None
+
+
+def test_build_runner_osm_only_still_builds_harvester(tmp_path):
+    import json as _json_osm2
+    opath = tmp_path / "osm_domains.json"
+    opath.write_text(_json_osm2.dumps({"version": 1, "refreshed_at": 9_999_999_999.0,
+                                       "domains": {"Foo": "foo.ua"}, "cursor": 0}),
+                     encoding="utf-8")
+    cfg = Config(
+        internal_api_url="http://api", crawler_api_key="k", extractor="heuristic",
+        active_discovery=False, request_timeout=5.0, min_delay_seconds=0.0,
+        bot_accounts=[], proxies={}, brand_feed_enabled=False,
+        domain_rating_enabled=False, osm_feed_enabled=True,
+        osm_domains_path=str(opath), osm_feed_refresh_hours=336)
+    runner = build_runner(cfg)
+    assert runner._harvester is not None      # osm_feed alone must build the harvester
+    assert runner._osm_feed is not None
