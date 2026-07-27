@@ -54,8 +54,10 @@ class DomainWalker:
             robots = self._robots.get(domain)
             delay = min(max(self._floor, robots.crawl_delay() or 0.0), self._cap)
             sm_urls = robots.sitemaps() or [f"https://{domain}/sitemap.xml"]
-            found = collect_sitemap_urls(sm_urls, self._client, self._rl, domain,
-                                         delay, self._sitemap_max_docs)
+            found = collect_sitemap_urls(
+                sm_urls, self._client, self._rl, domain, delay, self._sitemap_max_docs,
+                promo_filter=lambda u: _same_domain(u, domain) and url_is_promo(u),
+                promo_target=self._page_cap)
             promo = [u for u in found if _same_domain(u, domain) and url_is_promo(u)]
             if len(promo) < self._bfs_trigger_min:
                 promo += self._bfs(homepage, domain, robots, delay)

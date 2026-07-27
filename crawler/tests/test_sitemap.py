@@ -81,3 +81,48 @@ def test_malformed_xml_yields_empty():
     urls = collect_sitemap_urls(["https://shop.ua/sitemap.xml"], client, NoWait(),
                                 "shop.ua", None, max_docs=10)
     assert urls == []
+
+
+_INDEX_MIXED = (
+    '<?xml version="1.0"?>'
+    '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+    '<sitemap><loc>https://shop.ua/sitemap-pt-product-2025-01.xml</loc></sitemap>'
+    '<sitemap><loc>https://shop.ua/sitemap-page.xml</loc></sitemap>'
+    '</sitemapindex>'
+)
+_PAGE_URLSET = (
+    '<?xml version="1.0"?>'
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+    '<url><loc>https://shop.ua/veterans</loc></url>'
+    '</urlset>'
+)
+
+
+def test_product_child_sitemap_is_skipped():
+    client = MapClient({
+        "https://shop.ua/root.xml": _INDEX_MIXED,
+        "https://shop.ua/sitemap-pt-product-2025-01.xml": URLSET,
+        "https://shop.ua/sitemap-page.xml": _PAGE_URLSET,
+    })
+    urls = collect_sitemap_urls(["https://shop.ua/root.xml"], client, NoWait(),
+                                "shop.ua", None, max_docs=10)
+    # product catalog never fetched; page sitemap is
+    assert "https://shop.ua/sitemap-pt-product-2025-01.xml" not in client.calls
+    assert "https://shop.ua/sitemap-page.xml" in client.calls
+    assert urls == ["https://shop.ua/veterans"]
+
+
+def test_early_stop_once_enough_promo_pages():
+    big = ('<?xml version="1.0"?>'
+           '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+           '<url><loc>https://shop.ua/sale</loc></url>'      # promo
+           '<url><loc>https://shop.ua/promo</loc></url>'     # promo -> target reached here
+           '<url><loc>https://shop.ua/never-reached</loc></url>'
+           '</urlset>')
+    client = MapClient({"https://shop.ua/s.xml": big, "https://shop.ua/s2.xml": URLSET})
+    urls = collect_sitemap_urls(["https://shop.ua/s.xml", "https://shop.ua/s2.xml"], client,
+                                NoWait(), "shop.ua", None, max_docs=10,
+                                promo_filter=lambda u: "/sale" in u or "/promo" in u,
+                                promo_target=2)
+    assert "https://shop.ua/s2.xml" not in client.calls   # stopped before the 2nd doc
+    assert urls == ["https://shop.ua/sale", "https://shop.ua/promo"]  # returned at target
