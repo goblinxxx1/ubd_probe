@@ -294,3 +294,45 @@ def test_bypass_host_skip_forces_fetch_of_known_host(tmp_path):
     h.harvest([cand], cats=None, known=set(), summary=summary,
               known_hosts={"cafe.example"})            # host normally skipped
     assert summary["offers"] == 1                      # fetched anyway
+
+
+class _RecStore:
+    def __init__(self): self.added = []
+    def add(self, hosts, cap): self.added.append((set(hosts), cap))
+
+
+def _blocklisted_item():
+    # url host veteranam.info is on the SEED blocklist; one outbound business link
+    return RawItem(source_id=None, platform="website", key="k",
+                   text="Знижка 20% для УБД", url="https://veteranam.info/list",
+                   links=["https://realbiz.com.ua/sale"], site_name="V")
+
+
+def test_blocklisted_page_captures_outbound_hosts():
+    api = FakeApi()
+    store = _RecStore()
+    h = ActiveHarvester(api, {"website": FakeFetcher([_blocklisted_item()])},
+                        GateExtractor(), rate_limiter=None, fetch_budget=5,
+                        aggregator_store=store, aggregator_max_domains=500)
+    h.harvest([_cand(url="https://veteranam.info")], cats=None, known=set(), summary=_summary())
+    assert store.added and store.added[0] == ({"realbiz.com.ua"}, 500)
+    assert api.offers == []     # aggregator page still emits no offer (interim drop kept)
+
+
+def test_non_blocklisted_page_does_not_capture():
+    api = FakeApi()
+    store = _RecStore()
+    h = ActiveHarvester(api, {"website": FakeFetcher([_item("Знижка 20% для УБД у нас",
+                                                            site_name="Cafe")])},
+                        GateExtractor(), rate_limiter=None, fetch_budget=5,
+                        aggregator_store=store, aggregator_max_domains=500)
+    h.harvest([_cand()], cats=None, known=set(), summary=_summary())
+    assert store.added == []     # normal first-party page: nothing captured
+
+
+def test_no_store_is_byte_equivalent():
+    api = FakeApi()
+    h = ActiveHarvester(api, {"website": FakeFetcher([_blocklisted_item()])},
+                        GateExtractor(), rate_limiter=None, fetch_budget=5)
+    h.harvest([_cand(url="https://veteranam.info")], cats=None, known=set(), summary=_summary())
+    assert api.offers == []      # no crash, no capture path

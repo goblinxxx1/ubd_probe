@@ -1,6 +1,7 @@
 import logging
 
-from crawler.discovery.attribution import attribute, build_page_ctx
+from crawler.discovery.attribution import attribute, build_page_ctx, _outbound_hosts
+from crawler.discovery.blocklist import is_blocked_host
 from crawler.discovery.brand_feed import _host
 from crawler.discovery.passive import normalize_ref
 from crawler.extract.categories import resolve_offer_categories
@@ -15,7 +16,8 @@ class ActiveHarvester:
     def __init__(self, api, fetchers, extractor, rate_limiter, fetch_budget=20,
                  walker=None, domain_rate_limiter=None, corpus_recorder=None,
                  domain_registry=None, hardening_enabled=True,
-                 aggregator_min_outbound=3):
+                 aggregator_min_outbound=3, aggregator_store=None,
+                 aggregator_max_domains=500):
         self._api = api
         self._fetchers = fetchers
         self._extractor = extractor
@@ -27,6 +29,8 @@ class ActiveHarvester:
         self._registry = domain_registry
         self._hardening_enabled = hardening_enabled
         self._aggregator_min_outbound = aggregator_min_outbound
+        self._aggregator_store = aggregator_store
+        self._aggregator_max_domains = aggregator_max_domains
 
     def harvest(self, candidates, cats, known, summary, known_hosts=None) -> None:
         known_hosts = known_hosts or set()
@@ -90,6 +94,10 @@ class ActiveHarvester:
             if is_offer:
                 passing.append(it)
         ctx = build_page_ctx(cand, passing)
+        if self._aggregator_store is not None and is_blocked_host(ctx.host):
+            hosts = _outbound_hosts(passing)
+            if hosts:
+                self._aggregator_store.add(hosts, self._aggregator_max_domains)
         for item in passing:
             attr = attribute(item, ctx, hardening_enabled=self._hardening_enabled,
                              aggregator_min_outbound=self._aggregator_min_outbound)

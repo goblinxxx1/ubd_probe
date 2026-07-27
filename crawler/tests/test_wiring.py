@@ -348,3 +348,40 @@ def test_build_runner_osm_only_still_builds_harvester(tmp_path):
     runner = build_runner(cfg)
     assert runner._harvester is not None      # osm_feed alone must build the harvester
     assert runner._osm_feed is not None
+
+
+from crawler.discovery.aggregator_feed import AggregatorDomainFeed
+
+
+def test_build_runner_wires_aggregator_feed(tmp_path):
+    cfg = Config(
+        internal_api_url="http://api", crawler_api_key="k", extractor="heuristic",
+        active_discovery=False, request_timeout=5.0, min_delay_seconds=0.0,
+        bot_accounts=[], proxies={}, brand_feed_enabled=False, osm_feed_enabled=False,
+        aggregator_feed_enabled=True, aggregator_domains_path=str(tmp_path / "agg.json"))
+    runner = build_runner(cfg)
+    assert isinstance(runner._aggregator_feed, AggregatorDomainFeed)
+    assert runner._harvester is not None and runner._harvester._aggregator_store is not None
+
+
+def test_build_runner_aggregator_feed_disabled(tmp_path):
+    cfg = Config(
+        internal_api_url="http://api", crawler_api_key="k", extractor="heuristic",
+        active_discovery=False, request_timeout=5.0, min_delay_seconds=0.0,
+        bot_accounts=[], proxies={}, brand_feed_enabled=False, osm_feed_enabled=False,
+        aggregator_feed_enabled=False)
+    runner = build_runner(cfg)
+    assert runner._aggregator_feed is None
+
+
+def test_build_runner_aggregator_only_still_builds_harvester(tmp_path):
+    # aggregator feed enabled, everything else off → harvester must still be built
+    cfg = Config(
+        internal_api_url="http://api", crawler_api_key="k", extractor="heuristic",
+        active_discovery=False, request_timeout=5.0, min_delay_seconds=0.0,
+        bot_accounts=[], proxies={}, brand_feed_enabled=False, osm_feed_enabled=False,
+        domain_rating_enabled=False, aggregator_feed_enabled=True,
+        aggregator_domains_path=str(tmp_path / "agg.json"))
+    runner = build_runner(cfg)
+    assert runner._harvester is not None
+    assert runner._harvester._aggregator_store is not None

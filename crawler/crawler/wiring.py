@@ -5,6 +5,7 @@ import httpx
 from crawler.accounts.pool import AccountPool
 from crawler.api_client import ApiClient
 from crawler.discovery.active import ActiveDiscovery
+from crawler.discovery.aggregator_feed import AggregatorDomainFeed, AggregatorDomainStore
 from crawler.discovery import blocklist
 from crawler.discovery.brand_feed import (
     BRAND_SEEDS, BrandDomainCache, BrandFeed, BrandResolver, refresh_brand_domains)
@@ -125,6 +126,12 @@ def build_runner(config) -> Runner:
     osm_feed = None
     if config.osm_feed_enabled:
         osm_feed = _build_osm_feed(config)
+    aggregator_store = None
+    aggregator_feed = None
+    if config.aggregator_feed_enabled:
+        aggregator_store = AggregatorDomainStore.load(config.aggregator_domains_path)
+        aggregator_feed = AggregatorDomainFeed(
+            aggregator_store, per_pass=config.aggregator_feed_per_pass)
     walker = None
     domain_rl = None
     if config.sitemap_depth_enabled:
@@ -164,7 +171,8 @@ def build_runner(config) -> Runner:
             log.warning("snowball ingest failed: %s", exc)
 
     if ((discovery is not None or brand_feed is not None
-         or osm_feed is not None or domain_feed is not None)
+         or osm_feed is not None or domain_feed is not None
+         or aggregator_feed is not None)
             and config.active_fetch_budget):
         harvester = ActiveHarvester(api, fetchers, extractor, rate_limiter,
                                     fetch_budget=config.active_fetch_budget,
@@ -172,7 +180,9 @@ def build_runner(config) -> Runner:
                                     corpus_recorder=corpus_recorder,
                                     domain_registry=domain_registry,
                                     hardening_enabled=config.attribution_hardening_enabled,
-                                    aggregator_min_outbound=config.aggregator_min_outbound)
+                                    aggregator_min_outbound=config.aggregator_min_outbound,
+                                    aggregator_store=aggregator_store,
+                                    aggregator_max_domains=config.aggregator_max_domains)
     return Runner(api, fetchers, extractor, rate_limiter,
                   discovery=discovery, keywords=keywords, harvester=harvester,
                   brand_feed=brand_feed, freshness_ttl_days=config.freshness_ttl_days,
@@ -183,4 +193,4 @@ def build_runner(config) -> Runner:
                   domain_evict_ttl_seconds=config.domain_evict_ttl_hours * 3600,
                   site_planner=site_planner, site_state=site_state,
                   site_query_budget=config.site_query_budget,
-                  osm_feed=osm_feed)
+                  osm_feed=osm_feed, aggregator_feed=aggregator_feed)
