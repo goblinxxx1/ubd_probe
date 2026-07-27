@@ -133,6 +133,13 @@ def test_aggregator_many_outbound_never_first_party():
     assert attr is not None and attr.is_first_party is False and attr.provider == "realshop.ua"
 
 
+def test_blocklisted_aggregator_with_outbound_drops_without_salvage():
+    # veteranam.info is on the SEED blocklist — a directory page must NOT salvage a
+    # flood of offers via its outbound business links; it drops entirely.
+    it = _item2("Знижка 20% для ветеранів", links=["https://realshop.ua/sale"])
+    assert attribute(it, _ctx(host="veteranam.info", brand="Veteranam")) is None
+
+
 def test_non_media_first_person_still_first_party():
     it = _item2("У нас знижка 20% для ветеранів", links=["https://ig.example/x"])
     attr = attribute(it, _ctx())

@@ -106,9 +106,15 @@ def attribute(item, ctx: PageCtx, aggregator_min_outbound: int = 3,
     if not hardening_enabled:
         return _attribute_legacy(item, ctx)
 
+    # A human-curated blocklisted host is noise: never a provider AND never salvaged.
+    # Otherwise an aggregator directory (e.g. veteranam.info) floods one salvaged
+    # offer per outbound business link. Following those links to the businesses'
+    # own sites is a separate feature; here the blocklisted page just drops.
+    if is_blocked_host(ctx.host):
+        return None
+
     is_media = (
-        is_blocked_host(ctx.host)
-        or (getattr(item, "is_article", False)
+        (getattr(item, "is_article", False)
             and not getattr(item, "has_business_schema", False))
         or ctx.outbound_host_count >= aggregator_min_outbound
     )
