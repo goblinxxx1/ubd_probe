@@ -93,3 +93,46 @@ def test_revert_to_parent_content_drops_stale_shadow(db_session):
     assert back.id == p.id                              # reverted -> matches parent
     db_session.refresh(shadow)
     assert shadow.status == OfferStatus.rejected        # stale shadow dropped from queue
+
+
+def _admin(db):
+    from app.models import AdminUser
+    from app.models.enums import AdminRole
+    a = AdminUser(email="rv@example.com", password_hash="x", role=AdminRole.moderator)
+    db.add(a); db.commit(); db.refresh(a)
+    return a
+
+
+def test_revert_to_expired_content_reenters_moderation(db_session):
+    s = _source(db_session)
+    p = _published(db_session, s.id, "h1", value="10")
+    shadow = offer_crud.create_offer(db_session, _offer(discount_value="20"), CreatedBy.crawler,
+                                     OfferStatus.pending_review, source_id=s.id, content_hash="h2")
+    admin = _admin(db_session)
+    offer_crud.set_status(db_session, shadow.id, OfferStatus.published, admin.id)  # p->expired, shadow->published
+    db_session.refresh(p); db_session.refresh(shadow)
+    assert p.status == OfferStatus.expired
+    assert shadow.status == OfferStatus.published
+    revert = offer_crud.create_offer(db_session, _offer(discount_value="10"), CreatedBy.crawler,
+                                     OfferStatus.pending_review, source_id=s.id, content_hash="h1")
+    assert revert.id == p.id                              # expired parent revived (no dup row)
+    assert revert.status == OfferStatus.pending_review    # re-enters moderation
+    assert revert.supersedes_offer_id == shadow.id        # supersedes the live (20) offer
+    assert str(revert.discount_value) == "10.00"
+    db_session.refresh(shadow)
+    assert shadow.status == OfferStatus.published         # live offer untouched until approve
+
+
+def test_revert_remoderation_can_be_approved(db_session):
+    s = _source(db_session)
+    p = _published(db_session, s.id, "h1", value="10")
+    shadow = offer_crud.create_offer(db_session, _offer(discount_value="20"), CreatedBy.crawler,
+                                     OfferStatus.pending_review, source_id=s.id, content_hash="h2")
+    admin = _admin(db_session)
+    offer_crud.set_status(db_session, shadow.id, OfferStatus.published, admin.id)
+    revert = offer_crud.create_offer(db_session, _offer(discount_value="10"), CreatedBy.crawler,
+                                     OfferStatus.pending_review, source_id=s.id, content_hash="h1")
+    offer_crud.set_status(db_session, revert.id, OfferStatus.published, admin.id)
+    db_session.refresh(revert); db_session.refresh(shadow)
+    assert revert.status == OfferStatus.published         # discount 10 live again
+    assert shadow.status == OfferStatus.expired           # the 20 offer expired

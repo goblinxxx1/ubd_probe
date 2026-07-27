@@ -51,7 +51,11 @@ def create_offer(db: Session, data: OfferCreate, created_by: CreatedBy,
 
     # 1) Unchanged (or idempotent repeat of an existing shadow): same source + content_hash.
     if content_hash is not None and crawler:
-        q = db.query(Offer).filter(Offer.content_hash == content_hash)
+        # Ignore expired rows here: a revert to an expired offer's content must fall through to
+        # branch 2 for re-moderation, not short-circuit onto the dead row. Published/pending/
+        # rejected still short-circuit (rejected stays final; unchanged live just bumps).
+        q = db.query(Offer).filter(Offer.content_hash == content_hash,
+                                   Offer.status != OfferStatus.expired)
         q = (q.filter(Offer.source_id == source_id) if source_id is not None
              else q.filter(Offer.source_id.is_(None)))
         existing = q.first()
@@ -84,11 +88,28 @@ def create_offer(db: Session, data: OfferCreate, created_by: CreatedBy,
                   .order_by(Offer.id).first())
         if parent is not None:
             targets, offers = _load_categories(db, data.target_category_ids, data.offer_category_ids)
-            shadow = (db.query(Offer)
-                      .filter(Offer.supersedes_offer_id == parent.id,
-                              Offer.status == OfferStatus.pending_review)
-                      .order_by(Offer.id).first())
-            if shadow is None:
+            # The shadow row is uniquely keyed by (source_id, content_hash). If a physical row with
+            # this exact content already exists it can only be an expired one (branch 1 caught any
+            # live/rejected match) — revive it so a revert to a previously-seen discount re-enters
+            # moderation without colliding with the unique constraint. Otherwise reuse the in-flight
+            # pending shadow for this parent, else create a fresh shadow.
+            live_shadow = (db.query(Offer)
+                           .filter(Offer.supersedes_offer_id == parent.id,
+                                   Offer.status == OfferStatus.pending_review)
+                           .order_by(Offer.id).first())
+            revive = (db.query(Offer)
+                      .filter(Offer.source_id == source_id, Offer.content_hash == content_hash)
+                      .first()) if content_hash is not None else None
+            if revive is not None:
+                # Keep at most one pending shadow per parent: drop a different in-flight one.
+                if live_shadow is not None and live_shadow.id != revive.id:
+                    live_shadow.status = OfferStatus.rejected
+                revive.supersedes_offer_id = parent.id
+                revive.status = OfferStatus.pending_review
+                shadow = revive
+            elif live_shadow is not None:
+                shadow = live_shadow
+            else:
                 shadow = Offer(status=OfferStatus.pending_review, created_by=CreatedBy.crawler,
                                source_id=source_id, supersedes_offer_id=parent.id)
                 db.add(shadow)
@@ -210,6 +231,11 @@ def set_status(db: Session, offer_id: int, status: OfferStatus, reviewed_by: int
             parent = db.get(Offer, obj.supersedes_offer_id)
             if parent is not None and parent.status == OfferStatus.published:
                 parent.status = OfferStatus.expired
+            # A published offer is the canonical live row — it no longer "supersedes" anything.
+            # Clearing this after the parent-expire keeps the supersede graph acyclic (pending ->
+            # published -> null), so reviving a former parent as a shadow can't form a 2-node FK
+            # cycle (which selectin eager-load would flush as CircularDependencyError).
+            obj.supersedes_offer_id = None
     db.commit()
     db.refresh(obj)
     return obj

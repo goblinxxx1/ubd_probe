@@ -60,6 +60,7 @@ class Offer(Base):
     )
     supersedes: Mapped["Offer | None"] = relationship(
         "Offer", remote_side="Offer.id", foreign_keys="Offer.supersedes_offer_id",
+        lazy="selectin",
     )
 
     __table_args__ = (

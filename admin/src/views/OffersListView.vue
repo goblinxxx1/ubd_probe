@@ -114,7 +114,7 @@ defineExpose({ onPublish, onReject, onDelete, load, applyFilters, items, tab });
     <ResponsiveTable :columns="columns" :rows="items" :loading="loading" :actions-width="280">
       <template #col-title="{ row }">
         <div>{{ row.title }}</div>
-        <el-tag v-if="supersedeSummary(row)" size="small" type="warning" style="margin-top: 4px">
+        <el-tag v-if="row.status === 'pending_review' && supersedeSummary(row)" size="small" type="warning" style="margin-top: 4px">
           {{ supersedeSummary(row) }}
         </el-tag>
       </template>
