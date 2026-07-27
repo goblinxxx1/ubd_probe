@@ -3,7 +3,7 @@ import { ref, onMounted } from "vue";
 import { ElMessage } from "element-plus";
 import * as suggested from "@/api/suggestedSources";
 import { SOURCE_TYPES, SUGGESTION_STATUSES } from "@/constants/enums";
-import { enumLabel, isHttpUrl } from "@/utils/format";
+import { enumLabel, isHttpUrl, noteSegments } from "@/utils/format";
 import { extractError } from "@/utils/errors";
 import ResponsiveTable from "@/components/ResponsiveTable.vue";
 
@@ -15,7 +15,7 @@ const columns = [
   { prop: "name", label: "Назва" },
   { label: "Тип", slot: "type" },
   { label: "URL / handle", slot: "ref" },
-  { prop: "discovery_note", label: "Нотатка" },
+  { label: "Нотатка", slot: "note" },
 ];
 
 async function load() {
@@ -72,6 +72,18 @@ defineExpose({ items, load, onApprove, onReject, status });
           rel="noopener noreferrer"
         >{{ row.url_or_handle }}</el-link>
         <span v-else>{{ row.url_or_handle }}</span>
+      </template>
+      <template #col-note="{ row }">
+        <template v-for="(seg, i) in noteSegments(row.discovery_note)" :key="i">
+          <el-link
+            v-if="seg.url"
+            :href="seg.url"
+            type="primary"
+            target="_blank"
+            rel="noopener noreferrer"
+          >{{ seg.url }}</el-link>
+          <span v-else>{{ seg.text }}</span>
+        </template>
       </template>
       <template #actions="{ row }">
         <template v-if="row.status === 'pending'">

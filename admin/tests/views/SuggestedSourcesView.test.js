@@ -59,4 +59,17 @@ describe("SuggestedSourcesView", () => {
     expect(wrapper.find('a[href="javascript:alert(1)"]').exists()).toBe(false);
     expect(wrapper.text()).toContain("javascript:alert(1)");
   });
+
+  it("linkifies a URL embedded in the discovery note", async () => {
+    suggested.list.mockResolvedValueOnce([
+      { id: 5, name: "H", type: "website", url_or_handle: "@h",
+        discovery_note: "active-search offer from https://cafe.example", status: "pending" },
+    ]);
+    const wrapper = mount(SuggestedSourcesView, { global: { plugins: [ElementPlus] } });
+    await flushPromises();
+    const link = wrapper.find('a[href="https://cafe.example"]');
+    expect(link.exists()).toBe(true);
+    expect(link.attributes("target")).toBe("_blank");
+    expect(wrapper.text()).toContain("active-search offer from");
+  });
 });

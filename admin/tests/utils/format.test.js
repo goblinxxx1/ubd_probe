@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { enumLabel, formatDate, statusTagType, isHttpUrl } from "@/utils/format";
+import { enumLabel, formatDate, statusTagType, isHttpUrl, noteSegments } from "@/utils/format";
 import { OFFER_STATUSES } from "@/constants/enums";
 
 describe("enumLabel", () => {
@@ -40,5 +40,28 @@ describe("isHttpUrl", () => {
     expect(isHttpUrl("example.com")).toBe(false);
     expect(isHttpUrl("@handle")).toBe(false);
     expect(isHttpUrl(null)).toBe(false);
+  });
+});
+
+describe("noteSegments", () => {
+  it("splits a URL embedded in text into text + url segments", () => {
+    expect(noteSegments("active-search offer from https://cafe.example")).toEqual([
+      { text: "active-search offer from " },
+      { url: "https://cafe.example" },
+    ]);
+  });
+  it("returns a single text segment when there is no URL", () => {
+    expect(noteSegments("brand-feed:OKKO")).toEqual([{ text: "brand-feed:OKKO" }]);
+  });
+  it("handles a URL in the middle of text", () => {
+    expect(noteSegments("see https://x.example now")).toEqual([
+      { text: "see " },
+      { url: "https://x.example" },
+      { text: " now" },
+    ]);
+  });
+  it("returns [] for empty/non-string", () => {
+    expect(noteSegments("")).toEqual([]);
+    expect(noteSegments(null)).toEqual([]);
   });
 });
