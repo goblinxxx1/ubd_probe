@@ -11,6 +11,7 @@ vi.mock("@/api/hostCandidates", () => ({
   ])),
   approve: vi.fn(() => Promise.resolve({})),
   reject: vi.fn(() => Promise.resolve({})),
+  create: vi.fn(() => Promise.resolve({})),
 }));
 vi.mock("element-plus", async (importOriginal) => {
   const actual = await importOriginal();
@@ -53,6 +54,27 @@ describe("HostCandidatesView", () => {
     const link = wrapper.find('a[href="https://media.example/a"]');
     expect(link.exists()).toBe(true);
     expect(link.attributes("target")).toBe("_blank");
+  });
+
+  it("adds a host to the blocklist and jumps to the approved list", async () => {
+    const wrapper = mount(HostCandidatesView, { global: { plugins: [ElementPlus] } });
+    await flushPromises();
+    wrapper.vm.newHost = "veteran.com.ua";
+    await wrapper.vm.onAdd();
+    await flushPromises();
+    expect(hosts.create).toHaveBeenCalledWith("veteran.com.ua");
+    expect(wrapper.vm.status).toBe("approved");
+    expect(wrapper.vm.newHost).toBe("");
+    expect(hosts.list).toHaveBeenLastCalledWith({ status: "approved" });
+  });
+
+  it("ignores an empty add", async () => {
+    const wrapper = mount(HostCandidatesView, { global: { plugins: [ElementPlus] } });
+    await flushPromises();
+    wrapper.vm.newHost = "   ";
+    await wrapper.vm.onAdd();
+    await flushPromises();
+    expect(hosts.create).not.toHaveBeenCalled();
   });
 
   it("does not render a non-http sample as a live link", async () => {

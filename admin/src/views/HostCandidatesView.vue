@@ -10,6 +10,7 @@ import ResponsiveTable from "@/components/ResponsiveTable.vue";
 const items = ref([]);
 const loading = ref(false);
 const status = ref("pending");
+const newHost = ref("");
 
 const columns = [
   { prop: "host", label: "Хост" },
@@ -50,16 +51,40 @@ async function onReject(id) {
   }
 }
 
-defineExpose({ items, load, onApprove, onReject, status });
+async function onAdd() {
+  const host = newHost.value.trim();
+  if (!host) return;
+  try {
+    await hosts.create(host);
+    ElMessage.success("Хост заблоковано");
+    newHost.value = "";
+    status.value = "approved";   // jump to the approved list so the new host is visible
+    await load();
+  } catch (e) {
+    ElMessage.error(extractError(e));
+  }
+}
+
+defineExpose({ items, load, onApprove, onReject, onAdd, status, newHost });
 </script>
 
 <template>
   <div class="host-candidates-view">
     <div class="header">
       <h2>Кандидати в медіа/агрегатор-блоклист</h2>
-      <el-select v-model="status" style="width: 160px" @change="load">
-        <el-option v-for="s in SUGGESTION_STATUSES" :key="s.value" :label="s.label" :value="s.value" />
-      </el-select>
+      <div class="controls">
+        <el-input
+          v-model="newHost"
+          placeholder="Заблокувати хост (напр. veteran.com.ua)"
+          clearable
+          style="width: 320px"
+          @keyup.enter="onAdd"
+        />
+        <el-button type="danger" @click="onAdd">Заблокувати хост</el-button>
+        <el-select v-model="status" style="width: 160px" @change="load">
+          <el-option v-for="s in SUGGESTION_STATUSES" :key="s.value" :label="s.label" :value="s.value" />
+        </el-select>
+      </div>
     </div>
 
     <ResponsiveTable :columns="columns" :rows="items" :loading="loading" :actions-width="220">
@@ -83,5 +108,6 @@ defineExpose({ items, load, onApprove, onReject, status });
 </template>
 
 <style scoped lang="less">
-.header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 </style>
