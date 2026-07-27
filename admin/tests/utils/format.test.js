@@ -1,5 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { enumLabel, formatDate, statusTagType, isHttpUrl, noteSegments } from "@/utils/format";
+import {
+  enumLabel,
+  formatDate,
+  statusTagType,
+  isHttpUrl,
+  noteSegments,
+  discountLabel,
+  supersedeSummary,
+} from "@/utils/format";
 import { OFFER_STATUSES } from "@/constants/enums";
 
 describe("enumLabel", () => {
@@ -63,5 +71,30 @@ describe("noteSegments", () => {
   it("returns [] for empty/non-string", () => {
     expect(noteSegments("")).toEqual([]);
     expect(noteSegments(null)).toEqual([]);
+  });
+});
+
+describe("discountLabel", () => {
+  it("formats percent without trailing zeros", () => {
+    expect(discountLabel("percent", "20.00")).toBe("−20%");
+  });
+  it("formats fixed", () => {
+    expect(discountLabel("fixed", "100.00")).toBe("−100 грн");
+  });
+  it("formats free", () => {
+    expect(discountLabel("free", null)).toBe("безкоштовно");
+  });
+});
+
+describe("supersedeSummary", () => {
+  it("summarizes a supersede diff", () => {
+    const offer = {
+      discount_type: "percent", discount_value: "20.00",
+      supersedes: { id: 12, discount_type: "percent", discount_value: "10.00" },
+    };
+    expect(supersedeSummary(offer)).toBe("замінює #12 (−10% → −20%)");
+  });
+  it("returns empty for a plain offer", () => {
+    expect(supersedeSummary({ supersedes: null })).toBe("");
   });
 });

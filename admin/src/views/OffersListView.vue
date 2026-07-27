@@ -5,7 +5,7 @@ import { ElMessage } from "element-plus";
 import { useApiList } from "@/composables/useApiList";
 import * as offers from "@/api/offers";
 import { OFFER_STATUSES, OFFER_TYPES } from "@/constants/enums";
-import { enumLabel, formatDate, statusTagType, isHttpUrl } from "@/utils/format";
+import { enumLabel, formatDate, statusTagType, isHttpUrl, supersedeSummary } from "@/utils/format";
 import { confirmDelete } from "@/utils/confirm";
 import { extractError } from "@/utils/errors";
 import DataTableToolbar from "@/components/DataTableToolbar.vue";
@@ -19,7 +19,7 @@ const router = useRouter();
 const tab = ref("published");
 
 const columns = [
-  { prop: "title", label: "Заголовок" },
+  { label: "Заголовок", slot: "title" },
   { prop: "provider", label: "Провайдер" },
   { label: "Тип", slot: "type" },
   { label: "Статус", slot: "status" },
@@ -112,6 +112,12 @@ defineExpose({ onPublish, onReject, onDelete, load, applyFilters, items, tab });
     </DataTableToolbar>
 
     <ResponsiveTable :columns="columns" :rows="items" :loading="loading" :actions-width="280">
+      <template #col-title="{ row }">
+        <div>{{ row.title }}</div>
+        <el-tag v-if="supersedeSummary(row)" size="small" type="warning" style="margin-top: 4px">
+          {{ supersedeSummary(row) }}
+        </el-tag>
+      </template>
       <template #col-type="{ row }">{{ enumLabel(OFFER_TYPES, row.type) }}</template>
       <template #col-status="{ row }">
         <el-tag :type="statusTagType(row.status)">{{ enumLabel(OFFER_STATUSES, row.status) }}</el-tag>

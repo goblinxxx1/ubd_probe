@@ -45,3 +45,20 @@ export function noteSegments(note) {
   if (last < text.length) parts.push({ text: text.slice(last) });
   return parts;
 }
+
+export function discountLabel(type, value) {
+  if (type === "free") return "безкоштовно";
+  const n = value == null ? null : Number(value);
+  if (n == null || Number.isNaN(n)) return "";
+  if (type === "percent") return `−${n}%`;
+  if (type === "fixed") return `−${n} грн`;
+  return "";
+}
+
+export function supersedeSummary(offer) {
+  const p = offer && offer.supersedes;
+  if (!p) return "";
+  const was = discountLabel(p.discount_type, p.discount_value);
+  const now = discountLabel(offer.discount_type, offer.discount_value);
+  return `замінює #${p.id} (${was} → ${now})`;
+}
