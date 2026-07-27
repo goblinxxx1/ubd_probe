@@ -46,6 +46,12 @@
 
 26. **OSM-енумераційний фід доменів** (crawler, перша половина тріщини #1 аудиту, [[ubd-crawler-osm-domain-feed]]) — самонаповнення `DomainRegistry` було голодне на нові домени (приплив залежав від мертвого DDG). Додано DDG-незалежний `OsmEnumerator` (один Overpass-запит на мережеві POI України з `website` + шумо-фільтр: `min_pois≥2`, дедуп за host, cap 500, блоклист-прескрін, `website`/`contact:website` fallback, fail→`{}`) + `OsmDomainFeed` (ротаційні website-кандидати з реюзнутого `BrandDomainCache`). Прапори `osm_feed_*` (дефолт ON) + `osm_feed_query_timeout=200` (>серверного `[timeout:180]`). `wiring._build_osm_feed` (best-effort refresh) + Runner **round-robin interleave фідів** (`zip_longest`, щоб OSM не голодив під `active_fetch_budget`). Нові домени — лише кандидати (precision-гейти+модерація нижче). Merge `0409d88`. crawler 400 (381+19). Фінальне opus зловило 3 Important (мої план-помилки: harvester-gate без osm/domain_feed; client-timeout 20с<180с; budget-starvation) — усі виправлено + re-review чисто. Ретайр мертвих DDG/SearXNG — окремий follow-up.
 
+27. **Walker perf — скіп товарних сайтмапів + early-stop** (crawler) — deep-walk застрягав ~2 год на одному ретейлері, качаючи ~20 гігантських `sitemap-pt-product-*.xml` (SKU-каталог), чиї URL не проходять промо-фільтр. `collect_sitemap_urls` тепер пропускає child-сайтмапи з `product` у назві (промо-сторінки там не бувають) + зупиняється, щойно набрано `domain_page_cap` промо-URL. Якість-нейтрально (товарні сайтмапи й так давали ~0 промо). Merge `985e8fc`. crawler 403.
+
+28. **Агрегатор як фід доменів** (crawler, veteranam follow-through, [[ubd-crawler-aggregator-domain-feed]]) — блоклистнуті каталоги ветеранських знижок (veteranam.info) як джерело **бізнес-доменів**, не оферів: harvester капчить вихідні бізнес-хости з блоклистнутих сторінок у `AggregatorDomainStore`, `AggregatorDomainFeed` ротаційно подає їх кандидатами → харвест сайту бізнесу → **first-party** офер → модерація. Аркуш агрегатора 0 оферів (інтерим-drop збережено, attribution.py недоторканий). Autofeed, blocklisted-only, persist+re-feed (дзеркало OSM-фіду). Прапори `aggregator_feed_*` (дефолт ON), byte-eq OFF. Merge `74d9c41`. crawler 420 (403+17). Фінальне opus зловило 1 Important (harvester-gate без aggregator_feed — та сама асиметрія, що в OSM) — виправлено + re-review чисто.
+
+**Операційні/UI фікси цієї сесії (2026-07-23, кожен окремий merge):** admin — URL у «Нотатці» запропонованих джерел як лінк + вкладки оферів «Опубліковані/На модерації» (`6703d14`); veteranam salvage-флуд спинено (блоклистнутий агрегатор → drop без salvage, `c5540e4`); ручне додавання хоста в блокліст через адмінку (`POST /admin/host-candidates`→approved, `54dde67`). Живий Docker-стек піднято (active_discovery=ON, 30-хв цикл); наскрізь перевірено — active+passive+feeds виробляють офери, стійкий до мережевих збоїв.
+
 **Свідомо НЕ роблено:** C2 (сегментація тексту в блоці) — реальні дані показали непотрібність; деталі у пам'яті [[ubd-discovery-plan]].
 
 ## ⚠️ Відкриті пункти (для наступних сесій)
@@ -72,7 +78,7 @@ injection-hardened); cold-start атрибуції. Деталі — [[ubd-crawl
 **Як запускати:** повний довідник — `RUN.md` (окремо/разом, краулер, пошукові движки,
 потік у адмінку); Docker-деталі — `README-docker.md`.
 
-**Тести (crawler+backend перевірено 2026-07-23):** admin **84**, public **60**, crawler **400**, backend **104** —
+**Тести (перевірено 2026-07-23):** admin **97**, public **60**, crawler **420**, backend **106** —
 усі зелені. Фронти перед мержем — ще й `npm run build` (Vitest НЕ компілює scoped-Less, тож
 undefined-токен у `<style>` проходить тести, але валить build). Backend-тести потребують
 `mysql-container` на :3306 (`docker start mysql-container`).
