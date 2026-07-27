@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted } from "vue";
+import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
 import { useApiList } from "@/composables/useApiList";
@@ -14,6 +14,10 @@ import ResponsiveTable from "@/components/ResponsiveTable.vue";
 const props = defineProps({ fixedStatus: { type: String, default: null } });
 const router = useRouter();
 
+// Main offers page is split into two status tabs; the moderation-queue variant
+// (fixedStatus set) pins its status and shows no tabs.
+const tab = ref("published");
+
 const columns = [
   { prop: "title", label: "Заголовок" },
   { prop: "provider", label: "Провайдер" },
@@ -25,7 +29,7 @@ const columns = [
 
 function loader(params) {
   const p = { ...params };
-  if (props.fixedStatus) p.status = props.fixedStatus;
+  p.status = props.fixedStatus || tab.value;   // moderation-queue pins; else the active tab drives status
   Object.keys(p).forEach((k) => {
     if (p[k] === "" || p[k] == null) delete p[k];
   });
@@ -33,7 +37,7 @@ function loader(params) {
 }
 
 const { items, total, page, size, loading, filters, load, setPage, applyFilters } =
-  useApiList(loader, { status: "", type: "", q: "" });
+  useApiList(loader, { type: "", q: "" });
 
 onMounted(load);
 
@@ -76,7 +80,7 @@ function edit(id) {
   router.push({ name: "offer-edit", params: { id } });
 }
 
-defineExpose({ onPublish, onReject, onDelete, load, applyFilters, items });
+defineExpose({ onPublish, onReject, onDelete, load, applyFilters, items, tab });
 </script>
 
 <template>
@@ -88,18 +92,13 @@ defineExpose({ onPublish, onReject, onDelete, load, applyFilters, items });
       </el-button>
     </div>
 
+    <el-tabs v-if="!fixedStatus" v-model="tab" @tab-change="applyFilters({})">
+      <el-tab-pane label="Опубліковані" name="published" />
+      <el-tab-pane label="На модерації" name="pending_review" />
+    </el-tabs>
+
     <DataTableToolbar @search="(q) => applyFilters({ q })">
       <template #filters>
-        <el-select
-          v-if="!fixedStatus"
-          v-model="filters.status"
-          placeholder="Статус"
-          clearable
-          style="width: 160px"
-          @change="applyFilters({})"
-        >
-          <el-option v-for="s in OFFER_STATUSES" :key="s.value" :label="s.label" :value="s.value" />
-        </el-select>
         <el-select
           v-model="filters.type"
           placeholder="Тип"

@@ -44,7 +44,19 @@ describe("OffersListView", () => {
     await router.isReady();
     mount(OffersListView, { global: { plugins: [router, ElementPlus] } });
     await flushPromises();
-    expect(offers.list).toHaveBeenCalledWith({ page: 1, size: 20 });
+    expect(offers.list).toHaveBeenCalledWith({ status: "published", page: 1, size: 20 });
+  });
+
+  it("switching to the moderation tab reloads with pending_review status", async () => {
+    const router = makeRouter();
+    router.push("/");
+    await router.isReady();
+    const wrapper = mount(OffersListView, { global: { plugins: [router, ElementPlus] } });
+    await flushPromises();
+    wrapper.vm.tab = "pending_review";
+    await wrapper.vm.applyFilters({});
+    await flushPromises();
+    expect(offers.list).toHaveBeenLastCalledWith({ status: "pending_review", page: 1, size: 20 });
   });
 
   it("publish calls the API and reloads", async () => {
