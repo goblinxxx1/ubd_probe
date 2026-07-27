@@ -9,7 +9,7 @@ def test_build_runner_wires_all_platforms():
         internal_api_url="http://api", crawler_api_key="k", extractor="heuristic",
         active_discovery=False, request_timeout=5.0, min_delay_seconds=0.0,
         bot_accounts=[], proxies={},
-        brand_feed_enabled=False,
+        brand_feed_enabled=False, osm_feed_enabled=False,
     )
     runner = build_runner(cfg)
     assert set(runner._fetchers.keys()) == {"website", "telegram", "instagram", "facebook"}
@@ -32,7 +32,7 @@ def test_build_runner_rotates_query_grid_and_unions_pins(tmp_path):
         search_keywords=["мій пін"],
         search_state_path=state_path,
         search_queries_per_pass=3,
-        brand_feed_enabled=False,
+        brand_feed_enabled=False, osm_feed_enabled=False,
     )
     runner = build_runner(cfg)
 
@@ -62,6 +62,7 @@ def test_build_runner_brand_feed_runs_without_ddg(tmp_path):
         brand_domains_path=str(bpath),
         brand_feed_refresh_hours=336,
         active_fetch_budget=20,
+        osm_feed_enabled=False,
     )
     runner = build_runner(cfg)
     assert runner._discovery is None
@@ -155,6 +156,7 @@ def _harvest_config(tmp_path, **over):
         brand_feed_enabled=True, brand_domains_path=str(bpath),
         brand_feed_refresh_hours=336, active_fetch_budget=20,
         robots_cache_path=str(tmp_path / "robots.json"),
+        osm_feed_enabled=False,
     )
     base.update(over)
     return Config(**base)
@@ -178,7 +180,7 @@ def test_build_runner_autofill_off_has_no_recorder():
     cfg = Config(internal_api_url="http://x", crawler_api_key="k", extractor="heuristic",
                  active_discovery=False, request_timeout=1.0, min_delay_seconds=1.0,
                  autofill_enabled=False, brand_feed_enabled=False,
-                 sitemap_depth_enabled=False)
+                 sitemap_depth_enabled=False, osm_feed_enabled=False)
     r = build_runner(cfg)
     assert r._corpus is None
 
@@ -189,7 +191,7 @@ def test_domain_rating_off_is_byte_equivalent(tmp_path):
         active_discovery=False, request_timeout=5.0, min_delay_seconds=0.0,
         bot_accounts=[], proxies={},
         brand_feed_enabled=False, sitemap_depth_enabled=False,
-        domain_rating_enabled=False,
+        domain_rating_enabled=False, osm_feed_enabled=False,
     )
     runner = build_runner(cfg)
     assert runner._domain_feed is None
@@ -203,7 +205,7 @@ def test_domain_rating_on_builds_feed_registry_and_walker(tmp_path):
         active_discovery=False, request_timeout=5.0, min_delay_seconds=0.0,
         bot_accounts=[], proxies={},
         brand_feed_enabled=False, sitemap_depth_enabled=True,   # brand_feed off → no network
-        domain_rating_enabled=True,
+        domain_rating_enabled=True, osm_feed_enabled=False,
         domain_registry_path=str(tmp_path / "reg.json"),
         robots_cache_path=str(tmp_path / "robots.json"),
     )
@@ -221,7 +223,7 @@ def test_domain_rating_on_without_sitemap_builds_walker(tmp_path):
         active_discovery=False, request_timeout=5.0, min_delay_seconds=0.0,
         bot_accounts=[], proxies={},
         brand_feed_enabled=False, sitemap_depth_enabled=False,
-        domain_rating_enabled=True,
+        domain_rating_enabled=True, osm_feed_enabled=False,
         domain_registry_path=str(tmp_path / "reg.json"),
         robots_cache_path=str(tmp_path / "robots.json"),
     )
@@ -244,6 +246,7 @@ def test_build_runner_reloads_blocked_hosts(monkeypatch, tmp_path):
         active_discovery=False, request_timeout=5.0, min_delay_seconds=0.0,
         bot_accounts=[], proxies={},
         brand_feed_enabled=False, sitemap_depth_enabled=False, domain_rating_enabled=False,
+        osm_feed_enabled=False,
         blocked_hosts_fetch_enabled=True,
     )
     w.build_runner(cfg)
@@ -259,6 +262,7 @@ def test_build_runner_blocked_hosts_fetch_best_effort(monkeypatch):
         active_discovery=False, request_timeout=5.0, min_delay_seconds=0.0,
         bot_accounts=[], proxies={},
         brand_feed_enabled=False, sitemap_depth_enabled=False, domain_rating_enabled=False,
+        osm_feed_enabled=False,
         blocked_hosts_fetch_enabled=True,
     )
     w.build_runner(cfg)   # must not raise
@@ -272,7 +276,8 @@ def _base_cfg(tmp_path, **kw):
         internal_api_url="http://api", crawler_api_key="k", extractor="heuristic",
         request_timeout=5.0, min_delay_seconds=0.0, bot_accounts=[], proxies={},
         search_providers=[], search_state_path=str(tmp_path / "state.json"),
-        brand_feed_enabled=False, domain_registry_path=str(tmp_path / "r.json"))
+        brand_feed_enabled=False, osm_feed_enabled=False,
+        domain_registry_path=str(tmp_path / "r.json"))
     defaults.update(kw)
     return Config(**defaults)
 
@@ -297,3 +302,49 @@ def test_build_runner_site_state_none_without_active_discovery(tmp_path):
     runner = build_runner(cfg)
     assert runner._site_planner is not None
     assert runner._site_state is None                # no active search → no state to rotate
+
+
+import json as _json_osm
+
+from crawler.discovery.osm_feed import OsmDomainFeed
+
+
+def test_build_runner_osm_feed_runs_without_network(tmp_path):
+    # FRESH cache (far-future refreshed_at) so build_runner does NOT hit Overpass.
+    opath = tmp_path / "osm_domains.json"
+    opath.write_text(_json_osm.dumps({"version": 1, "refreshed_at": 9_999_999_999.0,
+                                      "domains": {"Foo": "foo.ua"}, "cursor": 0}),
+                     encoding="utf-8")
+    cfg = Config(
+        internal_api_url="http://api", crawler_api_key="k", extractor="heuristic",
+        active_discovery=False, request_timeout=5.0, min_delay_seconds=0.0,
+        bot_accounts=[], proxies={}, brand_feed_enabled=False,
+        osm_feed_enabled=True, osm_domains_path=str(opath), osm_feed_refresh_hours=336)
+    runner = build_runner(cfg)
+    assert isinstance(runner._osm_feed, OsmDomainFeed)
+
+
+def test_build_runner_osm_feed_disabled(tmp_path):
+    cfg = Config(
+        internal_api_url="http://api", crawler_api_key="k", extractor="heuristic",
+        active_discovery=False, request_timeout=5.0, min_delay_seconds=0.0,
+        bot_accounts=[], proxies={}, brand_feed_enabled=False, osm_feed_enabled=False)
+    runner = build_runner(cfg)
+    assert runner._osm_feed is None
+
+
+def test_build_runner_osm_only_still_builds_harvester(tmp_path):
+    import json as _json_osm2
+    opath = tmp_path / "osm_domains.json"
+    opath.write_text(_json_osm2.dumps({"version": 1, "refreshed_at": 9_999_999_999.0,
+                                       "domains": {"Foo": "foo.ua"}, "cursor": 0}),
+                     encoding="utf-8")
+    cfg = Config(
+        internal_api_url="http://api", crawler_api_key="k", extractor="heuristic",
+        active_discovery=False, request_timeout=5.0, min_delay_seconds=0.0,
+        bot_accounts=[], proxies={}, brand_feed_enabled=False,
+        domain_rating_enabled=False, osm_feed_enabled=True,
+        osm_domains_path=str(opath), osm_feed_refresh_hours=336)
+    runner = build_runner(cfg)
+    assert runner._harvester is not None      # osm_feed alone must build the harvester
+    assert runner._osm_feed is not None
