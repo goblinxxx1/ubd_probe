@@ -61,6 +61,15 @@ def create_offer(db: Session, data: OfferCreate, created_by: CreatedBy,
                 parent = db.get(Offer, existing.supersedes_offer_id)
                 if parent is not None:
                     parent.last_seen_at = datetime.utcnow()
+            elif existing.status == OfferStatus.published:
+                # Content reverted to this published offer's live value -> any pending
+                # shadow proposing a now-gone change is stale; drop it from the queue.
+                stale = (db.query(Offer)
+                         .filter(Offer.supersedes_offer_id == existing.id,
+                                 Offer.status == OfferStatus.pending_review)
+                         .all())
+                for sh in stale:
+                    sh.status = OfferStatus.rejected
             db.commit()
             db.refresh(existing)
             return existing

@@ -80,3 +80,16 @@ def test_pending_first_submission_updates_in_place(db_session):
     assert r.id == q.id                                 # no shadow while still pending
     assert r.supersedes_offer_id is None
     assert str(r.discount_value) == "20.00"
+
+
+def test_revert_to_parent_content_drops_stale_shadow(db_session):
+    s = _source(db_session)
+    p = _published(db_session, s.id, "h1", value="10")
+    shadow = offer_crud.create_offer(db_session, _offer(discount_value="20"), CreatedBy.crawler,
+                                     OfferStatus.pending_review, source_id=s.id, content_hash="h2")
+    assert shadow.supersedes_offer_id == p.id
+    back = offer_crud.create_offer(db_session, _offer(discount_value="10"), CreatedBy.crawler,
+                                   OfferStatus.pending_review, source_id=s.id, content_hash="h1")
+    assert back.id == p.id                              # reverted -> matches parent
+    db_session.refresh(shadow)
+    assert shadow.status == OfferStatus.rejected        # stale shadow dropped from queue
