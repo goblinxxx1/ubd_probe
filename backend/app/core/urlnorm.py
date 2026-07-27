@@ -1,3 +1,4 @@
+import re
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 
@@ -40,3 +41,15 @@ def canonicalize_target_url(url: str) -> str | None:
     query = urlencode(kept)
     path = p.path.rstrip("/")
     return f"{host}{path}" + (f"?{query}" if query else "")
+
+
+def normalize_ref(type: str, url_or_handle: str) -> str:
+    """Type-aware source-ref key based on the crawler's passive.normalize_ref, made a
+    touch more robust for the server guard: lowercased; scheme stripped; a leading www.
+    dropped (for all refs, not only social hosts); platform prefix (t.me/, instagram.com/,
+    facebook.com/) stripped; leading @ and trailing / removed."""
+    s = (url_or_handle or "").strip().lower()
+    s = re.sub(r"^https?://", "", s)
+    s = re.sub(r"^www\.", "", s)
+    s = re.sub(r"^(t\.me/|instagram\.com/|facebook\.com/)", "", s)
+    return s.lstrip("@").rstrip("/")

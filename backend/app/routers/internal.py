@@ -1,7 +1,7 @@
 from datetime import datetime
 from urllib.parse import urlsplit
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response, status as http_status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -60,9 +60,13 @@ def expire_stale(data: ExpireStaleRequest, db: Session = Depends(get_db)):
     return ExpireStaleResult(expired=offer_crud.expire_stale(db, data.older_than_days))
 
 
-@router.post("/suggested-sources", response_model=SuggestedSourceOut)
-def submit_suggested_source(data: SuggestedSourceCreate, db: Session = Depends(get_db)):
-    return suggestion_crud.create_suggestion(db, data)
+@router.post("/suggested-sources", response_model=SuggestedSourceOut | None)
+def submit_suggested_source(data: SuggestedSourceCreate, response: Response,
+                            db: Session = Depends(get_db)):
+    out = suggestion_crud.create_suggestion(db, data)
+    if out is None:
+        response.status_code = http_status.HTTP_204_NO_CONTENT
+    return out
 
 
 @router.post("/offer-categories", response_model=CategoryOut)
