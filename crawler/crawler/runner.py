@@ -19,7 +19,7 @@ class Runner:
                  domain_feed=None, domain_registry=None,
                  domain_evict_min_score=0.1, domain_evict_ttl_seconds=2_592_000.0,
                  site_planner=None, site_state=None, site_query_budget=5,
-                 osm_feed=None):
+                 osm_feed=None, aggregator_feed=None):
         self._api = api_client
         self._fetchers = fetchers
         self._extractor = extractor
@@ -40,6 +40,7 @@ class Runner:
         self._site_state = site_state
         self._site_query_budget = site_query_budget
         self._osm_feed = osm_feed
+        self._aggregator_feed = aggregator_feed
 
     def _fetch_for(self, source: dict, last_seen_key):
         fetcher = self._fetchers.get(source["type"])
@@ -79,6 +80,8 @@ class Runner:
                     feeds.append(self._brand_feed.candidates(known))
                 if self._osm_feed is not None:
                     feeds.append(self._osm_feed.candidates(known))
+                if self._aggregator_feed is not None:
+                    feeds.append(self._aggregator_feed.candidates(known))
                 # round-robin interleave so no single feed starves the others under fetch_budget
                 candidates = [c for group in zip_longest(*feeds) for c in group if c is not None]
                 if (self._site_planner is not None and self._site_state is not None

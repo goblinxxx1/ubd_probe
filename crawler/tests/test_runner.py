@@ -338,3 +338,19 @@ def test_runner_interleaves_feeds_round_robin():
     runner.run()
     names = [c.name for c in hv.candidates]
     assert names == ["d1", "o1", "d2", "o2"]   # round-robin: domain, osm, domain, osm
+
+
+class _StubAgg:
+    def __init__(self, cands): self._cands = cands
+    def candidates(self, known): return list(self._cands)
+
+
+def test_runner_unions_aggregator_feed_candidates():
+    src = {"id": 1, "type": "website", "name": "S", "url_or_handle": "https://s.ua"}
+    api = FakeApi([src])
+    hv = _RecordingHarvester()
+    cand = SourceCandidate(name="biz.ua", type="website", url_or_handle="https://biz.ua")
+    runner = Runner(api, {"website": FakeFetcher([])}, get_extractor("heuristic"), _rl(),
+                    harvester=hv, aggregator_feed=_StubAgg([cand]))
+    runner.run()
+    assert any(c.url_or_handle == "https://biz.ua" for c in hv.candidates)
