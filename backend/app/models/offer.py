@@ -41,6 +41,9 @@ class Offer(Base):
     status: Mapped[OfferStatus] = mapped_column(Enum(OfferStatus), nullable=False)
     created_by: Mapped[CreatedBy] = mapped_column(Enum(CreatedBy), nullable=False)
     reviewed_by: Mapped[int | None] = mapped_column(ForeignKey("admin_users.id"), nullable=True)
+    supersedes_offer_id: Mapped[int | None] = mapped_column(
+        ForeignKey("offers.id", ondelete="SET NULL"), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
@@ -54,6 +57,9 @@ class Offer(Base):
     )
     links: Mapped[list["OfferLink"]] = relationship(
         back_populates="offer", cascade="all, delete-orphan", lazy="selectin"
+    )
+    supersedes: Mapped["Offer | None"] = relationship(
+        "Offer", remote_side="Offer.id", foreign_keys="Offer.supersedes_offer_id",
     )
 
     __table_args__ = (
