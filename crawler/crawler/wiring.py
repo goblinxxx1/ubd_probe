@@ -171,7 +171,8 @@ def build_runner(config) -> Runner:
             log.warning("snowball ingest failed: %s", exc)
 
     if ((discovery is not None or brand_feed is not None
-         or osm_feed is not None or domain_feed is not None)
+         or osm_feed is not None or domain_feed is not None
+         or aggregator_feed is not None)
             and config.active_fetch_budget):
         harvester = ActiveHarvester(api, fetchers, extractor, rate_limiter,
                                     fetch_budget=config.active_fetch_budget,
