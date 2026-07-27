@@ -84,6 +84,14 @@ class OfferLinkOut(BaseModel):
     article_url: str | None
 
 
+class SupersedesOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    title: str
+    discount_type: DiscountType | None
+    discount_value: Decimal | None
+
+
 class OfferOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
@@ -102,6 +110,8 @@ class OfferOut(BaseModel):
     image_url: str | None
     links: list[OfferLinkOut] = []
     source_id: int | None
+    supersedes_offer_id: int | None = None
+    supersedes: SupersedesOut | None = None
     status: OfferStatus
     created_by: CreatedBy
     created_at: datetime
