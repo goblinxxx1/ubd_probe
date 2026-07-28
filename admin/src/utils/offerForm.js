@@ -24,7 +24,7 @@ export function buildOfferPayload(form) {
     title: form.title,
     description: form.description || "",
     provider: form.provider,
-    location: form.location || null,
+    locations: form.locations || [],
     valid_from: form.valid_from || null,
     valid_until: form.valid_until || null,
     discount_type: isDiscount ? form.discount_type || null : null,
