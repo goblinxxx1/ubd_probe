@@ -40,7 +40,18 @@ async function onSubmit(payload) {
   }
 }
 
-defineExpose({ onSubmit });
+async function onSubmitPublish(payload) {
+  try {
+    await offers.update(id, payload);
+    await offers.publish(id);
+    ElMessage.success("Збережено та опубліковано");
+    router.push({ name: "offers" });
+  } catch (e) {
+    ElMessage.error(extractError(e));
+  }
+}
+
+defineExpose({ onSubmit, onSubmitPublish });
 </script>
 
 <template>
@@ -51,6 +62,7 @@ defineExpose({ onSubmit });
       :target-categories="dictionaries.targetCategories"
       :offer-categories="dictionaries.offerCategories"
       @submit="onSubmit"
+      @submit-publish="onSubmitPublish"
       @cancel="router.push({ name: 'offers' })"
     />
   </div>

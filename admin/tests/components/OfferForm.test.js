@@ -45,4 +45,24 @@ describe("OfferForm", () => {
     expect(wrapper.vm.form.title).toBe("Подія");
     expect(wrapper.vm.form.target_category_ids).toEqual([3]);
   });
+
+  it("shows publish only for a non-published existing offer", () => {
+    const base = { global: { plugins: [ElementPlus] } };
+    const pub = mount(OfferForm, { props: { initial: { id: 5, status: "published", target_categories: [], offer_categories: [] } }, ...base });
+    expect(pub.vm.canPublish).toBe(false);
+    const pend = mount(OfferForm, { props: { initial: { id: 5, status: "pending_review", target_categories: [], offer_categories: [] } }, ...base });
+    expect(pend.vm.canPublish).toBe(true);
+    const fresh = mount(OfferForm, { props: { initial: null }, ...base });
+    expect(fresh.vm.canPublish).toBeFalsy();
+  });
+
+  it("emits submit-publish with a built payload when valid", () => {
+    const wrapper = mount(OfferForm, {
+      props: { initial: { id: 5, status: "pending_review", target_categories: [], offer_categories: [] } },
+      global: { plugins: [ElementPlus] },
+    });
+    Object.assign(wrapper.vm.form, { type: "event", title: "Подія", provider: "Орг" });
+    wrapper.vm.submitPublish();
+    expect(wrapper.emitted()["submit-publish"][0][0].title).toBe("Подія");
+  });
 });

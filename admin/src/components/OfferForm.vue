@@ -11,7 +11,7 @@ const props = defineProps({
   targetCategories: { type: Array, default: () => [] },
   offerCategories: { type: Array, default: () => [] },
 });
-const emit = defineEmits(["submit", "cancel"]);
+const emit = defineEmits(["submit", "cancel", "submit-publish"]);
 
 function fromInitial(o) {
   return {
@@ -56,7 +56,18 @@ function submit() {
   emit("submit", buildOfferPayload(form));
 }
 
-defineExpose({ form, submit });
+const canPublish = computed(() => props.initial?.id && props.initial?.status !== "published");
+
+function submitPublish() {
+  const errors = validateOffer(form);
+  if (errors.length) {
+    ElMessage.error(errors[0]);
+    return;
+  }
+  emit("submit-publish", buildOfferPayload(form));
+}
+
+defineExpose({ form, submit, submitPublish, canPublish });
 </script>
 
 <template>
@@ -114,6 +125,7 @@ defineExpose({ form, submit });
     </el-form-item>
     <div class="actions">
       <el-button type="primary" @click="submit">Зберегти</el-button>
+      <el-button v-if="canPublish" type="success" @click="submitPublish">Зберегти і опублікувати</el-button>
       <el-button @click="emit('cancel')">Скасувати</el-button>
     </div>
   </el-form>

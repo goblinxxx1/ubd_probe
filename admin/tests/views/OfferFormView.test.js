@@ -9,6 +9,7 @@ vi.mock("@/api/offers", () => ({
   get: vi.fn(() => Promise.resolve({ id: 5, type: "discount", title: "Old", provider: "P", target_categories: [], offer_categories: [] })),
   create: vi.fn(() => Promise.resolve({ id: 9 })),
   update: vi.fn(() => Promise.resolve({ id: 5 })),
+  publish: vi.fn(() => Promise.resolve({ id: 5 })),
 }));
 vi.mock("@/api/categories", () => ({
   listTarget: vi.fn(() => Promise.resolve([])),
@@ -55,5 +56,14 @@ describe("OfferFormView", () => {
     wrapper.vm.onSubmit({ title: "Upd", type: "discount", provider: "P" });
     await flushPromises();
     expect(offers.update).toHaveBeenCalledWith("5", { title: "Upd", type: "discount", provider: "P" });
+  });
+
+  it("updates then publishes on submit-publish", async () => {
+    const wrapper = await mountView("/offers/5/edit");
+    await flushPromises();
+    wrapper.vm.onSubmitPublish({ title: "Pub", type: "event", provider: "P" });
+    await flushPromises();
+    expect(offers.update).toHaveBeenCalledWith("5", { title: "Pub", type: "event", provider: "P" });
+    expect(offers.publish).toHaveBeenCalledWith("5");
   });
 });
