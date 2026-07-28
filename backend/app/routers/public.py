@@ -23,14 +23,19 @@ def list_offer_categories(db: Session = Depends(get_db)):
     return category_crud.list_categories(db, OfferCategory)
 
 
+@router.get("/locations", response_model=list[str])
+def list_locations(db: Session = Depends(get_db)):
+    return offer_crud.list_distinct_locations(db)
+
+
 @router.get("/offers", response_model=Page[OfferOut])
 def list_offers(type: OfferType | None = None, target_category: int | None = None,
-                offer_category: int | None = None, location: str | None = None,
+                offer_category: int | None = None, location: list[str] | None = Query(None),
                 q: str | None = None, page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100),
                 db: Session = Depends(get_db)):
     items, total = offer_crud.list_offers(
         db, status=OfferStatus.published, type=type, target_category_id=target_category,
-        offer_category_id=offer_category, locations=[location] if location else None,
+        offer_category_id=offer_category, locations=location,
         search=q, page=page, size=size,
     )
     return Page(items=items, total=total, page=page, size=size)

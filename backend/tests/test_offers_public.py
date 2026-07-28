@@ -65,3 +65,24 @@ def test_size_too_large_rejected(client, db_session):
     _seed(db_session)
     resp = client.get("/api/offers?size=1000")
     assert resp.status_code == 422
+
+
+def test_filter_by_multiple_locations(client, db_session):
+    for title, locs in [("A", ["Київ"]), ("B", ["Львів"]), ("C", ["Одеса"])]:
+        offer_crud.create_offer(
+            db_session, OfferCreate(type=OfferType.discount, title=title, provider="P", locations=locs),
+            created_by=CreatedBy.admin, status=OfferStatus.published)
+    body = client.get("/api/offers?location=Київ&location=Одеса").json()
+    assert body["total"] == 2
+    assert {i["title"] for i in body["items"]} == {"A", "C"}
+
+
+def test_locations_facet_endpoint_lists_published_only(client, db_session):
+    offer_crud.create_offer(
+        db_session, OfferCreate(type=OfferType.discount, title="A", provider="P",
+                                locations=["Львів", "Київ"]),
+        created_by=CreatedBy.admin, status=OfferStatus.published)
+    offer_crud.create_offer(
+        db_session, OfferCreate(type=OfferType.discount, title="P", provider="P", locations=["Суми"]),
+        created_by=CreatedBy.crawler, status=OfferStatus.pending_review)
+    assert client.get("/api/locations").json() == ["Київ", "Львів"]
