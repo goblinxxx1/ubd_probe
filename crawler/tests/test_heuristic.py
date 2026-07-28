@@ -123,3 +123,90 @@ def test_sale_percent_still_parsed():
     assert cand is not None
     assert cand.discount_type == "percent"
     assert cand.discount_value == "50"
+
+
+from crawler.discovery import promo_lexicon as pl
+from crawler.extract.heuristic import HeuristicExtractor
+from crawler.extract.base import CategoryIndex
+from crawler.models import RawItem
+
+
+def test_free_synonyms_detected():
+    for phrase in ["безоплатне обслуговування", "у подарунок кава",
+                   "в подарунок десерт", "каву даром", "0 грн за вхід"]:
+        assert pl.FREE.search(phrase.lower()), phrase
+
+
+def test_bare_podarunok_not_matched():
+    # "купіть подарунок" must NOT be read as a free offer
+    assert not pl.FREE.search("купіть подарунок другу")
+
+
+def test_extractor_free_synonym_gives_free_type():
+    # text contains "ветеран" -> classify() yields target slug "veteran"; "безоплатне" -> free
+    ex = HeuristicExtractor()
+    item = RawItem(source_id=1, platform="website", key="k",
+                   text="Безоплатне обслуговування для ветеранів у нашому центрі")
+    res = ex.extract(item, "Center", CategoryIndex(target=[{"id": 10, "slug": "veteran"}], offer=[]))
+    assert res is not None
+    assert res.discount_type == "free"
+
+
+def test_extractor_hryven_full_form_gives_fixed():
+    ex = HeuristicExtractor()
+    item = RawItem(source_id=1, platform="website", key="k",
+                   text="Знижка 200 гривень для ветеранів на послуги")
+    res = ex.extract(item, "Shop", CategoryIndex(target=[{"id": 10, "slug": "veteran"}], offer=[]))
+    assert res is not None
+    assert res.discount_type == "fixed"
+    assert res.discount_value == "200"
+
+
+def test_round_hryvnia_price_not_misread_as_free():
+    # "200 грн" must NOT be read as FREE (0-substring false-positive); it's a fixed discount
+    assert not pl.FREE.search("знижка 200 грн")
+    ex = HeuristicExtractor()
+    item = RawItem(source_id=1, platform="website", key="k",
+                   text="Знижка 200 грн для ветеранів на послуги")
+    res = ex.extract(item, "Shop", CategoryIndex(target=[{"id": 10, "slug": "veteran"}], offer=[]))
+    assert res is not None
+    assert res.discount_type == "fixed" and res.discount_value == "200"
+
+
+def test_standalone_zero_hryvnia_still_free():
+    assert pl.FREE.search("вхід 0 грн")
+
+
+def _target_cats():
+    return CategoryIndex(target=[{"id": 10, "slug": "veteran"}], offer=[])
+
+
+def _no_discount_offer_item():
+    # offer trigger ("знижки") + target ("ветеранів") but NO concrete %/грн/free
+    return RawItem(source_id=1, platform="website", key="k",
+                   text="Знижки для ветеранів у нашому магазині завжди актуальні")
+
+
+def test_gate_drops_no_discount_when_required():
+    ex = HeuristicExtractor(require_discount=True)
+    assert ex.extract(_no_discount_offer_item(), "Shop", _target_cats()) is None
+
+
+def test_gate_keeps_offer_with_discount_when_required():
+    ex = HeuristicExtractor(require_discount=True)
+    item = RawItem(source_id=1, platform="website", key="k",
+                   text="Знижка 15% для ветеранів у нашому магазині")
+    res = ex.extract(item, "Shop", _target_cats())
+    assert res is not None and res.discount_type == "percent"
+
+
+def test_default_permissive_keeps_no_discount_offer():
+    ex = HeuristicExtractor()  # class-default require_discount=False -> byte-eq to pre-track
+    assert ex.extract(_no_discount_offer_item(), "Shop", _target_cats()) is not None
+
+
+def test_get_extractor_passes_require_discount():
+    from crawler.extract.base import get_extractor
+    ex = get_extractor("heuristic", require_discount=True)
+    assert ex._require_discount is True
+    assert get_extractor("heuristic")._require_discount is False

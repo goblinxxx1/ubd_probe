@@ -88,6 +88,7 @@ class _RawSettings(BaseSettings):
     host_miner_media_min: float = 0.5
     host_miner_aggregator_min: float = 0.5
     host_miner_max_candidates: int = 50
+    require_discount: bool = True
 
 
 @dataclass
@@ -171,6 +172,7 @@ class Config:
     host_miner_media_min: float = 0.5
     host_miner_aggregator_min: float = 0.5
     host_miner_max_candidates: int = 50
+    require_discount: bool = True
 
 
 def _parse_accounts(platform: str, raw: str) -> list[BotCredential]:
@@ -277,4 +279,5 @@ def load_config() -> Config:
         host_miner_media_min=s.host_miner_media_min,
         host_miner_aggregator_min=s.host_miner_aggregator_min,
         host_miner_max_candidates=s.host_miner_max_candidates,
+        require_discount=s.require_discount,
     )

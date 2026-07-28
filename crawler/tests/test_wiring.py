@@ -18,6 +18,18 @@ def test_build_runner_wires_all_platforms():
                                      CategoryIndex([], [])) is None
 
 
+def test_build_runner_wires_require_discount():
+    from crawler.config import Config
+    from crawler.wiring import build_runner
+    cfg = Config(
+        internal_api_url="http://api", crawler_api_key="k", extractor="heuristic",
+        active_discovery=False, request_timeout=5.0, min_delay_seconds=0.0,
+        require_discount=True,
+    )
+    runner = build_runner(cfg)
+    assert runner._extractor._require_discount is True
+
+
 from crawler.discovery.query_grid import QueryGrid
 from crawler.discovery.search_state import SearchState
 
