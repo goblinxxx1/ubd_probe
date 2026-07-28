@@ -103,7 +103,7 @@ def build_runner(config) -> Runner:
         "facebook": FacebookFetcher(fb_pool, _http_client(config.request_timeout,
                                                           config.proxies.get("facebook"))),
     }
-    extractor = get_extractor(config.extractor)
+    extractor = get_extractor(config.extractor, require_discount=config.require_discount)
     rate_limiter = RateLimiter(config.min_delay_seconds)
 
     discovery = None

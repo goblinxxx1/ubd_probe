@@ -196,3 +196,14 @@ def test_aggregator_feed_env_overrides(monkeypatch, tmp_path):
     cfg = load_config()
     assert cfg.aggregator_feed_enabled is False
     assert cfg.aggregator_max_domains == 50
+
+
+def test_require_discount_default_true(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)      # no .env -> defaults apply
+    assert load_config().require_discount is True
+
+
+def test_require_discount_env_override(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("REQUIRE_DISCOUNT", "false")
+    assert load_config().require_discount is False
