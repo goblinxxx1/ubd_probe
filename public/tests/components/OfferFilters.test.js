@@ -41,6 +41,11 @@ describe("OfferFilters", () => {
     expect(w.vm.activeCount).toBe(1);
   });
 
+  it("does not count an empty location array as an active filter", () => {
+    const w = mountFilters({ location: [] });
+    expect(w.vm.activeCount).toBe(0);
+  });
+
   it("reset emits empty filters", () => {
     const w = mountFilters({ type: "discount" });
     w.vm.reset();
