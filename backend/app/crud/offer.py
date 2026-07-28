@@ -196,7 +196,9 @@ def list_offers(db: Session, *, status: OfferStatus | None = None, type: OfferTy
 
 
 def update_offer(db: Session, offer_id: int, data: OfferUpdate) -> Offer:
+    from app.models.offer_link import OfferLink  # local import avoids cycle
     obj = get_offer(db, offer_id)
+    old_site, old_article = obj.site_url, obj.article_url
     payload = data.model_dump(exclude_unset=True)
     target_ids = payload.pop("target_category_ids", None)
     offer_ids = payload.pop("offer_category_ids", None)
@@ -204,6 +206,20 @@ def update_offer(db: Session, offer_id: int, data: OfferUpdate) -> Offer:
         setattr(obj, field, value)
     if "target_url" in payload:
         obj.target_url_canonical = canonicalize_target_url(obj.target_url)
+    # Public renders offer.links (offer_links table), not the offer-level columns — keep the
+    # offer's link(s) in sync so admin edits to provider/site_url/article_url reach the public site.
+    if any(k in payload for k in ("provider", "site_url", "article_url")):
+        if not obj.links:
+            obj.links.append(OfferLink(provider=obj.provider, site_url=obj.site_url,
+                                       article_url=obj.article_url))
+        elif len(obj.links) == 1:
+            link = obj.links[0]
+            link.provider, link.site_url, link.article_url = obj.provider, obj.site_url, obj.article_url
+        else:
+            for link in obj.links:
+                if link.site_url == old_site and link.article_url == old_article:
+                    link.provider, link.site_url, link.article_url = obj.provider, obj.site_url, obj.article_url
+                    break
     if target_ids is not None:
         obj.target_categories = _load_categories(db, target_ids, [])[0]
     if offer_ids is not None:
