@@ -12,7 +12,7 @@ class OfferBase(BaseModel):
     title: str
     description: str = ""
     provider: str
-    location: str | None = None
+    locations: list[str] = []
     valid_from: date | None = None
     valid_until: date | None = None
     discount_type: DiscountType | None = None
@@ -55,7 +55,7 @@ class OfferUpdate(BaseModel):
     title: str | None = None
     description: str | None = None
     provider: str | None = None
-    location: str | None = None
+    locations: list[str] | None = None
     valid_from: date | None = None
     valid_until: date | None = None
     discount_type: DiscountType | None = None
@@ -94,12 +94,18 @@ class SupersedesOut(BaseModel):
 
 class OfferOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("locations", mode="before")
+    @classmethod
+    def _location_names(cls, v):
+        return [getattr(x, "name", x) for x in (v or [])]
+
     id: int
     type: OfferType
     title: str
     description: str
     provider: str
-    location: str | None
+    locations: list[str] = []
     valid_from: date | None
     valid_until: date | None
     discount_type: DiscountType | None

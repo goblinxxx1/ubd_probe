@@ -11,7 +11,7 @@ def _seed(db_session):
     db_session.commit()
     offer_crud.create_offer(
         db_session, OfferCreate(type=OfferType.discount, title="Published", provider="P",
-                                location="Київ", target_category_ids=[tc.id], offer_category_ids=[oc.id]),
+                                locations=["Київ"], target_category_ids=[tc.id], offer_category_ids=[oc.id]),
         created_by=CreatedBy.admin, status=OfferStatus.published)
     offer_crud.create_offer(
         db_session, OfferCreate(type=OfferType.event, title="Pending", provider="P"),

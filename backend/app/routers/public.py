@@ -30,7 +30,8 @@ def list_offers(type: OfferType | None = None, target_category: int | None = Non
                 db: Session = Depends(get_db)):
     items, total = offer_crud.list_offers(
         db, status=OfferStatus.published, type=type, target_category_id=target_category,
-        offer_category_id=offer_category, location=location, search=q, page=page, size=size,
+        offer_category_id=offer_category, locations=[location] if location else None,
+        search=q, page=page, size=size,
     )
     return Page(items=items, total=total, page=page, size=size)
 

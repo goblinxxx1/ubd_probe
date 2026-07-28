@@ -14,7 +14,7 @@ def test_offer_with_categories_persists(db_session):
 
     offer = Offer(
         type=OfferType.discount, title="-50% на квитки", description="desc",
-        provider="Кінотеатр X", location="Київ",
+        provider="Кінотеатр X",
         valid_from=date(2026, 7, 1), valid_until=date(2026, 8, 1),
         discount_type=DiscountType.percent, discount_value=50,
         source_id=src.id, status=OfferStatus.pending_review, created_by=CreatedBy.crawler,

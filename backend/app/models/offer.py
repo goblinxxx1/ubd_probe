@@ -6,6 +6,7 @@ from sqlalchemy import (
     Date, DateTime, Enum, ForeignKey, Index, Integer, Numeric, String, Text, UniqueConstraint, func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.ext.associationproxy import association_proxy
 
 from app.core.db import Base
 from app.models.categories import (
@@ -15,6 +16,12 @@ from app.models.enums import CreatedBy, DiscountType, OfferStatus, OfferType
 
 if TYPE_CHECKING:
     from app.models.offer_link import OfferLink
+    from app.models.offer_location import OfferLocation
+
+
+def _mk_location(name: str):
+    from app.models.offer_location import OfferLocation
+    return OfferLocation(name=name)
 
 
 class Offer(Base):
@@ -25,7 +32,6 @@ class Offer(Base):
     title: Mapped[str] = mapped_column(String(512), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False, default="")
     provider: Mapped[str] = mapped_column(String(512), nullable=False)
-    location: Mapped[str | None] = mapped_column(String(255), nullable=True)
     valid_from: Mapped[date | None] = mapped_column(Date, nullable=True)
     valid_until: Mapped[date | None] = mapped_column(Date, nullable=True)
     discount_type: Mapped[DiscountType | None] = mapped_column(Enum(DiscountType), nullable=True)
@@ -58,6 +64,10 @@ class Offer(Base):
     links: Mapped[list["OfferLink"]] = relationship(
         back_populates="offer", cascade="all, delete-orphan", lazy="selectin"
     )
+    locations: Mapped[list["OfferLocation"]] = relationship(
+        back_populates="offer", cascade="all, delete-orphan", lazy="selectin"
+    )
+    location_names = association_proxy("locations", "name", creator=_mk_location)
     supersedes: Mapped["Offer | None"] = relationship(
         "Offer", remote_side="Offer.id", foreign_keys="Offer.supersedes_offer_id",
         lazy="selectin",

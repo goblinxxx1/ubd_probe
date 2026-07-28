@@ -4,9 +4,19 @@ from sqlalchemy.orm import Session
 
 from app.core.errors import not_found, validation_error
 from app.core.urlnorm import canonicalize_target_url
-from app.models import Offer, OfferCategory, TargetCategory
+from app.models import Offer, OfferCategory, OfferLocation, TargetCategory
 from app.models.enums import CreatedBy, DiscountType, OfferStatus, OfferType
 from app.schemas.offer import OfferCreate, OfferUpdate
+
+
+def _norm_locations(names):
+    seen, out = set(), []
+    for n in names or []:
+        n = (n or "").strip()
+        if n and n not in seen:
+            seen.add(n)
+            out.append(n)
+    return out
 
 
 def _load_categories(db: Session, target_ids, offer_ids):
@@ -20,7 +30,7 @@ def _apply_content(obj, data, canon, content_hash, targets, offers, mk_link):
     obj.title = data.title
     obj.description = data.description
     obj.provider = data.provider
-    obj.location = data.location
+    obj.location_names = _norm_locations(data.locations)
     obj.valid_from = data.valid_from
     obj.valid_until = data.valid_until
     obj.discount_type = data.discount_type
@@ -150,7 +160,7 @@ def create_offer(db: Session, data: OfferCreate, created_by: CreatedBy,
     targets, offers = _load_categories(db, data.target_category_ids, data.offer_category_ids)
     obj = Offer(
         type=data.type, title=data.title, description=data.description, provider=data.provider,
-        location=data.location, valid_from=data.valid_from, valid_until=data.valid_until,
+        valid_from=data.valid_from, valid_until=data.valid_until,
         discount_type=data.discount_type, discount_value=data.discount_value,
         site_url=data.site_url, article_url=data.article_url, image_url=data.image_url,
         target_url=data.target_url, target_url_canonical=canon, source_id=source_id,
@@ -159,6 +169,7 @@ def create_offer(db: Session, data: OfferCreate, created_by: CreatedBy,
         target_categories=targets, offer_categories=offers,
         links=[_mk_link()],
     )
+    obj.location_names = _norm_locations(data.locations)
     db.add(obj)
     db.commit()
     db.refresh(obj)
@@ -174,15 +185,15 @@ def get_offer(db: Session, offer_id: int, published_only: bool = False) -> Offer
 
 def list_offers(db: Session, *, status: OfferStatus | None = None, type: OfferType | None = None,
                 target_category_id: int | None = None, offer_category_id: int | None = None,
-                location: str | None = None, search: str | None = None,
+                locations: list[str] | None = None, search: str | None = None,
                 page: int = 1, size: int = 20):
     q = db.query(Offer)
     if status is not None:
         q = q.filter(Offer.status == status)
     if type is not None:
         q = q.filter(Offer.type == type)
-    if location:
-        q = q.filter(Offer.location.ilike(f"%{location}%"))
+    if locations:
+        q = q.filter(Offer.locations.any(OfferLocation.name.in_(locations)))
     if search:
         like = f"%{search}%"
         q = q.filter((Offer.title.ilike(like)) | (Offer.description.ilike(like)) | (Offer.provider.ilike(like)))
@@ -202,8 +213,11 @@ def update_offer(db: Session, offer_id: int, data: OfferUpdate) -> Offer:
     payload = data.model_dump(exclude_unset=True)
     target_ids = payload.pop("target_category_ids", None)
     offer_ids = payload.pop("offer_category_ids", None)
+    locations = payload.pop("locations", None)
     for field, value in payload.items():
         setattr(obj, field, value)
+    if locations is not None:
+        obj.location_names = _norm_locations(locations)
     if "target_url" in payload:
         obj.target_url_canonical = canonicalize_target_url(obj.target_url)
     # Public renders offer.links (offer_links table), not the offer-level columns — keep the
@@ -282,3 +296,11 @@ def expire_stale(db: Session, older_than_days: int) -> int:
         o.status = OfferStatus.expired
     db.commit()
     return len(rows)
+
+
+def list_distinct_locations(db: Session, status: OfferStatus = OfferStatus.published):
+    rows = (db.query(OfferLocation.name)
+            .join(Offer, Offer.id == OfferLocation.offer_id)
+            .filter(Offer.status == status)
+            .distinct().order_by(OfferLocation.name).all())
+    return [r[0] for r in rows]
