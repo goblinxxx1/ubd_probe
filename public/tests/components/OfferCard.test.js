@@ -96,22 +96,22 @@ describe("OfferCard", () => {
     expect(hrefs).toContain("https://agg2/p");
   });
 
-  it("hides the discount-title when it equals the description", () => {
+  it("shows the discount-title even when it equals the description", () => {
     const w = mountCard({
       id: 10, type: "discount", title: "Знижка 20% для ветеранів",
       provider: "P", description: "Знижка 20% для ветеранів",
       image_url: null, target_categories: [],
     });
-    expect(w.find(".card__dtext").exists()).toBe(false);
+    expect(w.get(".card__dtext").text()).toBe("Знижка 20% для ветеранів");
   });
 
-  it("hides the discount-title when the description starts with it", () => {
+  it("shows the discount-title even when the description starts with it", () => {
     const w = mountCard({
       id: 11, type: "discount", title: "Знижка 20%",
       provider: "P", description: "Знижка 20% для ветеранів у нашому кафе",
       image_url: null, target_categories: [],
     });
-    expect(w.find(".card__dtext").exists()).toBe(false);
+    expect(w.get(".card__dtext").text()).toBe("Знижка 20%");
   });
 
   it("shows the discount-title when it is distinct from the description", () => {
@@ -126,5 +126,25 @@ describe("OfferCard", () => {
   it("sets the photo alt to the provider name", () => {
     const w = mountCard({ id: 7, type: "discount", title: "T", provider: "Кав'ярня Львів", description: "d", image_url: null, target_categories: [] });
     expect(w.get("img.card__photo").attributes("alt")).toBe("Кав'ярня Львів");
+  });
+
+  it("renders all offer_categories as chips", () => {
+    const w = mountCard({
+      id: 11, type: "discount", title: "Бізнес-опис", provider: "P", description: "d",
+      image_url: null, target_categories: [],
+      offer_categories: [{ id: 2, name: "Кафе" }, { id: 3, name: "Спорт" }],
+    });
+    expect(w.text()).toContain("Кафе");
+    expect(w.text()).toContain("Спорт");
+  });
+
+  it("always shows card__dtext when title is present, even if description repeats it", () => {
+    const w = mountCard({
+      id: 12, type: "discount", title: "Знижка для ЗСУ", provider: "P",
+      description: "Знижка для ЗСУ та ще купа тексту опису", image_url: null,
+      target_categories: [], offer_categories: [],
+    });
+    expect(w.find(".card__dtext").exists()).toBe(true);
+    expect(w.get(".card__dtext").text()).toBe("Знижка для ЗСУ");
   });
 });

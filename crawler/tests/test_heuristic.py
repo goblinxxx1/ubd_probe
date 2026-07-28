@@ -210,3 +210,34 @@ def test_get_extractor_passes_require_discount():
     ex = get_extractor("heuristic", require_discount=True)
     assert ex._require_discount is True
     assert get_extractor("heuristic")._require_discount is False
+
+
+def test_title_uses_site_tagline_when_present():
+    ex = HeuristicExtractor()
+    item = RawItem(source_id=1, platform="website", key="k",
+                   text="Знижка 15% для ветеранів у нашому магазині",
+                   site_tagline="Магазин тактичного спорядження")
+    res = ex.extract(item, "P", CategoryIndex(target=[{"id": 10, "slug": "veteran"}], offer=[]))
+    assert res is not None
+    assert res.title == "Магазин тактичного спорядження"
+
+
+def test_title_falls_back_to_promo_when_no_tagline():
+    ex = HeuristicExtractor()
+    item = RawItem(source_id=1, platform="website", key="k",
+                   text="Знижка 15% для ветеранів у нашому магазині")
+    res = ex.extract(item, "P", CategoryIndex(target=[{"id": 10, "slug": "veteran"}], offer=[]))
+    assert res is not None
+    assert res.title == "Знижка 15% для ветеранів у нашому магазині"
+
+
+def test_content_hash_ignores_site_tagline():
+    ex = HeuristicExtractor()
+    cats = CategoryIndex(target=[{"id": 10, "slug": "veteran"}], offer=[])
+    text = "Знижка 15% для ветеранів у нашому магазині"
+    a = ex.extract(RawItem(source_id=1, platform="website", key="k", text=text,
+                           site_tagline="Опис А"), "P", cats)
+    b = ex.extract(RawItem(source_id=1, platform="website", key="k", text=text,
+                           site_tagline="Опис Б"), "P", cats)
+    assert a.content_hash == b.content_hash          # hash decoupled from tagline (no churn)
+    assert a.title == "Опис А" and b.title == "Опис Б"

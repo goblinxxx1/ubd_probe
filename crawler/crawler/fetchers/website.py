@@ -47,6 +47,32 @@ def _extract_site_name(tree) -> str | None:
     return None
 
 
+_TAGLINE_SELECTORS = (
+    ".site-description", ".tagline", "[class*='slogan']",   # header near-logo tagline
+    ".tb-footer-desc", "[class*='footer-desc']",            # footer business description
+)
+
+
+def _cap_tagline(s: str, n: int = 160) -> str:
+    s = " ".join(s.split())
+    return s if len(s) <= n else (s[:n].rsplit(" ", 1)[0] or s[:n])
+
+
+def _extract_site_tagline(tree) -> str | None:
+    for css in _TAGLINE_SELECTORS:
+        node = tree.css_first(css)
+        if node is not None:
+            txt = node.text(separator=" ", strip=True)
+            if txt:
+                return _cap_tagline(txt)
+    node = tree.css_first('meta[name="description"]')
+    if node is not None:
+        txt = (node.attributes.get("content") or "").strip()
+        if txt:
+            return _cap_tagline(txt)
+    return None
+
+
 def _locality_from_jsonld(data) -> str | None:
     if isinstance(data, dict):
         addr = data.get("address")
@@ -160,6 +186,7 @@ class WebsiteFetcher:
             tree = HTMLParser(resp.text)
             logo = _extract_logo(tree, url)
             site_name = _extract_site_name(tree)
+            site_tagline = _extract_site_tagline(tree)
             locality = _extract_locality(tree)
             has_offer = _has_offer_schema(tree)
             is_article = _has_article_schema(tree)
@@ -181,6 +208,7 @@ class WebsiteFetcher:
                 items.append(RawItem(source_id=source["id"], platform="website",
                                      key=key, text=text, url=url, links=links,
                                      logo_url=logo, site_name=site_name,
+                                     site_tagline=site_tagline,
                                      locality=locality, has_offer_schema=has_offer,
                                      is_article=is_article,
                                      has_business_schema=has_business))
