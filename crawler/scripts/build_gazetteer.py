@@ -75,10 +75,15 @@ def inflect_forms(name: str) -> set[str]:
     return forms
 
 
+_ADJV = {"ADJF", "ADJS", "COMP", "VERB", "INFN", "PRTF", "PRTS", "GRND", "ADVB"}
+
+
 def is_common(form: str) -> bool:
-    if " " in form:        # multiword names are low-collision — never auto-veto
+    # A form collides with a common word if pymorphy can read it as an
+    # adjective/verb (city names are nouns). Multiword names are low-collision.
+    if " " in form:
         return False
-    return _morph.word_is_known(form)
+    return any(p.tag.POS in _ADJV for p in _morph.parse(form))
 
 
 def fetch_names() -> list[str]:
@@ -97,16 +102,23 @@ def fetch_names() -> list[str]:
 
 def build_entry(name: str) -> dict:
     forms, seen = [], set()
+    force_marker = name in FORCE_MARKER
+    force_perm = name in FORCE_PERMISSIVE
     for f in sorted(inflect_forms(name), key=len, reverse=True):
         if f in seen:
             continue
         seen.add(f)
-        marker = name in FORCE_MARKER or (is_common(f) and (name, f) not in FORCE_PERMISSIVE)
+        if force_marker:
+            marker = True
+        elif force_perm:
+            marker = False
+        else:
+            marker = is_common(f)
         forms.append({"f": f, "m": 1 if marker else 0})
     for tr in [transliterate(name), *ALT_TRANSLIT.get(name, [])]:
         if tr and tr not in seen:
             seen.add(tr)
-            forms.append({"f": tr, "m": 1 if name in FORCE_MARKER else 0})
+            forms.append({"f": tr, "m": 1 if force_marker else 0})
     return {"name": name, "forms": forms}
 
 
