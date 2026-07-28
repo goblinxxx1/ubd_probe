@@ -50,6 +50,9 @@ def _title_from(text: str) -> str:
 
 
 class HeuristicExtractor:
+    def __init__(self, require_discount: bool = False):
+        self._require_discount = require_discount
+
     def extract(self, item: RawItem, provider: str,
                 categories: CategoryIndex) -> OfferCandidate | None:
         text = item.text or ""
@@ -67,6 +70,9 @@ class HeuristicExtractor:
             discount_type, discount_value = "percent", m.group(1)
         elif (m := _FIXED.search(text)):
             discount_type, discount_value = "fixed", re.sub(r"\s", "", m.group(1))
+
+        if self._require_discount and discount_type is None:
+            return None
 
         valid_until = None
         if (m := _UNTIL.search(low)):

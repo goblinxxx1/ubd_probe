@@ -175,3 +175,38 @@ def test_round_hryvnia_price_not_misread_as_free():
 
 def test_standalone_zero_hryvnia_still_free():
     assert pl.FREE.search("вхід 0 грн")
+
+
+def _target_cats():
+    return CategoryIndex(target=[{"id": 10, "slug": "veteran"}], offer=[])
+
+
+def _no_discount_offer_item():
+    # offer trigger ("знижки") + target ("ветеранів") but NO concrete %/грн/free
+    return RawItem(source_id=1, platform="website", key="k",
+                   text="Знижки для ветеранів у нашому магазині завжди актуальні")
+
+
+def test_gate_drops_no_discount_when_required():
+    ex = HeuristicExtractor(require_discount=True)
+    assert ex.extract(_no_discount_offer_item(), "Shop", _target_cats()) is None
+
+
+def test_gate_keeps_offer_with_discount_when_required():
+    ex = HeuristicExtractor(require_discount=True)
+    item = RawItem(source_id=1, platform="website", key="k",
+                   text="Знижка 15% для ветеранів у нашому магазині")
+    res = ex.extract(item, "Shop", _target_cats())
+    assert res is not None and res.discount_type == "percent"
+
+
+def test_default_permissive_keeps_no_discount_offer():
+    ex = HeuristicExtractor()  # class-default require_discount=False -> byte-eq to pre-track
+    assert ex.extract(_no_discount_offer_item(), "Shop", _target_cats()) is not None
+
+
+def test_get_extractor_passes_require_discount():
+    from crawler.extract.base import get_extractor
+    ex = get_extractor("heuristic", require_discount=True)
+    assert ex._require_discount is True
+    assert get_extractor("heuristic")._require_discount is False

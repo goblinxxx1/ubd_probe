@@ -16,10 +16,10 @@ class Extractor(Protocol):
         ...
 
 
-def get_extractor(name: str) -> Extractor:
+def get_extractor(name: str, require_discount: bool = False) -> Extractor:
     if name == "heuristic":
         from crawler.extract.heuristic import HeuristicExtractor
-        return HeuristicExtractor()
+        return HeuristicExtractor(require_discount=require_discount)
     if name == "local_llm":
         raise NotImplementedError("local_llm extractor is a hook only; not implemented")
     raise ValueError(f"Unknown extractor: {name}")
