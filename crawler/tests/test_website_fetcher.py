@@ -220,3 +220,37 @@ def test_report_type_sets_is_article():
     f = _fetcher_returning(html)
     items, _ = f.fetch({"id": 1, "url_or_handle": "https://ngo.example/r"}, None)
     assert items and items[0].is_article is True
+
+
+def test_site_tagline_prefers_header_then_footer_then_meta():
+    from crawler.fetchers.website import _extract_site_tagline
+    from selectolax.parser import HTMLParser
+    header = HTMLParser('<div class="site-description">Хедер слоган</div>'
+                        '<div class="tb-footer-desc">Футер опис</div>'
+                        '<meta name="description" content="Мета опис">')
+    assert _extract_site_tagline(header) == "Хедер слоган"
+    footer = HTMLParser('<div class="tb-footer-desc">Футер опис бізнесу</div>'
+                        '<meta name="description" content="Мета опис">')
+    assert _extract_site_tagline(footer) == "Футер опис бізнесу"
+    meta = HTMLParser('<meta name="description" content="Лише мета опис">')
+    assert _extract_site_tagline(meta) == "Лише мета опис"
+    assert _extract_site_tagline(HTMLParser('<div>нічого</div>')) is None
+
+
+def test_site_tagline_capped_and_whitespace_normalized():
+    from crawler.fetchers.website import _extract_site_tagline
+    from selectolax.parser import HTMLParser
+    long = "слово " * 60
+    out = _extract_site_tagline(HTMLParser(f'<meta name="description" content="{long}">'))
+    assert out is not None and len(out) <= 160 and "  " not in out
+
+
+def test_fetch_puts_site_tagline_on_items():
+    import httpx
+    from crawler.fetchers.website import WebsiteFetcher
+    html = ('<html><head><meta name="description" content="Опис магазину"></head>'
+            '<body><p>Знижка 15% для ветеранів у нашому магазині завжди діє тут.</p></body></html>')
+    transport = httpx.MockTransport(lambda req: httpx.Response(200, text=html))
+    fetcher = WebsiteFetcher(httpx.Client(transport=transport))
+    items, _ = fetcher.fetch({"id": 1, "url_or_handle": "https://biz.example"}, None)
+    assert items and items[0].site_tagline == "Опис магазину"
