@@ -29,7 +29,7 @@ from crawler.extract.base import CategoryIndex
 from crawler.models import OfferCandidate, RawItem
 
 _PERCENT = re.compile(r"(\d{1,3})\s*%")
-_FIXED = re.compile(r"(\d[\d\s]{0,7})\s*(?:грн|₴|uah)", re.IGNORECASE)
+_FIXED = re.compile(r"(\d[\d\s]{0,7})\s*(?:грн|гривень|₴|uah)", re.IGNORECASE)
 _UNTIL = re.compile(r"(?:до|діє до)\s+(\d{1,2})[.\-/](\d{1,2})(?:[.\-/](\d{2,4}))?")
 
 

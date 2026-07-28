@@ -123,3 +123,40 @@ def test_sale_percent_still_parsed():
     assert cand is not None
     assert cand.discount_type == "percent"
     assert cand.discount_value == "50"
+
+
+from crawler.discovery import promo_lexicon as pl
+from crawler.extract.heuristic import HeuristicExtractor
+from crawler.extract.base import CategoryIndex
+from crawler.models import RawItem
+
+
+def test_free_synonyms_detected():
+    for phrase in ["безоплатне обслуговування", "у подарунок кава",
+                   "в подарунок десерт", "каву даром", "0 грн за вхід"]:
+        assert pl.FREE.search(phrase.lower()), phrase
+
+
+def test_bare_podarunok_not_matched():
+    # "купіть подарунок" must NOT be read as a free offer
+    assert not pl.FREE.search("купіть подарунок другу")
+
+
+def test_extractor_free_synonym_gives_free_type():
+    # text contains "ветеран" -> classify() yields target slug "veteran"; "безоплатне" -> free
+    ex = HeuristicExtractor()
+    item = RawItem(source_id=1, platform="website", key="k",
+                   text="Безоплатне обслуговування для ветеранів у нашому центрі")
+    res = ex.extract(item, "Center", CategoryIndex(target=[{"id": 10, "slug": "veteran"}], offer=[]))
+    assert res is not None
+    assert res.discount_type == "free"
+
+
+def test_extractor_hryven_full_form_gives_fixed():
+    ex = HeuristicExtractor()
+    item = RawItem(source_id=1, platform="website", key="k",
+                   text="Знижка 200 гривень для ветеранів на послуги")
+    res = ex.extract(item, "Shop", CategoryIndex(target=[{"id": 10, "slug": "veteran"}], offer=[]))
+    assert res is not None
+    assert res.discount_type == "fixed"
+    assert res.discount_value == "200"
