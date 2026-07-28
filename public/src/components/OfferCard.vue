@@ -12,7 +12,7 @@ const sourceLinks = computed(() =>
         ? [{ site_url: props.offer.site_url, article_url: props.offer.article_url }]
         : [])
 );
-const meta = computed(() => props.offer.location || "");
+const meta = computed(() => (props.offer.locations || []).join(" · "));
 </script>
 
 <template>

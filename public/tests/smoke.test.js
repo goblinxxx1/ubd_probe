@@ -6,6 +6,7 @@ import router from "@/router";
 vi.mock("@/api/offers", () => ({
   list: vi.fn(() => Promise.resolve({ items: [], total: 0, page: 1, size: 12 })),
   get: vi.fn(() => Promise.resolve({})),
+  locations: vi.fn(() => Promise.resolve([])),
 }));
 vi.mock("@/api/categories", () => ({
   listTarget: vi.fn(() => Promise.resolve([])),

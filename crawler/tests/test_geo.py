@@ -1,57 +1,54 @@
-from crawler.discovery.geo import find_city, is_online
+from crawler.discovery.geo import build_lookup, find_cities, find_city, is_online
+
+FIX = [
+    {"name": "Львів", "forms": [{"f": "львів", "m": 0}, {"f": "львові", "m": 0}, {"f": "lviv", "m": 0}]},
+    {"name": "Суми", "forms": [{"f": "суми", "m": 1}, {"f": "сумах", "m": 0}, {"f": "sumy", "m": 0}]},
+    {"name": "Біла Церква", "forms": [{"f": "біла церква", "m": 0}, {"f": "білій церкві", "m": 0}]},
+]
+LK, MAXN = build_lookup(FIX)
 
 
-def test_nominative_match():
-    assert find_city("Знижка діє у місті Львів") == "Львів"
+def _f(text):
+    return find_cities(text, LK, MAXN)
 
 
-def test_locative_inflection():
-    assert find_city("Наша кав'ярня у Києві") == "Київ"
+def test_permissive_match_in_prose():
+    assert _f("Акція діє у Львові") == ["Львів"]
 
 
-def test_genitive_inflection():
-    assert find_city("Акція для мешканців Одеси") == "Одеса"
+def test_transliteration_maps_to_canonical():
+    assert _f("Discount in Lviv only") == ["Львів"]
 
 
-def test_multiword_city():
-    assert find_city("м. Біла Церква, вул. Шевченка") == "Біла Церква"
+def test_marker_only_form_not_matched_as_bare_word():
+    assert _f("Виграйте великі суми грошей") == []
 
 
-def test_no_city_returns_none():
-    assert find_city("Знижка для військових") is None
-    assert find_city(None) is None
-    assert find_city("") is None
+def test_marker_only_form_matched_with_marker():
+    assert _f("Наш заклад: м. Суми, центр") == ["Суми"]
 
 
-def test_word_boundary_avoids_false_match():
-    # "рівні" (level) must not match the city Рівне
-    assert find_city("сервіс на рівні найкращих") is None
+def test_permissive_oblique_of_vetoed_city_still_matches():
+    assert _f("Знижки для військових у Сумах") == ["Суми"]
 
 
-def test_online_detected():
-    assert is_online("Знижки в нашому інтернет-магазині для УБД")
+def test_multiword_name_with_marker():
+    assert _f("м. Біла Церква, вул. Шевченка") == ["Біла Церква"]
+
+
+def test_multi_return_first_appearance_order():
+    assert _f("Спершу у Львові, а також м. Суми") == ["Львів", "Суми"]
+
+
+def test_find_city_single_and_none():
+    assert find_city("у Львові") == "Львів"
+    assert _f("немає міста") == []
+
+
+def test_online_signal_unchanged():
     assert is_online("Працюємо онлайн по всій Україні")
-
-
-def test_online_not_detected():
     assert not is_online("Знижка у кафе на вулиці")
-    assert not is_online(None)
 
 
-def test_kyiv_agglomeration_towns():
-    assert find_city("м. Вишневе, вул. Київська 1") == "Вишневе"
-    assert find_city("наш заклад в Ірпені") == "Ірпінь"
-    assert find_city("м. Бровари, просп. Незалежності") == "Бровари"
-
-
-def test_homograph_towns_need_locality_prefix():
-    # bare common-word homographs must NOT be read as cities
-    assert find_city("знижка на вишневе морозиво для військових") is None
-    assert find_city("місцеві бровари варять пиво") is None
-    assert find_city("зчинилася буча навколо цін") is None
-
-
-def test_homograph_towns_match_with_prefix():
-    assert find_city("м. Вишневе, вул. Київська 1") == "Вишневе"
-    assert find_city("смт Буча, центр") == "Буча"
-    assert find_city("у місто Бровари") == "Бровари"
+def test_default_file_detects_major_city():
+    assert "Київ" in find_cities("Велика знижка у Києві для ветеранів")

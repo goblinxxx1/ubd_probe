@@ -27,15 +27,21 @@ describe("validateOffer", () => {
 describe("buildOfferPayload", () => {
   it("nulls discount fields for events and maps category ids", () => {
     const payload = buildOfferPayload({
-      type: "event", title: "T", provider: "P", description: "", location: "",
+      type: "event", title: "T", provider: "P", description: "", locations: ["Київ"],
       valid_from: null, valid_until: null, discount_type: "percent", discount_value: 10,
       site_url: "", article_url: "", image_url: "", target_category_ids: [1], offer_category_ids: [2],
     });
     expect(payload.discount_type).toBe(null);
     expect(payload.discount_value).toBe(null);
-    expect(payload.location).toBe(null);
+    expect(payload.locations).toEqual(["Київ"]);
     expect(payload.target_category_ids).toEqual([1]);
     expect(payload.offer_category_ids).toEqual([2]);
+  });
+
+  it("defaults locations to an empty array and drops the old location key", () => {
+    const p = buildOfferPayload({ type: "event", title: "T", provider: "P" });
+    expect(p.locations).toEqual([]);
+    expect("location" in p).toBe(false);
   });
 });
 

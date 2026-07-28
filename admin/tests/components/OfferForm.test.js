@@ -65,4 +65,16 @@ describe("OfferForm", () => {
     wrapper.vm.submitPublish();
     expect(wrapper.emitted()["submit-publish"][0][0].title).toBe("Подія");
   });
+
+  it("seeds locations from the initial offer and includes them in the payload", () => {
+    const wrapper = mount(OfferForm, {
+      props: { initial: { type: "discount", title: "T", provider: "P",
+                          locations: ["Київ", "Львів"], target_categories: [], offer_categories: [] } },
+      global: { plugins: [ElementPlus] },
+    });
+    expect(wrapper.vm.form.locations).toEqual(["Київ", "Львів"]);
+    Object.assign(wrapper.vm.form, { discount_type: "percent", discount_value: 10 });
+    wrapper.vm.submit();
+    expect(wrapper.emitted().submit[0][0].locations).toEqual(["Київ", "Львів"]);
+  });
 });

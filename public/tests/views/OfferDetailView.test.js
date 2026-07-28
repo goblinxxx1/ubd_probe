@@ -63,4 +63,16 @@ describe("OfferDetailView", () => {
     const w = await mountAt(8);
     expect(w.get("img.detail__photo").attributes("alt")).toBe("Салон Краси");
   });
+
+  it("shows all offer cities joined in the locations row", async () => {
+    offers.get.mockResolvedValue({
+      id: 9, type: "discount", discount_type: "percent", discount_value: 15,
+      title: "T", provider: "P", description: "d",
+      valid_from: "2026-07-01", valid_until: "2026-08-01",
+      image_url: null, target_categories: [], offer_categories: [],
+      locations: ["Київ", "Львів"],
+    });
+    const w = await mountAt(9);
+    expect(w.text()).toContain("Київ, Львів");
+  });
 });

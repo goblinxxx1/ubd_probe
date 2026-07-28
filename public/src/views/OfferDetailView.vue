@@ -75,7 +75,7 @@ defineExpose({ offer, loading, notFound });
         <span class="detail__label">Тематика:</span>
         <span v-for="c in offer.offer_categories" :key="c.id" class="chip chip--light">{{ c.name }}</span>
       </div>
-      <div v-if="offer.location" class="detail__row"><span class="detail__label">Локація:</span> {{ offer.location }}</div>
+      <div v-if="offer.locations?.length" class="detail__row"><span class="detail__label">Локація:</span> {{ offer.locations.join(", ") }}</div>
       <div v-if="period" class="detail__row"><span class="detail__label">Діє:</span> {{ period }}</div>
       <div v-for="(l, i) in sourceLinks" :key="i" class="detail__row">
         <span class="detail__label">Джерело{{ sourceLinks.length > 1 ? ' ' + (i + 1) : '' }}:</span>

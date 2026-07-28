@@ -21,6 +21,11 @@ describe("offers api", () => {
     await offers.get(7);
     expect(client.get).toHaveBeenCalledWith("/offers/7");
   });
+  it("locations() fetches the facet list", async () => {
+    client.get.mockResolvedValueOnce({ data: ["Київ", "Львів"] });
+    await expect(offers.locations()).resolves.toEqual(["Київ", "Львів"]);
+    expect(client.get).toHaveBeenCalledWith("/locations");
+  });
 });
 
 describe("categories api", () => {

@@ -2,6 +2,7 @@
 import { reactive, computed, watch } from "vue";
 import { ElMessage } from "element-plus";
 import { OFFER_TYPES, DISCOUNT_TYPES } from "@/constants/enums";
+import { GAZETTEER } from "@/constants/gazetteer";
 import { validateOffer, buildOfferPayload } from "@/utils/offerForm";
 import ImagePreview from "@/components/ImagePreview.vue";
 import CategoryMultiSelect from "@/components/CategoryMultiSelect.vue";
@@ -19,7 +20,7 @@ function fromInitial(o) {
     title: o?.title || "",
     description: o?.description || "",
     provider: o?.provider || "",
-    location: o?.location || "",
+    locations: o?.locations ? [...o.locations] : [],
     valid_from: o?.valid_from || null,
     valid_until: o?.valid_until || null,
     discount_type: o?.discount_type || null,
@@ -92,8 +93,12 @@ defineExpose({ form, submit, submitPublish, canPublish });
     <el-form-item label="Тематика">
       <CategoryMultiSelect v-model="form.offer_category_ids" :options="offerCategories" />
     </el-form-item>
-    <el-form-item label="Локація">
-      <el-input v-model="form.location" placeholder="Місто або «онлайн»" />
+    <el-form-item label="Локація (міста)">
+      <el-select v-model="form.locations" multiple filterable clearable
+                 style="width: 100%" placeholder="Оберіть міста або «Онлайн»">
+        <el-option label="Онлайн" value="Онлайн" />
+        <el-option v-for="c in GAZETTEER" :key="c" :label="c" :value="c" />
+      </el-select>
     </el-form-item>
     <el-form-item label="Дійсний від">
       <el-date-picker v-model="form.valid_from" type="date" value-format="YYYY-MM-DD" />

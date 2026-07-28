@@ -6,12 +6,13 @@ from app.models.categories import (
 )
 from app.models.offer import Offer
 from app.models.offer_link import OfferLink
+from app.models.offer_location import OfferLocation
 from app.models.source import Source
 from app.models.source_crawl_state import SourceCrawlState
 from app.models.suggested_source import SuggestedSource
 
 __all__ = [
-    "AdminUser", "Source", "Offer", "OfferLink", "TargetCategory", "OfferCategory",
+    "AdminUser", "Source", "Offer", "OfferLink", "OfferLocation", "TargetCategory", "OfferCategory",
     "SuggestedSource", "SourceCrawlState", "BotAccount", "BlockedHost",
     "offer_target_categories", "offer_offer_categories",
 ]

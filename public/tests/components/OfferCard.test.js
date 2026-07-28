@@ -147,4 +147,12 @@ describe("OfferCard", () => {
     expect(w.find(".card__dtext").exists()).toBe(true);
     expect(w.get(".card__dtext").text()).toBe("Знижка для ЗСУ");
   });
+
+  it("shows all offer cities joined in the footer meta", () => {
+    const w = mountCard({
+      id: 20, type: "discount", title: "T", provider: "P", description: "d", image_url: null,
+      target_categories: [], offer_categories: [], locations: ["Київ", "Львів"],
+    });
+    expect(w.get(".card__meta").text()).toBe("Київ · Львів");
+  });
 });
