@@ -12,17 +12,7 @@ const sourceLinks = computed(() =>
         ? [{ site_url: props.offer.site_url, article_url: props.offer.article_url }]
         : [])
 );
-const meta = computed(() =>
-  [props.offer.offer_categories?.[0]?.name, props.offer.location].filter(Boolean).join(" · ")
-);
-const showTitle = computed(() => {
-  const t = (props.offer.title || "").trim();
-  if (!t) return false;
-  const d = (props.offer.description || "").trim();
-  if (!d) return true;
-  const norm = (s) => s.toLowerCase().replace(/\s+/g, " ");
-  return !norm(d).startsWith(norm(t));
-});
+const meta = computed(() => props.offer.location || "");
 </script>
 
 <template>
@@ -34,7 +24,7 @@ const showTitle = computed(() => {
 
     <div class="card__discount">
       <OfferBadge :offer="offer" />
-      <span v-if="showTitle" class="card__dtext">{{ offer.title }}</span>
+      <span v-if="offer.title" class="card__dtext">{{ offer.title }}</span>
     </div>
 
     <p class="card__desc">
@@ -46,6 +36,13 @@ const showTitle = computed(() => {
       <div class="card__whom-label">Для кого</div>
       <div class="card__chips">
         <span v-for="t in offer.target_categories" :key="t.id" class="chip">{{ t.name }}</span>
+      </div>
+    </div>
+
+    <div v-if="offer.offer_categories?.length" class="card__whom">
+      <div class="card__whom-label">Тематика</div>
+      <div class="card__chips">
+        <span v-for="c in offer.offer_categories" :key="c.id" class="chip">{{ c.name }}</span>
       </div>
     </div>
 
