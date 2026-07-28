@@ -16,7 +16,12 @@ rule gets wrong:
 """
 
 FORCE_MARKER: set[str] = {
+    # Noun homographs the adjective/verb auto-veto misses — ordinary Ukrainian
+    # words spelled identically to a city name. Gated whole-city (all forms incl.
+    # transliteration) so they need a locality marker (м./с./смт) to match.
     "Суми", "Буча", "Бровари", "Ізюм", "Борщів",
+    "Бар", "Сад", "Дружба", "Щастя", "Вигода", "Долина", "Затока", "Лиман",
+    "Покров", "Мена", "Кути", "Низи", "Холми", "Буран", "Буки", "Гути",
 }
 
 FORCE_PERMISSIVE: set[str] = {
