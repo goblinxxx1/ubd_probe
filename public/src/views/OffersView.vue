@@ -10,7 +10,7 @@ import Pagination from "@/components/Pagination.vue";
 const route = useRoute();
 const router = useRouter();
 const { items, total, loading, error, size, page } = useOffers();
-const { targetCategories, offerCategories, load: loadDicts } = useDictionaries();
+const { targetCategories, offerCategories, locations, load: loadDicts } = useDictionaries();
 
 onMounted(loadDicts);
 
@@ -40,6 +40,7 @@ defineExpose({ onApply, onPage });
         :model-value="currentFilters"
         :target-categories="targetCategories"
         :offer-categories="offerCategories"
+        :locations="locations"
         @apply="onApply"
       />
     </div>

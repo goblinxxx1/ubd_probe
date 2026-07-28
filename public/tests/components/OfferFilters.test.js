@@ -8,6 +8,7 @@ function mountFilters(modelValue = {}) {
       modelValue,
       targetCategories: [{ id: 1, name: "УБД" }],
       offerCategories: [{ id: 2, name: "Розваги" }],
+      locations: ["Київ", "Львів", "Одеса"],
     },
   });
 }
@@ -21,10 +22,23 @@ describe("OfferFilters", () => {
   it("apply emits cleaned filters and closes", async () => {
     const w = mountFilters({});
     w.vm.open = true;
-    Object.assign(w.vm.draft, { type: "event", location: "", q: "музей" });
+    Object.assign(w.vm.draft, { type: "event", locations: [], q: "музей" });
     w.vm.apply();
     expect(w.emitted().apply[0][0]).toEqual({ type: "event", q: "музей" });
     expect(w.vm.open).toBe(false);
+  });
+
+  it("emits selected cities as a location array", () => {
+    const w = mountFilters({});
+    w.vm.open = true;
+    Object.assign(w.vm.draft, { locations: ["Київ", "Одеса"] });
+    w.vm.apply();
+    expect(w.emitted().apply[0][0]).toEqual({ location: ["Київ", "Одеса"] });
+  });
+
+  it("counts a non-empty location selection as one active filter", () => {
+    const w = mountFilters({ location: ["Київ", "Львів"] });
+    expect(w.vm.activeCount).toBe(1);
   });
 
   it("reset emits empty filters", () => {

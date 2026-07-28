@@ -6,30 +6,44 @@ const props = defineProps({
   modelValue: { type: Object, default: () => ({}) },
   targetCategories: { type: Array, default: () => [] },
   offerCategories: { type: Array, default: () => [] },
+  locations: { type: Array, default: () => [] },
 });
 const emit = defineEmits(["apply"]);
 
 const open = ref(false);
-const draft = reactive({ type: "", target_category: "", offer_category: "", location: "", q: "" });
+const draft = reactive({ type: "", target_category: "", offer_category: "", locations: [], q: "" });
+const locSearch = ref("");
 
 function seed() {
   draft.type = props.modelValue.type || "";
   draft.target_category = props.modelValue.target_category || "";
   draft.offer_category = props.modelValue.offer_category || "";
-  draft.location = props.modelValue.location || "";
+  const loc = props.modelValue.location;
+  draft.locations = Array.isArray(loc) ? [...loc] : (loc ? [loc] : []);
   draft.q = props.modelValue.q || "";
+  locSearch.value = "";
 }
 watch(open, (isOpen) => { if (isOpen) seed(); });
 
-const activeCount = computed(
-  () => ["type", "target_category", "offer_category", "location", "q"].filter((k) => props.modelValue[k]).length
-);
+const activeCount = computed(() => {
+  let n = 0;
+  for (const k of ["type", "target_category", "offer_category", "q"]) if (props.modelValue[k]) n++;
+  const loc = props.modelValue.location;
+  if (Array.isArray(loc) ? loc.length : loc) n++;
+  return n;
+});
+
+const filteredLocations = computed(() => {
+  const term = locSearch.value.trim().toLowerCase();
+  return term ? props.locations.filter((c) => c.toLowerCase().includes(term)) : props.locations;
+});
 
 function clean() {
   const out = {};
-  for (const k of ["type", "target_category", "offer_category", "location", "q"]) {
+  for (const k of ["type", "target_category", "offer_category", "q"]) {
     if (draft[k]) out[k] = draft[k];
   }
+  if (draft.locations.length) out.location = [...draft.locations];
   return out;
 }
 
@@ -43,7 +57,7 @@ function reset() {
   open.value = false;
 }
 
-defineExpose({ open, draft, apply, reset, activeCount });
+defineExpose({ open, draft, apply, reset, activeCount, filteredLocations, locSearch });
 </script>
 
 <template>
@@ -73,9 +87,16 @@ defineExpose({ open, draft, apply, reset, activeCount });
           <option v-for="c in offerCategories" :key="c.id" :value="String(c.id)">{{ c.name }}</option>
         </select>
       </label>
-      <label>Локація
-        <input v-model="draft.location" type="text" placeholder="Місто або «онлайн»" />
-      </label>
+      <fieldset class="filters__loc">
+        <legend>Локація</legend>
+        <input v-if="locations.length > 8" v-model="locSearch" type="text"
+               class="filters__locsearch" placeholder="Пошук міста" />
+        <div class="filters__loclist">
+          <label v-for="c in filteredLocations" :key="c" class="filters__loccheck">
+            <input type="checkbox" :value="c" v-model="draft.locations" />{{ c }}
+          </label>
+        </div>
+      </fieldset>
       <label>Пошук
         <input v-model="draft.q" type="text" placeholder="Ключове слово" @keyup.enter="apply" />
       </label>
@@ -106,6 +127,11 @@ defineExpose({ open, draft, apply, reset, activeCount });
 .filters__actions { display: flex; gap: 8px; margin-top: 4px; }
 .btn { padding: 8px 12px; border: 1px solid @divider; border-radius: @radius-sm; background: @header-bg; cursor: pointer; color: @text; }
 .btn--primary { background: @dark; color: @chip-text; border-color: @dark; }
+.filters__loc { border: 1px solid @divider; border-radius: @radius-sm; padding: 8px; margin: 0; }
+.filters__loc legend { font-size: 14px; color: @meta-muted; padding: 0 4px; }
+.filters__locsearch { width: 100%; padding: 6px; margin-bottom: 6px; border: 1px solid @divider; border-radius: @radius-sm; }
+.filters__loclist { max-height: 160px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+.filters__loccheck { flex-direction: row; align-items: center; gap: 6px; font-size: 14px; color: @text; text-transform: none; }
 @media (max-width: @bp-mobile) {
   .filters { display: block; }
   // Panel is anchored to the narrow flex-item .filters on desktop; on mobile
