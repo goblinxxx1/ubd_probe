@@ -160,3 +160,18 @@ def test_extractor_hryven_full_form_gives_fixed():
     assert res is not None
     assert res.discount_type == "fixed"
     assert res.discount_value == "200"
+
+
+def test_round_hryvnia_price_not_misread_as_free():
+    # "200 грн" must NOT be read as FREE (0-substring false-positive); it's a fixed discount
+    assert not pl.FREE.search("знижка 200 грн")
+    ex = HeuristicExtractor()
+    item = RawItem(source_id=1, platform="website", key="k",
+                   text="Знижка 200 грн для ветеранів на послуги")
+    res = ex.extract(item, "Shop", CategoryIndex(target=[{"id": 10, "slug": "veteran"}], offer=[]))
+    assert res is not None
+    assert res.discount_type == "fixed" and res.discount_value == "200"
+
+
+def test_standalone_zero_hryvnia_still_free():
+    assert pl.FREE.search("вхід 0 грн")
