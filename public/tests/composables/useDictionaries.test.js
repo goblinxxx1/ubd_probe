@@ -5,6 +5,10 @@ vi.mock("@/api/categories", () => ({
   listOffer: vi.fn(() => Promise.resolve([{ id: 2, name: "Розваги", slug: "rozvahy" }])),
 }));
 
+vi.mock("@/api/offers", () => ({
+  locations: vi.fn(() => Promise.resolve(["Київ"])),
+}));
+
 import { useDictionaries } from "@/composables/useDictionaries";
 import { listTarget, listOffer } from "@/api/categories";
 
@@ -26,5 +30,11 @@ describe("useDictionaries", () => {
     expect(listOffer).toHaveBeenCalledTimes(1);
     expect(d.targetCategories.value[0].slug).toBe("ubd");
     expect(d.offerCategories.value[0].slug).toBe("rozvahy");
+  });
+
+  it("loads the locations facet alongside categories", async () => {
+    const d = useDictionaries();
+    await d.load();
+    expect(d.locations.value).toEqual(["Київ"]);
   });
 });
