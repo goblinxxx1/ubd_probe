@@ -1,77 +1,85 @@
-"""Offline gazetteer: map Ukrainian city surface forms to a canonical name.
+"""Gazetteer matcher: map Ukrainian city surface forms (incl. transliteration and
+inflected cases, generated in crawler/scripts/build_gazetteer.py) to canonical names.
 
-Precision over recall — only curated cities match, via explicit surface forms
-(nominative + common oblique cases) with word boundaries, so inflected mentions
-are caught without stemming collisions (e.g. `рівні` != `Рівне`)."""
+Precision guard: forms colliding with common Ukrainian words are flagged marker-only
+(m=1) at build time and match only after a locality marker (м./с./смт/місто);
+permissive forms (m=0) match anywhere. Token matching gives word boundaries for free
+and supports multi-word names."""
 
+import json
 import re
+from pathlib import Path
 
-# canonical -> lowercase surface forms (nominative + common oblique cases)
-_CITIES = {
-    "Київ": ("київ", "києві", "києва"),
-    "Львів": ("львів", "львові", "львова"),
-    "Харків": ("харків", "харкові", "харкова"),
-    "Одеса": ("одеса", "одесі", "одеси"),
-    "Дніпро": ("дніпро", "дніпрі", "дніпра"),
-    "Запоріжжя": ("запоріжжя", "запоріжжі"),
-    "Вінниця": ("вінниця", "вінниці"),
-    "Полтава": ("полтава", "полтаві", "полтави"),
-    "Чернігів": ("чернігів", "чернігові", "чернігова"),
-    "Черкаси": ("черкаси", "черкасах", "черкас"),
-    "Житомир": ("житомир", "житомирі", "житомира"),
-    "Суми": ("суми", "сумах"),
-    "Рівне": ("рівне", "рівному", "рівного"),
-    "Івано-Франківськ": ("івано-франківськ", "івано-франківську", "івано-франківська"),
-    "Тернопіль": ("тернопіль", "тернополі", "тернополя"),
-    "Луцьк": ("луцьк", "луцьку", "луцька"),
-    "Ужгород": ("ужгород", "ужгороді", "ужгорода"),
-    "Хмельницький": ("хмельницький", "хмельницькому"),
-    "Чернівці": ("чернівці", "чернівцях"),
-    "Кропивницький": ("кропивницький", "кропивницькому"),
-    "Миколаїв": ("миколаїв", "миколаєві", "миколаєва"),
-    "Херсон": ("херсон", "херсоні", "херсона"),
-    "Маріуполь": ("маріуполь", "маріуполі", "маріуполя"),
-    "Краматорськ": ("краматорськ", "краматорську", "краматорська"),
-    "Біла Церква": ("біла церква", "білій церкві", "білої церкви"),
-    "Вишневе": ("вишневе", "вишневому", "вишневого"),
-    "Ірпінь": ("ірпінь", "ірпені", "ірпеня"),
-    "Буча": ("буча", "бучі"),
-    "Бровари": ("бровари", "броварах", "броварів"),
-    "Бориспіль": ("бориспіль", "борисполі", "борисполя"),
-    "Фастів": ("фастів", "фастові", "фастова"),
-    "Вишгород": ("вишгород", "вишгороді", "вишгорода"),
-    "Обухів": ("обухів", "обухові", "обухова"),
-    "Славутич": ("славутич", "славутичі", "славутича"),
-}
-
-# (form, canonical), longest form first so specific forms win
-_FORMS = sorted(
-    ((form, city) for city, forms in _CITIES.items() for form in forms),
-    key=lambda fc: len(fc[0]), reverse=True,
-)
-# Towns whose surface forms are homographs of common words (cherry / brewers /
-# uproar) — match only when preceded by a locality marker, to avoid false hits.
-_PREFIX_ONLY = {"Вишневе", "Буча", "Бровари"}
-_LOC_PREFIX = r"(?<!\w)(?:м|смт|с|місто)\.?\s+"
+_MARKERS = {"м", "с", "смт", "місто", "селище"}
+_TOKEN = re.compile(r"[a-zа-яїієґ'’\-]+", re.IGNORECASE)
+_DATA_PATH = Path(__file__).with_name("gazetteer.json")
 
 
-def _make_pattern(form: str, city: str) -> re.Pattern:
-    if city in _PREFIX_ONLY:
-        return re.compile(_LOC_PREFIX + re.escape(form) + r"(?!\w)")
-    return re.compile(r"(?<!\w)" + re.escape(form) + r"(?!\w)")
+def _load_entries(path: Path = _DATA_PATH) -> list[dict]:
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return json.load(fh)
+    except FileNotFoundError:
+        return []
 
 
-_PATTERNS = [(_make_pattern(f, c), c) for f, c in _FORMS]
+def build_lookup(entries: list[dict]):
+    """form(lower) -> (canonical, marker_only, nwords); returns (lookup, max_words)."""
+    lookup: dict[str, tuple[str, bool, int]] = {}
+    maxn = 1
+    for e in entries:
+        canon = e["name"]
+        for form in e["forms"]:
+            f = form["f"].lower()
+            if not f:
+                continue
+            n = len(f.split())
+            maxn = max(maxn, n)
+            lookup.setdefault(f, (canon, bool(form["m"]), n))
+    return lookup, maxn
 
 
-def find_city(text: str | None) -> str | None:
+_LOOKUP, _MAXN = build_lookup(_load_entries())
+
+
+def _tokenize(text: str) -> list[str]:
+    return [m.group(0).lower().strip("’'") for m in _TOKEN.finditer(text)]
+
+
+def find_cities(text: str | None, lookup=None, maxn: int | None = None) -> list[str]:
     if not text:
-        return None
-    low = text.lower()
-    for pat, city in _PATTERNS:
-        if pat.search(low):
-            return city
-    return None
+        return []
+    lookup = _LOOKUP if lookup is None else lookup
+    maxn = _MAXN if maxn is None else maxn
+    toks = _tokenize(text)
+    found: list[str] = []
+    seen: set[str] = set()
+    i, n = 0, len(toks)
+    while i < n:
+        matched = False
+        for w in range(min(maxn, n - i), 0, -1):
+            hit = lookup.get(" ".join(toks[i:i + w]))
+            if hit is None:
+                continue
+            canon, marker_only, _ = hit
+            if marker_only:
+                prev = toks[i - 1].rstrip(".") if i > 0 else ""
+                if prev not in _MARKERS:
+                    continue
+            if canon not in seen:
+                seen.add(canon)
+                found.append(canon)
+            i += w
+            matched = True
+            break
+        if not matched:
+            i += 1
+    return found
+
+
+def find_city(text: str | None, *_ignore) -> str | None:
+    cities = find_cities(text)
+    return cities[0] if cities else None
 
 
 _ONLINE = re.compile(r"(?<!\w)(онлайн|інтернет[-\s]?магазин)\w*", re.IGNORECASE)
