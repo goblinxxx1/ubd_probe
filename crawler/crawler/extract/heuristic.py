@@ -22,8 +22,26 @@ def _pick_target(links, source_url: str) -> str | None:
             continue
         return norm
     return None
+
+
+def _locations(locality: str | None, text: str) -> list[str]:
+    names: list[str] = []
+    if locality:
+        resolved = find_cities(locality)
+        names.extend(resolved if resolved else [locality.strip()])
+    names.extend(find_cities(text))
+    out, seen = [], set()
+    for n in names:
+        if n and n not in seen:
+            seen.add(n)
+            out.append(n)
+    if not out and is_online(text):
+        out = ["Онлайн"]
+    return out
+
+
 from crawler.discovery import promo_lexicon as pl
-from crawler.discovery.geo import find_city, is_online
+from crawler.discovery.geo import find_cities, is_online
 from crawler.discovery.lexicon import classify, OFFER_LEXICON, TARGET_LEXICON
 from crawler.extract.base import CategoryIndex
 from crawler.models import OfferCandidate, RawItem
@@ -100,7 +118,7 @@ class HeuristicExtractor:
             title=title,
             provider=provider,
             body=text,
-            location=item.locality or find_city(text) or ("Онлайн" if is_online(text) else None),
+            locations=_locations(item.locality, text),
             offer_type="discount",
             discount_type=discount_type,
             discount_value=discount_value,

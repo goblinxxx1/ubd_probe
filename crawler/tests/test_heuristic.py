@@ -42,25 +42,25 @@ def test_location_from_structured_locality():
     it = RawItem(source_id=1, platform="website", key="k",
                  text="Знижка 20% для ветеранів у кафе", locality="Львів")
     cand = get_extractor("heuristic").extract(it, "Кафе", CATS)
-    assert cand.location == "Львів"
+    assert cand.locations == ["Львів"]
 
 
 def test_location_from_gazetteer_fallback():
     cand = get_extractor("heuristic").extract(
         _item("Знижка 20% для ветеранів у нашому кафе в Одесі"), "Кафе", CATS)
-    assert cand.location == "Одеса"
+    assert cand.locations == ["Одеса"]
 
 
 def test_location_none_when_absent():
     cand = get_extractor("heuristic").extract(
         _item("Знижка 20% для ветеранів"), "Кафе", CATS)
-    assert cand.location is None
+    assert cand.locations == []
 
 
 def test_location_online_fallback():
     cand = get_extractor("heuristic").extract(
         _item("Знижка 20% для ветеранів у нашому інтернет-магазині"), "Shop", CATS)
-    assert cand.location == "Онлайн"
+    assert cand.locations == ["Онлайн"]
 
 
 def test_title_is_concise_headline():
