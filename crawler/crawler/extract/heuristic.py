@@ -93,7 +93,8 @@ class HeuristicExtractor:
         target_ids = [c["id"] for c in categories.target if c["slug"] in target_slugs]
         offer_matches = classify(blob, OFFER_LEXICON)
 
-        title = _title_from(text)
+        promo_title = _title_from(text)
+        title = (item.site_tagline or "").strip() or promo_title
         return OfferCandidate(
             source_id=item.source_id,
             title=title,
@@ -104,7 +105,7 @@ class HeuristicExtractor:
             discount_type=discount_type,
             discount_value=discount_value,
             valid_until=valid_until,
-            content_hash=content_hash(title, provider, text),
+            content_hash=content_hash(promo_title, provider, text),
             site_url=(f"{urlsplit(item.url).scheme}://{urlsplit(item.url).netloc}"
                       if item.url else None),
             article_url=item.url,
