@@ -2,15 +2,16 @@ from crawler.discovery.query_grid import (
     AUDIENCE_FORMS, INTENT_FORMS, BRANDS, build_grid, merge_queries)
 
 
-def test_grid_size_matches_axes():
+def test_grid_size_matches_intent_axis_only():
     grid = build_grid()
-    assert len(grid) == (len(INTENT_FORMS) + len(BRANDS)) * len(AUDIENCE_FORMS)
+    assert len(grid) == len(INTENT_FORMS) * len(AUDIENCE_FORMS)
 
 
-def test_grid_has_expected_templates():
+def test_grid_has_intent_templates_not_brands():
     grid = build_grid()
-    assert "знижка військові" in grid          # {intent} {audience}
-    assert "OKKO ветерани" in grid              # {brand} {audience}
+    assert "знижка військові" in grid           # {intent} {audience}
+    assert "OKKO ветерани" not in grid          # brands removed from the query axis
+    assert "Rozetka військові" not in grid
 
 
 def test_grid_is_deduped_and_nonempty():
