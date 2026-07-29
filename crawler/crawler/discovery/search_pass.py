@@ -8,24 +8,38 @@ class SearchPass:
     only if that provider succeeded (advance-on-success). No threads — shared state is
     not thread-safe."""
 
-    def __init__(self, plans, state, grid, queries_per_pass, static_keywords=None):
+    def __init__(self, plans, state, grid, queries_per_pass, static_keywords=None,
+                 city_axis=None, city_queries_per_pass=0):
         self._plans = list(plans)
         self._state = state
         self._grid = grid
         self._n = queries_per_pass
         self._pins = list(static_keywords or [])
+        self._city_axis = city_axis
+        self._city_k = int(city_queries_per_pass or 0)
 
     def run(self, known) -> list[SourceCandidate]:
         out: list[SourceCandidate] = []
+        city_on = (self._city_axis is not None and self._city_k > 0
+                   and len(self._city_axis) > 0)
+        any_ok = False
         for plan in self._plans:
             start = self._start_for(plan.cursor_key)
             batch, new_cursor = self._grid.next_batch(self._n, start)
             pins = self._pins if plan.include_pins else []
             keywords = merge_queries(batch, pins)
+            if city_on:
+                city_qs, _ = self._city_axis.next_batch(
+                    batch, self._state.city_cursor, self._city_k)
+                keywords = merge_queries(keywords, city_qs)
             plan.reset()
             out.extend(plan.discovery.run(keywords, known))
             if plan.succeeded():
                 self._set_cursor(plan.cursor_key, new_cursor)
+                any_ok = True
+        if city_on and any_ok:
+            self._state.set_city_cursor(
+                (self._state.city_cursor + 1) % len(self._city_axis))
         return out
 
     def provider_for_site_query(self):
