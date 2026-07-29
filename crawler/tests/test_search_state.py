@@ -196,3 +196,19 @@ def test_searxng_cursor_sentinel_default_and_persist(tmp_path):
     assert st.searxng_cursor == -1            # unseeded sentinel (offset applied at read-time)
     st.set_searxng_cursor(7)
     assert SearchState.load(p).searxng_cursor == 7   # persisted round-trip
+
+
+def test_city_cursor_defaults_zero(tmp_path):
+    st = SearchState(str(tmp_path / "s.json"))
+    assert st.city_cursor == 0
+
+
+def test_set_city_cursor_persists_and_is_independent(tmp_path):
+    p = str(tmp_path / "s.json")
+    st = SearchState(p)
+    st.set_grid_cursor(5)
+    st.set_city_cursor(9)
+    reloaded = SearchState.load(p)
+    assert reloaded.city_cursor == 9
+    assert reloaded.grid_cursor == 5          # untouched
+    assert reloaded.searxng_cursor == -1      # untouched

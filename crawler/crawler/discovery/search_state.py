@@ -9,7 +9,7 @@ from crawler.models import SourceCandidate
 log = logging.getLogger(__name__)
 
 _EMPTY = {"version": 1, "cursor": 0, "grid_cursor": 0, "site_cursor": 0,
-          "approved_cursor": 0, "searxng_cursor": -1,
+          "approved_cursor": 0, "searxng_cursor": -1, "city_cursor": 0,
           "next_allowed_at": 0.0, "backends": {}, "cache": {}}
 
 
@@ -80,6 +80,15 @@ class SearchState:
 
     def set_approved_cursor(self, value: int) -> None:
         self._data["approved_cursor"] = int(value)
+        self._save()
+
+    # --- city-axis rotation cursor (independent of grid/searxng/site cursors) ---
+    @property
+    def city_cursor(self) -> int:
+        return int(self._data.get("city_cursor", 0))
+
+    def set_city_cursor(self, value: int) -> None:
+        self._data["city_cursor"] = int(value)
         self._save()
 
     # --- backend health ---
