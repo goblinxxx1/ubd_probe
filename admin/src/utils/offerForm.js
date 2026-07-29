@@ -13,6 +13,15 @@ export function validateOffer(form) {
   const urlBad = (v) => v && !/^https?:\/\//.test(v);
   if (urlBad(form.site_url)) errors.push("«Сайт» має починатися з http:// або https://");
   if (urlBad(form.article_url)) errors.push("«Сторінка новини» має починатися з http:// або https://");
+  for (const d of form.discounts || []) {
+    const needsValue = d.discount_type === "percent" || d.discount_type === "fixed";
+    if (needsValue && (d.discount_value === null || d.discount_value === undefined)) {
+      errors.push("Величина знижки обов'язкова для %/фіксованої знижки");
+    }
+    if (!needsValue && d.discount_value !== null && d.discount_value !== undefined) {
+      errors.push("Величина знижки має бути порожньою, крім %/фіксованої");
+    }
+  }
   return errors;
 }
 
@@ -34,5 +43,10 @@ export function buildOfferPayload(form) {
     image_url: form.image_url || null,
     target_category_ids: form.target_category_ids || [],
     offer_category_ids: form.offer_category_ids || [],
+    discounts: (form.discounts || []).map((d) => ({
+      label: d.label || null,
+      discount_type: d.discount_type || null,
+      discount_value: d.discount_value ?? null,
+    })),
   };
 }

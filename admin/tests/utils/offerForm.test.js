@@ -45,6 +45,25 @@ describe("buildOfferPayload", () => {
   });
 });
 
+describe("discounts list", () => {
+  it("passes discounts through the payload", () => {
+    const form = { type: "discount", title: "T", provider: "P",
+      discount_type: "percent", discount_value: 15,
+      discounts: [{ label: "МВС", discount_type: "percent", discount_value: 10 }],
+      locations: [], target_category_ids: [], offer_category_ids: [] };
+    const payload = buildOfferPayload(form);
+    expect(payload.discounts).toEqual([{ label: "МВС", discount_type: "percent", discount_value: 10 }]);
+  });
+
+  it("rejects a discount row with a value but free type", () => {
+    const form = { type: "discount", title: "T", provider: "P",
+      discount_type: "percent", discount_value: 15,
+      discounts: [{ label: "x", discount_type: "free", discount_value: 5 }],
+      locations: [], target_category_ids: [], offer_category_ids: [] };
+    expect(validateOffer(form).length).toBeGreaterThan(0);
+  });
+});
+
 describe("offer url fields", () => {
   it("payload carries site_url/article_url, not contacts", () => {
     const p = buildOfferPayload({ ...base, site_url: "https://ex.com", article_url: "" });

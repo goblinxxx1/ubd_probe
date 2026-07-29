@@ -77,4 +77,30 @@ describe("OfferForm", () => {
     wrapper.vm.submit();
     expect(wrapper.emitted().submit[0][0].locations).toEqual(["Київ", "Львів"]);
   });
+
+  it("seeds discounts from the initial offer and includes them in the payload", () => {
+    const wrapper = mount(OfferForm, {
+      props: { initial: { type: "discount", title: "T", provider: "P",
+                          discounts: [{ label: "МВС", discount_type: "percent", discount_value: 10 }],
+                          target_categories: [], offer_categories: [] } },
+      global: { plugins: [ElementPlus] },
+    });
+    expect(wrapper.vm.form.discounts).toEqual([{ label: "МВС", discount_type: "percent", discount_value: 10 }]);
+    Object.assign(wrapper.vm.form, { discount_type: "percent", discount_value: 10 });
+    wrapper.vm.submit();
+    expect(wrapper.emitted().submit[0][0].discounts).toEqual([{ label: "МВС", discount_type: "percent", discount_value: 10 }]);
+  });
+
+  it("defaults discounts to an empty array for a new offer", () => {
+    const wrapper = mount(OfferForm, { props: { initial: null }, global: { plugins: [ElementPlus] } });
+    expect(wrapper.vm.form.discounts).toEqual([]);
+  });
+
+  it("addDiscount appends a default row and removeDiscount removes it by index", () => {
+    const wrapper = mount(OfferForm, { props: { initial: null }, global: { plugins: [ElementPlus] } });
+    wrapper.vm.addDiscount();
+    expect(wrapper.vm.form.discounts).toEqual([{ label: "", discount_type: "percent", discount_value: null }]);
+    wrapper.vm.removeDiscount(0);
+    expect(wrapper.vm.form.discounts).toEqual([]);
+  });
 });

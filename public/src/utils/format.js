@@ -12,6 +12,13 @@ export function formatDate(iso) {
   return `${dd}.${mm}.${d.getUTCFullYear()}`;
 }
 
+export function discountText(d) {
+  if (d.discount_type === "free") return "Безкоштовно";
+  if (d.discount_type === "percent" && d.discount_value != null) return `−${Number(d.discount_value)}%`;
+  if (d.discount_type === "fixed" && d.discount_value != null) return `−${Number(d.discount_value)} ₴`;
+  return "Знижка";
+}
+
 export function offerBadge(offer) {
   if (offer.type === "event") return { text: "Подія", kind: "event" };
   if (offer.discount_type === "free") return { text: "Безкоштовно", kind: "free" };

@@ -67,6 +67,14 @@ def _title_from(text: str) -> str:
     return first.strip()
 
 
+def _discount_label(text: str, target_ids, categories) -> str | None:
+    snippet = _title_from(text)
+    if snippet and len(snippet) <= 80:
+        return snippet
+    names = [c["name"] for c in categories.target if c["id"] in set(target_ids)]
+    return names[0] if names else None
+
+
 class HeuristicExtractor:
     def __init__(self, require_discount: bool = False):
         self._require_discount = require_discount
@@ -113,6 +121,10 @@ class HeuristicExtractor:
 
         promo_title = _title_from(text)
         title = (item.site_tagline or "").strip() or promo_title
+        discounts = ([{"label": _discount_label(text, target_ids, categories),
+                       "discount_type": discount_type,
+                       "discount_value": discount_value}]
+                     if discount_type is not None else [])
         return OfferCandidate(
             source_id=item.source_id,
             title=title,
@@ -131,4 +143,5 @@ class HeuristicExtractor:
             target_url=_pick_target(getattr(item, "links", None), item.url or ""),
             target_category_ids=target_ids,
             offer_category_matches=offer_matches,
+            discounts=discounts,
         )

@@ -75,4 +75,35 @@ describe("OfferDetailView", () => {
     const w = await mountAt(9);
     expect(w.text()).toContain("Київ, Львів");
   });
+
+  it("renders each discount with its label when there is more than one", async () => {
+    offers.get.mockResolvedValue({
+      id: 10, type: "discount", discount_type: "percent", discount_value: 15,
+      title: "T", provider: "Кафе", description: "d",
+      valid_from: "2026-07-01", valid_until: "2026-08-01",
+      image_url: null, target_categories: [], offer_categories: [],
+      discounts: [
+        { label: "МВС", discount_type: "percent", discount_value: 10 },
+        { label: "ЗСУ", discount_type: "percent", discount_value: 15 },
+      ],
+    });
+    const w = await mountAt(10);
+    const text = w.text();
+    expect(text).toContain("МВС");
+    expect(text).toContain("ЗСУ");
+    expect(text).toContain("−10%");
+    expect(text).toContain("−15%");
+  });
+
+  it("hides the discount list when there is only one discount", async () => {
+    offers.get.mockResolvedValue({
+      id: 11, type: "discount", discount_type: "percent", discount_value: 15,
+      title: "T", provider: "Кафе", description: "d",
+      valid_from: "2026-07-01", valid_until: "2026-08-01",
+      image_url: null, target_categories: [], offer_categories: [],
+      discounts: [{ label: "МВС", discount_type: "percent", discount_value: 15 }],
+    });
+    const w = await mountAt(11);
+    expect(w.find(".detail__discounts").exists()).toBe(false);
+  });
 });

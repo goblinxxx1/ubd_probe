@@ -17,6 +17,7 @@ def offer_payload(cand) -> dict:
         "target_url": cand.target_url,
         "target_category_ids": cand.target_category_ids,
         "offer_category_ids": cand.offer_category_ids,
+        "discounts": cand.discounts,
     }
 
 

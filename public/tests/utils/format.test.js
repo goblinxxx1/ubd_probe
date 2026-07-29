@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { enumLabel, formatDate, offerBadge } from "@/utils/format";
+import { enumLabel, formatDate, offerBadge, discountText } from "@/utils/format";
 import { OFFER_TYPES } from "@/constants/enums";
 
 describe("enumLabel", () => {
@@ -31,5 +31,20 @@ describe("offerBadge", () => {
   });
   it("discount with no type → Знижка", () => {
     expect(offerBadge({ type: "discount", discount_type: null })).toEqual({ text: "Знижка", kind: "discount" });
+  });
+});
+
+describe("discountText", () => {
+  it("free → Безкоштовно", () => {
+    expect(discountText({ discount_type: "free" })).toBe("Безкоштовно");
+  });
+  it("percent → −N%", () => {
+    expect(discountText({ discount_type: "percent", discount_value: "10.00" })).toBe("−10%");
+  });
+  it("fixed → −N ₴", () => {
+    expect(discountText({ discount_type: "fixed", discount_value: 200 })).toBe("−200 ₴");
+  });
+  it("no type → Знижка", () => {
+    expect(discountText({ discount_type: null })).toBe("Знижка");
   });
 });

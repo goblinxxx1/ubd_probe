@@ -80,6 +80,13 @@ function edit(id) {
   router.push({ name: "offer-edit", params: { id } });
 }
 
+function pluralZnyzhka(n) {
+  const m10 = n % 10, m100 = n % 100;
+  if (m10 === 1 && m100 !== 11) return "знижка";
+  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return "знижки";
+  return "знижок";
+}
+
 defineExpose({ onPublish, onReject, onDelete, load, applyFilters, items, tab });
 </script>
 
@@ -116,6 +123,9 @@ defineExpose({ onPublish, onReject, onDelete, load, applyFilters, items, tab });
         <div>{{ row.title }}</div>
         <el-tag v-if="row.status === 'pending_review' && supersedeSummary(row)" size="small" type="warning" style="margin-top: 4px">
           {{ supersedeSummary(row) }}
+        </el-tag>
+        <el-tag v-if="row.discounts?.length > 1" size="small" style="margin-top: 4px; margin-left: 4px">
+          {{ `${row.discounts.length} ${pluralZnyzhka(row.discounts.length)}` }}
         </el-tag>
       </template>
       <template #col-type="{ row }">{{ enumLabel(OFFER_TYPES, row.type) }}</template>

@@ -3,6 +3,7 @@ from itertools import zip_longest
 
 from crawler.discovery.brand_feed import _host
 from crawler.discovery.passive import extract_source_candidates, normalize_ref
+from crawler.extract.aggregate import aggregate_page
 from crawler.extract.base import CategoryIndex
 from crawler.extract.categories import resolve_offer_categories
 from crawler.models import SourceCandidate
@@ -136,8 +137,7 @@ class Runner:
             return
         state = self._api.get_crawl_state(source["id"])
         items, new_key = self._fetch_for(source, state.get("last_seen_key"))
-        for item in items:
-            self._process_item(item, source, cats, known, summary)
+        self._process_page(items, source, cats, known, summary)
         self._api.set_crawl_state(source["id"], new_key)
 
     def _crawl_website_deep(self, source, cats, known, summary):
@@ -155,23 +155,31 @@ class Runner:
                 page_src = {"id": source["id"], "type": "website",
                             "name": source["name"], "url_or_handle": url}
                 items, last_key = fetcher.fetch(page_src, last_key)
-                for item in items:
-                    self._process_item(item, source, cats, known, summary)
+                self._process_page(items, source, cats, known, summary)
             except Exception as exc:  # noqa: BLE001 — one page must not sink the domain walk
                 summary["errors"] += 1
                 log.warning("passive deep-walk page failed for %s: %s", url, exc)
         self._api.set_crawl_state(source["id"], last_key)
 
-    def _process_item(self, item, source, cats, known, summary):
-        cand = self._extractor.extract(item, source["name"], cats)
-        if self._corpus is not None:
-            self._corpus.record(item, cand is not None)
-        if cand is not None:
-            cand.offer_category_ids = resolve_offer_categories(
-                self._api, cats, cand.offer_category_matches)
-            self._api.submit_offer(offer_payload(cand))
+    def _process_page(self, items, source, cats, known, summary):
+        groups, order = {}, []
+        for item in items:
+            cand = self._extractor.extract(item, source["name"], cats)
+            if self._corpus is not None:
+                self._corpus.record(item, cand is not None)
+            if cand is not None:
+                key = cand.article_url
+                if key not in groups:
+                    groups[key] = []
+                    order.append(key)
+                groups[key].append(cand)
+            for sc in extract_source_candidates(item, known):
+                self._api.submit_suggestion(suggestion_payload(sc))
+                known.add(normalize_ref(sc.type, sc.url_or_handle))
+                summary["suggestions"] += 1
+        for key in order:
+            page = aggregate_page(groups[key])
+            page.offer_category_ids = resolve_offer_categories(
+                self._api, cats, page.offer_category_matches)
+            self._api.submit_offer(offer_payload(page))
             summary["offers"] += 1
-        for sc in extract_source_candidates(item, known):
-            self._api.submit_suggestion(suggestion_payload(sc))
-            known.add(normalize_ref(sc.type, sc.url_or_handle))
-            summary["suggestions"] += 1

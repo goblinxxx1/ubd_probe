@@ -50,8 +50,11 @@ def _source(db):
 
 
 def _published(db, source_id, last_seen, ch, created_by=CreatedBy.crawler):
-    o = offer_crud.create_offer(db, _offer(target_url=None), created_by,
-                                OfferStatus.published, source_id=source_id, content_hash=ch)
+    # Page identity is now article_url_canonical: each independently-published fixture
+    # offer needs its own article_url, or the second create_offer call would match the
+    # first as a live same-source-page parent and shadow it instead of standing alone.
+    o = offer_crud.create_offer(db, _offer(target_url=None, article_url=f"https://a/{ch}"),
+                                created_by, OfferStatus.published, source_id=source_id, content_hash=ch)
     o.last_seen_at = last_seen
     db.commit()
     db.refresh(o)

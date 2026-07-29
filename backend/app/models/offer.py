@@ -15,6 +15,7 @@ from app.models.categories import (
 from app.models.enums import CreatedBy, DiscountType, OfferStatus, OfferType
 
 if TYPE_CHECKING:
+    from app.models.offer_discount import OfferDiscount
     from app.models.offer_link import OfferLink
     from app.models.offer_location import OfferLocation
 
@@ -41,6 +42,7 @@ class Offer(Base):
     image_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     target_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     target_url_canonical: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    article_url_canonical: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     source_id: Mapped[int | None] = mapped_column(ForeignKey("sources.id"), nullable=True)
     content_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
@@ -67,6 +69,10 @@ class Offer(Base):
     locations: Mapped[list["OfferLocation"]] = relationship(
         back_populates="offer", cascade="all, delete-orphan", lazy="selectin"
     )
+    discounts: Mapped[list["OfferDiscount"]] = relationship(
+        back_populates="offer", cascade="all, delete-orphan",
+        order_by="OfferDiscount.sort_order", lazy="selectin",
+    )
     location_names = association_proxy("locations", "name", creator=_mk_location)
     supersedes: Mapped["Offer | None"] = relationship(
         "Offer", remote_side="Offer.id", foreign_keys="Offer.supersedes_offer_id",
@@ -77,4 +83,5 @@ class Offer(Base):
         UniqueConstraint("source_id", "content_hash", name="uq_offer_source_content_hash"),
         Index("ix_offers_target_url", "target_url", mysql_length=255),
         Index("ix_offers_target_url_canonical", "target_url_canonical", mysql_length=255),
+        Index("ix_offers_article_url_canonical", "article_url_canonical", mysql_length=255),
     )

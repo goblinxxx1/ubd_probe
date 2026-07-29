@@ -1,10 +1,13 @@
 <script setup>
 import { computed } from "vue";
 import { placeholderDataUri } from "@/utils/placeholder";
+import { discountText } from "@/utils/format";
 import OfferBadge from "@/components/OfferBadge.vue";
 
 const props = defineProps({ offer: { type: Object, required: true } });
 const image = computed(() => props.offer.image_url || placeholderDataUri(props.offer));
+const discounts = computed(() => props.offer.discounts || []);
+const showList = computed(() => discounts.value.length > 1);
 const sourceLinks = computed(() =>
   props.offer.links?.length
     ? props.offer.links
@@ -26,6 +29,13 @@ const meta = computed(() => (props.offer.locations || []).join(" · "));
       <OfferBadge :offer="offer" />
       <span v-if="offer.title" class="card__dtext">{{ offer.title }}</span>
     </div>
+
+    <ul v-if="showList" class="card__discounts">
+      <li v-for="(d, i) in discounts" :key="i" class="card__discount-row">
+        <span class="card__discount-val">{{ discountText(d) }}</span>
+        <span v-if="d.label" class="card__discount-label">{{ d.label }}</span>
+      </li>
+    </ul>
 
     <p class="card__desc">
       <template v-if="offer.description">{{ offer.description }}</template>
@@ -78,6 +88,10 @@ const meta = computed(() => (props.offer.locations || []).join(" · "));
 }
 .card__discount { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
 .card__dtext { font-size: 12px; }
+.card__discounts { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.card__discount-row { display: flex; align-items: baseline; gap: 8px; font-size: 12px; }
+.card__discount-val { font-weight: 800; color: @text; white-space: nowrap; }
+.card__discount-label { color: @desc-muted; overflow-wrap: anywhere; }
 .card__desc { font-size: 11.5px; line-height: 1.45; color: @desc-muted; margin: 10px 0 0; overflow-wrap: anywhere; }
 .card__desc-empty { color: @placeholder; font-style: italic; }
 .card__whom {

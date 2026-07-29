@@ -2,13 +2,16 @@
 import { ref, computed, onMounted } from "vue";
 import { useRoute } from "vue-router";
 import * as offersApi from "@/api/offers";
-import { formatDate } from "@/utils/format";
+import { formatDate, discountText } from "@/utils/format";
 import OfferBadge from "@/components/OfferBadge.vue";
 
 const route = useRoute();
 const offer = ref(null);
 const loading = ref(true);
 const notFound = ref(false);
+
+const discounts = computed(() => offer.value?.discounts || []);
+const showList = computed(() => discounts.value.length > 1);
 
 const period = computed(() => {
   if (!offer.value) return "";
@@ -62,6 +65,13 @@ defineExpose({ offer, loading, notFound });
         <span v-if="offer.title" class="detail__dtext">{{ offer.title }}</span>
       </div>
 
+      <ul v-if="showList" class="detail__discounts">
+        <li v-for="(d, i) in discounts" :key="i" class="detail__discount-row">
+          <span class="detail__discount-val">{{ discountText(d) }}</span>
+          <span v-if="d.label" class="detail__discount-label">{{ d.label }}</span>
+        </li>
+      </ul>
+
       <p v-if="offer.description" class="detail__desc">{{ offer.description }}</p>
 
       <div v-if="offer.target_categories?.length" class="detail__whom">
@@ -94,6 +104,10 @@ defineExpose({ offer, loading, notFound });
 .detail__photo { width: 40px; height: 40px; flex: none; object-fit: cover; border-radius: 9px; }
 .detail__discount { display: flex; align-items: center; gap: 10px; margin: 14px 0; }
 .detail__dtext { font-size: 14px; }
+.detail__discounts { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.detail__discount-row { display: flex; align-items: baseline; gap: 8px; font-size: 14px; }
+.detail__discount-val { font-weight: 800; color: @text; white-space: nowrap; }
+.detail__discount-label { color: @desc-muted; overflow-wrap: anywhere; }
 .detail__desc { line-height: 1.55; color: @desc-muted; margin: 0 0 16px; overflow-wrap: anywhere; }
 .detail__whom {
   background: @whom-bg; border: 1px solid @whom-border; border-radius: 8px; padding: 9px 11px; margin-bottom: 14px;

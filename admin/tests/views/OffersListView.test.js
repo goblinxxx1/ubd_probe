@@ -80,6 +80,20 @@ describe("OffersListView", () => {
     expect(offers.list).toHaveBeenCalledWith({ status: "pending_review", page: 1, size: 20 });
   });
 
+  it("shows a discount-count tag when a row has multiple discounts", async () => {
+    offers.list.mockResolvedValueOnce({
+      items: [{ id: 1, title: "T", provider: "P", type: "discount", status: "pending_review", valid_until: null,
+        discounts: [{ label: "a", discount_type: "percent", discount_value: 10 }, { label: "b", discount_type: "percent", discount_value: 20 }] }],
+      total: 1,
+    });
+    const router = makeRouter();
+    router.push("/");
+    await router.isReady();
+    const wrapper = mount(OffersListView, { global: { plugins: [router, ElementPlus] } });
+    await flushPromises();
+    expect(wrapper.text()).toContain("2 знижки");
+  });
+
   it("renders a clickable source link when site_url is present", async () => {
     offers.list.mockResolvedValueOnce({
       items: [{ id: 1, title: "T", provider: "P", type: "discount", status: "published", valid_until: null, site_url: "https://shop.example", article_url: null }],

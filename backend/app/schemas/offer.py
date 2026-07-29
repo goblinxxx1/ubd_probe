@@ -7,6 +7,28 @@ from app.models.enums import DiscountType, OfferStatus, OfferType, CreatedBy
 from app.schemas.category import CategoryOut
 
 
+class DiscountIn(BaseModel):
+    label: str | None = None
+    discount_type: DiscountType | None = None
+    discount_value: Decimal | None = None
+
+    @model_validator(mode="after")
+    def _check(self):
+        if self.discount_type in (DiscountType.percent, DiscountType.fixed):
+            if self.discount_value is None:
+                raise ValueError("discount_value required for percent/fixed discounts")
+        elif self.discount_value is not None:
+            raise ValueError("discount_value must be empty unless discount_type is percent/fixed")
+        return self
+
+
+class DiscountOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    label: str | None = None
+    discount_type: DiscountType | None = None
+    discount_value: Decimal | None = None
+
+
 class OfferBase(BaseModel):
     type: OfferType
     title: str
@@ -23,6 +45,7 @@ class OfferBase(BaseModel):
     image_url: str | None = None
     target_category_ids: list[int] = []
     offer_category_ids: list[int] = []
+    discounts: list[DiscountIn] = []
 
     @field_validator("site_url", "article_url", "target_url", mode="before")
     @classmethod
@@ -66,6 +89,7 @@ class OfferUpdate(BaseModel):
     image_url: str | None = None
     target_category_ids: list[int] | None = None
     offer_category_ids: list[int] | None = None
+    discounts: list[DiscountIn] | None = None
 
     @field_validator("site_url", "article_url", "target_url", mode="before")
     @classmethod
@@ -125,3 +149,4 @@ class OfferOut(BaseModel):
     last_seen_at: datetime | None = None
     target_categories: list[CategoryOut]
     offer_categories: list[CategoryOut]
+    discounts: list[DiscountOut] = []
