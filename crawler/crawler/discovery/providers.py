@@ -160,6 +160,13 @@ class SearxngProvider:
         self._delay = min_delay
         self._client_factory = client_factory or (lambda: httpx.Client(timeout=20))
         self._sleep = sleep
+        self._slice_ok = False
+
+    def reset_slice(self) -> None:
+        self._slice_ok = False
+
+    def slice_ok(self) -> bool:
+        return self._slice_ok
 
     def __call__(self, keyword: str) -> list[SourceCandidate]:
         if self._delay:
@@ -173,6 +180,7 @@ class SearxngProvider:
         except Exception as exc:  # noqa: BLE001 — search is best-effort
             log.warning("searxng search failed for %r: %s", keyword, exc)
             return []
+        self._slice_ok = True
         out: list[SourceCandidate] = []
         for r in (data.get("results") or [])[:self._n]:
             classified = classify_candidate(r.get("url", ""))

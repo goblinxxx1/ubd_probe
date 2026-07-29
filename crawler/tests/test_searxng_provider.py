@@ -37,3 +37,24 @@ def test_build_provider_supports_searxng():
     cfg = SimpleNamespace(search_providers=["searxng"], search_results_per_keyword=3,
                           search_min_delay=0, searxng_url="http://searxng:8080")
     assert callable(build_search_provider(cfg))
+
+
+def test_searxng_slice_ok_tracks_success_and_reset():
+    def ok_handler(req):
+        return httpx.Response(200, json={"results": [{"url": "https://a.example/", "title": "A"}]})
+    p = SearxngProvider("http://searxng:8080", min_delay=0,
+                        client_factory=_factory(ok_handler), sleep=lambda _s: None)
+    assert p.slice_ok() is False        # fresh
+    p("kw")
+    assert p.slice_ok() is True         # a successful query happened
+    p.reset_slice()
+    assert p.slice_ok() is False        # reset for next slice
+
+
+def test_searxng_slice_ok_stays_false_on_error():
+    def err_handler(req): return httpx.Response(500)
+    p = SearxngProvider("http://searxng:8080", min_delay=0,
+                        client_factory=_factory(err_handler), sleep=lambda _s: None)
+    p.reset_slice()
+    p("kw")
+    assert p.slice_ok() is False        # error must not mark the slice productive
