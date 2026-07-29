@@ -28,3 +28,14 @@ def test_filters_known():
     ad = ActiveDiscovery(budget=3, search_provider=provider)
     known = {normalize_ref("telegram", "t.me/known")}
     assert ad.run(["a"], known) == []
+
+
+def test_zero_budget_is_unlimited():
+    from crawler.models import SourceCandidate
+    calls = []
+    def provider(keyword):
+        calls.append(keyword)
+        return [SourceCandidate(name=keyword, type="telegram", url_or_handle=f"t.me/{keyword}")]
+    ad = ActiveDiscovery(budget=0, search_provider=provider)
+    ad.run(["a", "b", "c"], set())
+    assert calls == ["a", "b", "c"]     # 0 == unlimited, all keywords processed
