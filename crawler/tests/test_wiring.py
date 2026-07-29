@@ -30,27 +30,24 @@ def test_build_runner_wires_require_discount():
     assert runner._extractor._require_discount is True
 
 
-from crawler.discovery.query_grid import QueryGrid
 from crawler.discovery.search_state import SearchState
 
 
-def test_build_runner_rotates_query_grid_and_unions_pins(tmp_path):
+def test_build_runner_no_build_time_cursor_advance(tmp_path):
     state_path = str(tmp_path / "state.json")
     cfg = Config(
         internal_api_url="http://api", crawler_api_key="k", extractor="heuristic",
         active_discovery=True, request_timeout=5.0, min_delay_seconds=0.0,
         bot_accounts=[], proxies={},
-        search_providers=[],                 # provider None -> no network at build
+        search_providers=[],                 # no providers -> no plans, no SearchPass
         search_keywords=["мій пін"],
         search_state_path=state_path,
         search_queries_per_pass=3,
         brand_feed_enabled=False, osm_feed_enabled=False,
     )
     runner = build_runner(cfg)
-
-    expected_batch, expected_cursor = QueryGrid().next_batch(3, 0)
-    assert runner._keywords == expected_batch + ["мій пін"]
-    assert SearchState.load(state_path).grid_cursor == expected_cursor
+    assert runner._search_pass is None
+    assert SearchState.load(state_path).grid_cursor == 0    # cursor advances at RUN, not BUILD
 
 
 import json
@@ -96,10 +93,11 @@ def test_runner_unions_brand_feed_and_ddg_candidates():
         def expire_stale(self, days):
             return {"expired": 0}
 
-    class _Discovery:
-        def run(self, keywords, known):
+    class _SearchPass:
+        def run(self, known):
             return [SourceCandidate(name="ddg", type="website",
                                     url_or_handle="https://ddg.example")]
+        def provider_for_site_query(self): return None
 
     class _Feed:
         def candidates(self, known):
@@ -115,7 +113,7 @@ def test_runner_unions_brand_feed_and_ddg_candidates():
 
     harv = _Harvester()
     runner = Runner(_Api(), {}, extractor=None, rate_limiter=None,
-                    discovery=_Discovery(), keywords=["kw"], harvester=harv,
+                    search_pass=_SearchPass(), harvester=harv,
                     brand_feed=_Feed())
     runner.run()
     assert {c.name for c in harv.seen} == {"ddg", "OKKO"}
@@ -135,9 +133,9 @@ def test_runner_skips_harvest_when_no_candidates():
         def expire_stale(self, days):
             return {"expired": 0}
 
-    class _EmptyDiscovery:
-        def run(self, keywords, known):
-            return []
+    class _EmptySearchPass:
+        def run(self, known): return []
+        def provider_for_site_query(self): return None
 
     class _Harvester:
         def __init__(self):
@@ -148,7 +146,7 @@ def test_runner_skips_harvest_when_no_candidates():
 
     harv = _Harvester()
     runner = Runner(_Api(), {}, extractor=None, rate_limiter=None,
-                    discovery=_EmptyDiscovery(), keywords=["kw"], harvester=harv,
+                    search_pass=_EmptySearchPass(), harvester=harv,
                     brand_feed=None)
     runner.run()
     assert harv.called is False

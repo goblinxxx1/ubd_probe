@@ -187,3 +187,12 @@ def test_approved_cursor_defaults_zero_persists_and_is_independent(tmp_path):
     reloaded = SearchState.load(path)
     assert reloaded.approved_cursor == 4
     assert reloaded.site_cursor == 2      # independent cursors
+
+
+def test_searxng_cursor_sentinel_default_and_persist(tmp_path):
+    from crawler.discovery.search_state import SearchState
+    p = str(tmp_path / "s.json")
+    st = SearchState(p)
+    assert st.searxng_cursor == -1            # unseeded sentinel (offset applied at read-time)
+    st.set_searxng_cursor(7)
+    assert SearchState.load(p).searxng_cursor == 7   # persisted round-trip

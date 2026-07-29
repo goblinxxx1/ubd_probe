@@ -18,7 +18,7 @@ class ActiveDiscovery:
         seen: set[tuple[str, str]] = set()
         used = 0
         for kw in keywords:
-            if used >= self._budget:
+            if self._budget and used >= self._budget:
                 break
             used += 1
             try:

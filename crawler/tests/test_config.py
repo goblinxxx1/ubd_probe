@@ -23,7 +23,7 @@ def test_load_config_parses_accounts_and_flags(monkeypatch):
 
 def test_active_fetch_budget_default(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)      # no .env -> defaults apply
-    assert load_config().active_fetch_budget == 20
+    assert load_config().active_fetch_budget == 80
 
 
 def test_search_antithrottle_defaults(monkeypatch, tmp_path):
@@ -31,7 +31,7 @@ def test_search_antithrottle_defaults(monkeypatch, tmp_path):
     cfg = load_config()
     assert cfg.search_backends == ["google", "startpage", "duckduckgo", "yahoo", "brave"]
     assert cfg.search_state_path == "/data/search_state.json"
-    assert cfg.search_cache_ttl_hours == 168
+    assert cfg.search_cache_ttl_hours == 96
     assert cfg.search_min_delay == 45.0
     assert cfg.search_jitter == 0.5
     assert cfg.search_backend_cooldown_base_seconds == 300.0
@@ -158,8 +158,8 @@ def test_osm_feed_defaults(monkeypatch, tmp_path):
     assert cfg.osm_feed_refresh_hours == 336
     assert cfg.osm_feed_per_pass == 20
     assert cfg.osm_domains_path == "/data/osm_domains.json"
-    assert cfg.osm_feed_max_domains == 500
-    assert cfg.osm_min_pois == 2
+    assert cfg.osm_feed_max_domains == 1500
+    assert cfg.osm_min_pois == 1
 
 
 def test_osm_feed_env_overrides(monkeypatch, tmp_path):

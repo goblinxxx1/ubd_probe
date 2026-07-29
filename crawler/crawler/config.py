@@ -23,13 +23,13 @@ class _RawSettings(BaseSettings):
     search_min_delay: float = 45.0
     search_backends: str = "google,startpage,duckduckgo,yahoo,brave"
     search_state_path: str = "/data/search_state.json"
-    search_cache_ttl_hours: int = 168
+    search_cache_ttl_hours: int = 96
     search_jitter: float = 0.5
     search_backend_cooldown_base_seconds: float = 300.0
     search_backend_cooldown_cap_seconds: float = 21600.0
     search_global_backoff_hours: float = 6.0
     search_budget: int = 0  # 0 = process all keywords
-    active_fetch_budget: int = 20
+    active_fetch_budget: int = 80
     search_queries_per_pass: int = 40
     site_query_enabled: bool = True
     site_query_budget: int = 5
@@ -45,8 +45,8 @@ class _RawSettings(BaseSettings):
     osm_feed_refresh_hours: int = 336
     osm_feed_per_pass: int = 20
     osm_domains_path: str = "/data/osm_domains.json"
-    osm_feed_max_domains: int = 500
-    osm_min_pois: int = 2
+    osm_feed_max_domains: int = 1500
+    osm_min_pois: int = 1
     osm_feed_query_timeout: float = 200.0
     aggregator_feed_enabled: bool = True
     aggregator_feed_per_pass: int = 20
@@ -107,13 +107,13 @@ class Config:
     search_min_delay: float = 45.0
     search_backends: list[str] = field(default_factory=list)
     search_state_path: str = "/data/search_state.json"
-    search_cache_ttl_hours: int = 168
+    search_cache_ttl_hours: int = 96
     search_jitter: float = 0.5
     search_backend_cooldown_base_seconds: float = 300.0
     search_backend_cooldown_cap_seconds: float = 21600.0
     search_global_backoff_hours: float = 6.0
     search_budget: int | None = None
-    active_fetch_budget: int = 20
+    active_fetch_budget: int = 80
     search_queries_per_pass: int = 40
     site_query_enabled: bool = True
     site_query_budget: int = 5
@@ -129,8 +129,8 @@ class Config:
     osm_feed_refresh_hours: int = 336
     osm_feed_per_pass: int = 20
     osm_domains_path: str = "/data/osm_domains.json"
-    osm_feed_max_domains: int = 500
-    osm_min_pois: int = 2
+    osm_feed_max_domains: int = 1500
+    osm_min_pois: int = 1
     osm_feed_query_timeout: float = 200.0
     aggregator_feed_enabled: bool = True
     aggregator_feed_per_pass: int = 20

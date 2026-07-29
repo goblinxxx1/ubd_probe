@@ -1,8 +1,9 @@
 """Offline curated query grid: generate DDG search phrases from vocabulary axes.
 
-v1 templates only: "{intent} {audience}" and "{brand} {audience}". Cities are
-NOT a query axis (they live in geo.py for extraction). Deterministic, stable
-order — the same technique as lexicon.py/geo.py: curated tuples, no ML."""
+v1 template: "{intent} {audience}" only. Brands are not a query axis — brand
+DOMAINS are covered directly by brand_feed. Cities are NOT a query axis either
+(they live in geo.py for extraction). Deterministic, stable order — the same
+technique as lexicon.py/geo.py: curated tuples, no ML."""
 
 # Audience surface forms (map onto the 7 canonical TARGET_LEXICON slugs).
 AUDIENCE_FORMS = (
@@ -35,10 +36,14 @@ BRANDS = (
 
 
 def build_grid() -> list[str]:
-    """All "{intent} {audience}" then all "{brand} {audience}", deduped, stable order."""
+    """All "{intent} {audience}" phrases, deduped, stable order.
+
+    Brands are NOT a query axis — brand DOMAINS are covered directly by brand_feed
+    (BRAND_SEEDS ≡ BRANDS, resolved to domains and fetched each pass), so brand
+    search queries were redundant. The BRANDS tuple stays for brand_feed's use."""
     seen: set[str] = set()
     out: list[str] = []
-    for head in (*INTENT_FORMS, *BRANDS):
+    for head in INTENT_FORMS:
         for aud in AUDIENCE_FORMS:
             q = f"{head} {aud}".strip()
             key = q.casefold()

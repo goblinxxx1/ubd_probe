@@ -1,11 +1,14 @@
 import logging
 import random
 import time
+from dataclasses import dataclass
+from typing import Callable
 from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
 
 import httpx
 from ddgs import DDGS
 
+from crawler.discovery.active import ActiveDiscovery
 from crawler.discovery.search_state import SearchState
 from crawler.models import SourceCandidate
 from crawler.util.hosts import bare_host
@@ -160,6 +163,13 @@ class SearxngProvider:
         self._delay = min_delay
         self._client_factory = client_factory or (lambda: httpx.Client(timeout=20))
         self._sleep = sleep
+        self._slice_ok = False
+
+    def reset_slice(self) -> None:
+        self._slice_ok = False
+
+    def slice_ok(self) -> bool:
+        return self._slice_ok
 
     def __call__(self, keyword: str) -> list[SourceCandidate]:
         if self._delay:
@@ -173,6 +183,7 @@ class SearxngProvider:
         except Exception as exc:  # noqa: BLE001 — search is best-effort
             log.warning("searxng search failed for %r: %s", keyword, exc)
             return []
+        self._slice_ok = True
         out: list[SourceCandidate] = []
         for r in (data.get("results") or [])[:self._n]:
             classified = classify_candidate(r.get("url", ""))
@@ -185,9 +196,23 @@ class SearxngProvider:
         return out
 
 
-def build_search_provider(config, state=None):
-    """Combine enabled search providers into one callable, or None."""
-    providers = []
+@dataclass
+class SearchProviderPlan:
+    """One search provider bound to its own ActiveDiscovery, grid cursor, and
+    per-slice success check. Consumed by SearchPass to run providers sequentially
+    over distinct grid slices with advance-on-success."""
+    name: str
+    discovery: ActiveDiscovery
+    cursor_key: str
+    include_pins: bool
+    succeeded: Callable[[], bool]
+    reset: Callable[[], None]
+
+
+def build_search_plans(config, state=None) -> list[SearchProviderPlan]:
+    """Build one plan per enabled search provider (no combine/fan-out)."""
+    plans: list[SearchProviderPlan] = []
+    budget = config.search_budget or 0        # 0 == unlimited (slice already bounds it)
     for name in config.search_providers:
         if name == "duckduckgo":
             if state is None:
@@ -199,22 +224,23 @@ def build_search_provider(config, state=None):
                 cooldown_base=config.search_backend_cooldown_base_seconds,
                 cooldown_cap=config.search_backend_cooldown_cap_seconds,
                 global_backoff_seconds=config.search_global_backoff_hours * 3600)
-            providers.append(SearchCache(rotating, state,
-                                         config.search_cache_ttl_hours * 3600))
+            provider = SearchCache(rotating, state, config.search_cache_ttl_hours * 3600)
+            plans.append(SearchProviderPlan(
+                name="duckduckgo",
+                discovery=ActiveDiscovery(budget=budget, search_provider=provider),
+                cursor_key="grid_cursor", include_pins=True,
+                succeeded=(lambda st=state: not st.in_global_backoff()),
+                reset=(lambda: None)))
         elif name == "searxng":
-            providers.append(SearxngProvider(
+            sx = SearxngProvider(
                 base_url=config.searxng_url,
                 results_per_keyword=config.search_results_per_keyword,
-                min_delay=config.search_min_delay))
+                min_delay=config.search_min_delay)
+            plans.append(SearchProviderPlan(
+                name="searxng",
+                discovery=ActiveDiscovery(budget=budget, search_provider=sx),
+                cursor_key="searxng_cursor", include_pins=False,
+                succeeded=sx.slice_ok, reset=sx.reset_slice))
         else:
             log.warning("unknown search provider %r, ignoring", name)
-    if not providers:
-        return None
-
-    def combined(keyword):
-        out = []
-        for p in providers:
-            out.extend(p(keyword))
-        return out
-
-    return combined
+    return plans

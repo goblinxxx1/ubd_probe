@@ -15,11 +15,22 @@ def _cfg(tmp_path, **over):
     return SimpleNamespace(**base)
 
 
-def test_plans_for_known_provider(tmp_path):
+def test_ddg_only_plan(tmp_path):
     plans = build_search_plans(_cfg(tmp_path))
     assert [p.name for p in plans] == ["duckduckgo"]
+    p = plans[0]
+    assert p.cursor_key == "grid_cursor"
+    assert p.include_pins is True
 
 
-def test_no_plans_for_unknown_or_empty(tmp_path):
+def test_ddg_and_searxng_plans_distinct_cursors(tmp_path):
+    plans = build_search_plans(_cfg(tmp_path, search_providers=["duckduckgo", "searxng"]))
+    assert [p.name for p in plans] == ["duckduckgo", "searxng"]
+    assert {p.cursor_key for p in plans} == {"grid_cursor", "searxng_cursor"}
+    sx = [p for p in plans if p.name == "searxng"][0]
+    assert sx.include_pins is False          # pins only on DDG
+
+
+def test_no_known_providers_yields_empty(tmp_path):
     assert build_search_plans(_cfg(tmp_path, search_providers=[])) == []
-    assert build_search_plans(_cfg(tmp_path, search_providers=["unknown"])) == []
+    assert build_search_plans(_cfg(tmp_path, search_providers=["nope"])) == []

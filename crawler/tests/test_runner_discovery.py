@@ -13,11 +13,12 @@ class FakeApi:
     def submit_suggestion(self, p): self.suggested.append(p); return {}
 
 
-class FakeDiscovery:
+class FakeSearchPass:
     def __init__(self, cands): self._cands = cands; self.called_with = None
-    def run(self, keywords, known):
-        self.called_with = (keywords, set(known))
+    def run(self, known):
+        self.called_with = set(known)
         return self._cands
+    def provider_for_site_query(self): return None
 
 
 class FakeHarvester:
@@ -27,16 +28,16 @@ class FakeHarvester:
         summary["offers"] += len(candidates)
 
 
-def _runner(api, discovery, harvester):
-    return Runner(api, {}, extractor=None, rate_limiter=None, discovery=discovery,
-                  keywords=["знижки ветеранам"], harvester=harvester)
+def _runner(api, search_pass, harvester):
+    return Runner(api, {}, extractor=None, rate_limiter=None, search_pass=search_pass,
+                  harvester=harvester)
 
 
 def test_runner_delegates_active_candidates_to_harvester():
     api = FakeApi()
     cand = SourceCandidate(name="Cafe", type="website", url_or_handle="https://cafe.example")
     h = FakeHarvester()
-    summary = _runner(api, FakeDiscovery([cand]), h).run()
+    summary = _runner(api, FakeSearchPass([cand]), h).run()
     assert h.calls == [[cand]]
     assert summary["offers"] == 1
     assert api.suggested == []          # no blind per-result suggestions anymore
@@ -45,7 +46,7 @@ def test_runner_delegates_active_candidates_to_harvester():
 def test_runner_without_harvester_emits_nothing():
     api = FakeApi()
     cand = SourceCandidate(name="Cafe", type="website", url_or_handle="https://cafe.example")
-    _runner(api, FakeDiscovery([cand]), None).run()
+    _runner(api, FakeSearchPass([cand]), None).run()
     assert api.offers == [] and api.suggested == []
 
 
