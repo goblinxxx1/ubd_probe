@@ -155,4 +155,31 @@ describe("OfferCard", () => {
     });
     expect(w.get(".card__meta").text()).toBe("Київ · Львів");
   });
+
+  it("renders each discount with its label", () => {
+    const w = mountCard({
+      id: 21, provider: "Кафе", type: "discount",
+      discount_type: "percent", discount_value: 15,
+      discounts: [
+        { label: "МВС", discount_type: "percent", discount_value: 10 },
+        { label: "ЗСУ", discount_type: "percent", discount_value: 15 },
+      ],
+      target_categories: [], offer_categories: [], locations: [],
+    });
+    const text = w.text();
+    expect(text).toContain("МВС");
+    expect(text).toContain("ЗСУ");
+    expect(text).toContain("−10%");
+    expect(text).toContain("−15%");
+  });
+
+  it("hides the discount list when there is only one discount", () => {
+    const w = mountCard({
+      id: 22, provider: "Кафе", type: "discount",
+      discount_type: "percent", discount_value: 15,
+      discounts: [{ label: "МВС", discount_type: "percent", discount_value: 15 }],
+      target_categories: [], offer_categories: [], locations: [],
+    });
+    expect(w.find(".card__discounts").exists()).toBe(false);
+  });
 });
