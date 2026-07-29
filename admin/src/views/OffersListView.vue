@@ -117,6 +117,9 @@ defineExpose({ onPublish, onReject, onDelete, load, applyFilters, items, tab });
         <el-tag v-if="row.status === 'pending_review' && supersedeSummary(row)" size="small" type="warning" style="margin-top: 4px">
           {{ supersedeSummary(row) }}
         </el-tag>
+        <el-tag v-if="row.discounts?.length > 1" size="small" style="margin-top: 4px; margin-left: 4px">
+          {{ `${row.discounts.length} знижок` }}
+        </el-tag>
       </template>
       <template #col-type="{ row }">{{ enumLabel(OFFER_TYPES, row.type) }}</template>
       <template #col-status="{ row }">

@@ -30,6 +30,7 @@ function fromInitial(o) {
     image_url: o?.image_url || "",
     target_category_ids: o?.target_categories ? o.target_categories.map((c) => c.id) : [],
     offer_category_ids: o?.offer_categories ? o.offer_categories.map((c) => c.id) : [],
+    discounts: o?.discounts ? o.discounts.map((d) => ({ ...d })) : [],
   };
 }
 
@@ -57,6 +58,13 @@ function submit() {
   emit("submit", buildOfferPayload(form));
 }
 
+function addDiscount() {
+  form.discounts.push({ label: "", discount_type: "percent", discount_value: null });
+}
+function removeDiscount(i) {
+  form.discounts.splice(i, 1);
+}
+
 const canPublish = computed(() => props.initial?.id && props.initial?.status !== "published");
 
 function submitPublish() {
@@ -68,7 +76,7 @@ function submitPublish() {
   emit("submit-publish", buildOfferPayload(form));
 }
 
-defineExpose({ form, submit, submitPublish, canPublish });
+defineExpose({ form, submit, submitPublish, canPublish, addDiscount, removeDiscount });
 </script>
 
 <template>
@@ -115,6 +123,20 @@ defineExpose({ form, submit, submitPublish, canPublish });
       <el-form-item v-if="showValue" label="Величина знижки">
         <el-input-number v-model="form.discount_value" :min="0" />
       </el-form-item>
+      <el-form-item label="Знижки на сторінці (кому — скільки)">
+        <div class="discount-rows">
+          <div v-for="(d, i) in form.discounts" :key="i" class="discount-row">
+            <el-input v-model="d.label" placeholder="Кому/за що" style="flex: 1" />
+            <el-select v-model="d.discount_type" style="width: 130px">
+              <el-option v-for="opt in DISCOUNT_TYPES" :key="opt.value" :label="opt.label" :value="opt.value" />
+            </el-select>
+            <el-input-number v-if="d.discount_type === 'percent' || d.discount_type === 'fixed'"
+                             v-model="d.discount_value" :min="0" />
+            <el-button text type="danger" @click="removeDiscount(i)">✕</el-button>
+          </div>
+          <el-button size="small" @click="addDiscount">+ Додати знижку</el-button>
+        </div>
+      </el-form-item>
     </template>
     <el-form-item label="Сайт">
       <el-input v-model="form.site_url" placeholder="https://…" />
@@ -140,6 +162,8 @@ defineExpose({ form, submit, submitPublish, canPublish });
 @import "@/styles/variables.less";
 .offer-form { max-width: 640px; }
 .actions { display: flex; gap: 8px; }
+.discount-rows { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+.discount-row { display: flex; align-items: center; gap: 8px; }
 
 @media (max-width: @bp-mobile) {
   :deep(.el-select), :deep(.el-input), :deep(.el-input-number) { width: 100%; }
