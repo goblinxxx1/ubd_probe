@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.core.errors import not_found, validation_error
 from app.core.urlnorm import canonicalize_target_url
-from app.models import Offer, OfferCategory, OfferLocation, TargetCategory
+from app.models import Offer, OfferCategory, OfferDiscount, OfferLocation, TargetCategory
 from app.models.enums import CreatedBy, DiscountType, OfferStatus, OfferType
 from app.schemas.offer import OfferCreate, OfferUpdate
 
@@ -25,7 +25,21 @@ def _load_categories(db: Session, target_ids, offer_ids):
     return targets, offers
 
 
-def _apply_content(obj, data, canon, content_hash, targets, offers, mk_link):
+def _discount_rows(data):
+    """Discount rows for an offer: the payload list, else a single synthesized entry
+    from the top-level discount, else empty (event / no-discount)."""
+    from app.models import OfferDiscount
+    if getattr(data, "discounts", None):
+        return [OfferDiscount(label=d.label, discount_type=d.discount_type,
+                              discount_value=d.discount_value, sort_order=i)
+                for i, d in enumerate(data.discounts)]
+    if data.discount_type is not None:
+        return [OfferDiscount(label=None, discount_type=data.discount_type,
+                              discount_value=data.discount_value, sort_order=0)]
+    return []
+
+
+def _apply_content(obj, data, canon, canon_article, content_hash, targets, offers, mk_link):
     obj.type = data.type
     obj.title = data.title
     obj.description = data.description
@@ -40,9 +54,11 @@ def _apply_content(obj, data, canon, content_hash, targets, offers, mk_link):
     obj.image_url = data.image_url
     obj.target_url = data.target_url
     obj.target_url_canonical = canon
+    obj.article_url_canonical = canon_article
     obj.content_hash = content_hash
     obj.target_categories = targets
     obj.offer_categories = offers
+    obj.discounts = _discount_rows(data)
     obj.links = [mk_link()]
     obj.last_seen_at = datetime.utcnow()
 
@@ -57,6 +73,7 @@ def create_offer(db: Session, data: OfferCreate, created_by: CreatedBy,
                          article_url=data.article_url)
 
     canon = canonicalize_target_url(data.target_url) if data.target_url else None
+    canon_article = canonicalize_target_url(data.article_url) if data.article_url else None
     crawler = created_by == CreatedBy.crawler
 
     # 1) Unchanged (or idempotent repeat of an existing shadow): same source + content_hash.
@@ -89,11 +106,11 @@ def create_offer(db: Session, data: OfferCreate, created_by: CreatedBy,
             return existing
 
     # Same-source change detection needs a canonical key and a source.
-    if crawler and canon and source_id is not None:
-        # 2) Change of a live (published) offer from this same source+target -> shadow.
+    if crawler and canon_article and source_id is not None:
+        # 2) Change of a live (published) offer from this same source+page -> shadow.
         parent = (db.query(Offer)
                   .filter(Offer.source_id == source_id,
-                          Offer.target_url_canonical == canon,
+                          Offer.article_url_canonical == canon_article,
                           Offer.status == OfferStatus.published)
                   .order_by(Offer.id).first())
         if parent is not None:
@@ -123,7 +140,7 @@ def create_offer(db: Session, data: OfferCreate, created_by: CreatedBy,
                 shadow = Offer(status=OfferStatus.pending_review, created_by=CreatedBy.crawler,
                                source_id=source_id, supersedes_offer_id=parent.id)
                 db.add(shadow)
-            _apply_content(shadow, data, canon, content_hash, targets, offers, _mk_link)
+            _apply_content(shadow, data, canon, canon_article, content_hash, targets, offers, _mk_link)
             parent.last_seen_at = datetime.utcnow()
             db.commit()
             db.refresh(shadow)
@@ -132,13 +149,13 @@ def create_offer(db: Session, data: OfferCreate, created_by: CreatedBy,
         # 3) First submission still pending (not yet approved) -> update in place, no shadow.
         pending = (db.query(Offer)
                    .filter(Offer.source_id == source_id,
-                           Offer.target_url_canonical == canon,
+                           Offer.article_url_canonical == canon_article,
                            Offer.status == OfferStatus.pending_review,
                            Offer.supersedes_offer_id.is_(None))
                    .order_by(Offer.id).first())
         if pending is not None:
             targets, offers = _load_categories(db, data.target_category_ids, data.offer_category_ids)
-            _apply_content(pending, data, canon, content_hash, targets, offers, _mk_link)
+            _apply_content(pending, data, canon, canon_article, content_hash, targets, offers, _mk_link)
             db.commit()
             db.refresh(pending)
             return pending
@@ -163,10 +180,12 @@ def create_offer(db: Session, data: OfferCreate, created_by: CreatedBy,
         valid_from=data.valid_from, valid_until=data.valid_until,
         discount_type=data.discount_type, discount_value=data.discount_value,
         site_url=data.site_url, article_url=data.article_url, image_url=data.image_url,
-        target_url=data.target_url, target_url_canonical=canon, source_id=source_id,
+        target_url=data.target_url, target_url_canonical=canon,
+        article_url_canonical=canon_article, source_id=source_id,
         status=status, created_by=created_by, content_hash=content_hash,
         last_seen_at=datetime.utcnow(),
         target_categories=targets, offer_categories=offers,
+        discounts=_discount_rows(data),
         links=[_mk_link()],
     )
     obj.location_names = _norm_locations(data.locations)
