@@ -46,6 +46,7 @@ class OfferCandidate:
     target_category_ids: list[int] = field(default_factory=list)
     offer_category_ids: list[int] = field(default_factory=list)
     offer_category_matches: list[tuple[str, str]] = field(default_factory=list)
+    discounts: list[dict] = field(default_factory=list)
 
 
 @dataclass
