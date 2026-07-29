@@ -1,5 +1,5 @@
 from crawler.discovery.query_grid import (
-    AUDIENCE_FORMS, INTENT_FORMS, BRANDS, build_grid, merge_queries)
+    AUDIENCE_FORMS, INTENT_FORMS, build_grid, merge_queries)
 
 
 def test_grid_size_matches_intent_axis_only():
