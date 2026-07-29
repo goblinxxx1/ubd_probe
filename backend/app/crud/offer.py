@@ -28,7 +28,6 @@ def _load_categories(db: Session, target_ids, offer_ids):
 def _discount_rows(data):
     """Discount rows for an offer: the payload list, else a single synthesized entry
     from the top-level discount, else empty (event / no-discount)."""
-    from app.models import OfferDiscount
     if getattr(data, "discounts", None):
         return [OfferDiscount(label=d.label, discount_type=d.discount_type,
                               discount_value=d.discount_value, sort_order=i)

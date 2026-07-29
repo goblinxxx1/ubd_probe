@@ -91,7 +91,7 @@ describe("OffersListView", () => {
     await router.isReady();
     const wrapper = mount(OffersListView, { global: { plugins: [router, ElementPlus] } });
     await flushPromises();
-    expect(wrapper.text()).toContain("2 знижок");
+    expect(wrapper.text()).toContain("2 знижки");
   });
 
   it("renders a clickable source link when site_url is present", async () => {
