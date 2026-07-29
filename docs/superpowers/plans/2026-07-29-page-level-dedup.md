@@ -254,38 +254,19 @@ git commit -m "feat(backend): discount schemas + Offer.article_url_canonical col
 
 **Files:**
 - Create: `backend/alembic/versions/e5f6a7b8c9d0_offer_discounts_and_article_canonical.py`
-- Test: `backend/tests/test_migration_offer_discounts.py`
 
 **Interfaces:**
 - Consumes: `OfferDiscount` model, `Offer.article_url_canonical` (Tasks 1–2).
 - Produces: table `offer_discounts`, column `offers.article_url_canonical` + index; both backfilled.
 
-- [ ] **Step 1: Write the failing test**
+**Note on testing:** the backend test DB (`conftest.py`) is built with
+`Base.metadata.create_all`, NOT via alembic — so a pytest "does the table
+exist" check would only assert the model metadata (already covered by Tasks
+1–2 tests) and would say nothing about the migration. The correct
+verification for a migration is an **alembic round-trip against the real dev
+DB** (Step 2). No new pytest file for this task.
 
-```python
-# backend/tests/test_migration_offer_discounts.py
-import sqlalchemy as sa
-
-from app.core.db import engine
-
-
-def test_offer_discounts_table_and_article_canonical_exist():
-    insp = sa.inspect(engine)
-    assert "offer_discounts" in insp.get_table_names()
-    cols = {c["name"] for c in insp.get_columns("offer_discounts")}
-    assert {"offer_id", "label", "discount_type", "discount_value", "sort_order"} <= cols
-    offer_cols = {c["name"] for c in insp.get_columns("offers")}
-    assert "article_url_canonical" in offer_cols
-```
-
-Note: the test DB in `conftest.py` is created via `Base.metadata.create_all` (models), so this test passes once the model tasks land; it guards that migration and model stay in sync. Verify the migration separately in Step 4.
-
-- [ ] **Step 2: Run test to verify it fails or passes-by-model**
-
-Run: `cd backend && python -m pytest tests/test_migration_offer_discounts.py -v`
-Expected: PASS if Tasks 1–2 landed (metadata has the table). If it FAILS, the model wiring is incomplete — fix before continuing.
-
-- [ ] **Step 3: Write the migration**
+- [ ] **Step 1: Write the migration**
 
 ```python
 # backend/alembic/versions/e5f6a7b8c9d0_offer_discounts_and_article_canonical.py
@@ -357,20 +338,15 @@ def downgrade() -> None:
     op.drop_column("offers", "article_url_canonical")
 ```
 
-- [ ] **Step 4: Verify migration applies cleanly on a scratch MySQL (or the dev DB)**
+- [ ] **Step 2: Verify migration applies cleanly on the dev DB (round-trip)**
 
-Run: `cd backend && alembic upgrade head && alembic downgrade -1 && alembic upgrade head`
-Expected: no errors; `alembic current` reports `e5f6a7b8c9d0`.
+Run (from `backend/`, with the venv): `./.venv/Scripts/python.exe -m alembic upgrade head && ./.venv/Scripts/python.exe -m alembic downgrade -1 && ./.venv/Scripts/python.exe -m alembic upgrade head && ./.venv/Scripts/python.exe -m alembic current`
+Expected: no errors; `alembic current` reports `e5f6a7b8c9d0 (head)`. The down-then-up proves both `upgrade()` and `downgrade()` are correct. This round-trip IS the task's test.
 
-- [ ] **Step 5: Run the guard test**
-
-Run: `cd backend && python -m pytest tests/test_migration_offer_discounts.py -v`
-Expected: PASS.
-
-- [ ] **Step 6: Commit**
+- [ ] **Step 3: Commit**
 
 ```bash
-git add backend/alembic/versions/e5f6a7b8c9d0_offer_discounts_and_article_canonical.py backend/tests/test_migration_offer_discounts.py
+git add backend/alembic/versions/e5f6a7b8c9d0_offer_discounts_and_article_canonical.py
 git commit -m "feat(backend): migration for offer_discounts + article_url_canonical + backfill"
 ```
 
