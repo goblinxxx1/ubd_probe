@@ -58,5 +58,5 @@ def aggregate_page(cands: list[OfferCandidate]) -> OfferCandidate | None:
         discount_type=dtype,
         discount_value=dval,
         offer_category_ids=[],
-        content_hash=page_content_hash(head.title, head.provider, discounts),
+        content_hash=page_content_hash(head.title, head.provider, head.article_url, discounts),
     )

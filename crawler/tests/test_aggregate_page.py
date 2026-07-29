@@ -39,3 +39,15 @@ def test_aggregate_dedups_identical_discounts_and_hash_is_order_independent():
 
 def test_aggregate_empty_returns_none():
     assert aggregate_page([]) is None
+
+
+def test_aggregate_content_hash_differs_by_article_url():
+    a = _c(article_url="https://ex.com/page-1",
+           discounts=[{"label": "МВС", "discount_type": "percent", "discount_value": "10"}],
+           discount_type="percent", discount_value="10")
+    b = _c(article_url="https://ex.com/page-2",
+           discounts=[{"label": "МВС", "discount_type": "percent", "discount_value": "10"}],
+           discount_type="percent", discount_value="10")
+    out_a = aggregate_page([a])
+    out_b = aggregate_page([b])
+    assert out_a.content_hash != out_b.content_hash

@@ -162,19 +162,23 @@ class Runner:
         self._api.set_crawl_state(source["id"], last_key)
 
     def _process_page(self, items, source, cats, known, summary):
-        collected = []
+        groups, order = {}, []
         for item in items:
             cand = self._extractor.extract(item, source["name"], cats)
             if self._corpus is not None:
                 self._corpus.record(item, cand is not None)
             if cand is not None:
-                collected.append(cand)
+                key = cand.article_url
+                if key not in groups:
+                    groups[key] = []
+                    order.append(key)
+                groups[key].append(cand)
             for sc in extract_source_candidates(item, known):
                 self._api.submit_suggestion(suggestion_payload(sc))
                 known.add(normalize_ref(sc.type, sc.url_or_handle))
                 summary["suggestions"] += 1
-        if collected:
-            page = aggregate_page(collected)
+        for key in order:
+            page = aggregate_page(groups[key])
             page.offer_category_ids = resolve_offer_categories(
                 self._api, cats, page.offer_category_matches)
             self._api.submit_offer(offer_payload(page))

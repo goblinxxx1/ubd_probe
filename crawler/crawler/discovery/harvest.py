@@ -109,11 +109,19 @@ class ActiveHarvester:
             collected.append((offer, attr))
         if not collected:
             return
-        page_offer = aggregate_page([o for o, _ in collected])
-        page_offer.offer_category_ids = resolve_offer_categories(
-            self._api, cats, page_offer.offer_category_matches)
-        self._api.submit_offer(offer_payload(page_offer))
-        summary["offers"] += 1
+        groups, order = {}, []
+        for offer, attr in collected:
+            key = offer.article_url
+            if key not in groups:
+                groups[key] = []
+                order.append(key)
+            groups[key].append(offer)
+        for key in order:
+            page_offer = aggregate_page(groups[key])
+            page_offer.offer_category_ids = resolve_offer_categories(
+                self._api, cats, page_offer.offer_category_matches)
+            self._api.submit_offer(offer_payload(page_offer))
+            summary["offers"] += 1
         for _, attr in collected:
             if attr.suggest_url_or_handle:
                 s_ref = normalize_ref(attr.suggest_type, attr.suggest_url_or_handle)
