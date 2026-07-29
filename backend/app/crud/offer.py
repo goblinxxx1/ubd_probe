@@ -233,12 +233,18 @@ def update_offer(db: Session, offer_id: int, data: OfferUpdate) -> Offer:
     target_ids = payload.pop("target_category_ids", None)
     offer_ids = payload.pop("offer_category_ids", None)
     locations = payload.pop("locations", None)
+    discounts = payload.pop("discounts", None)
     for field, value in payload.items():
         setattr(obj, field, value)
     if locations is not None:
         obj.location_names = _norm_locations(locations)
     if "target_url" in payload:
         obj.target_url_canonical = canonicalize_target_url(obj.target_url)
+    if "article_url" in payload:
+        obj.article_url_canonical = (canonicalize_target_url(obj.article_url)
+                                     if obj.article_url else None)
+    if discounts is not None:
+        obj.discounts = _discount_rows(data)
     # Public renders offer.links (offer_links table), not the offer-level columns — keep the
     # offer's link(s) in sync so admin edits to provider/site_url/article_url reach the public site.
     if any(k in payload for k in ("provider", "site_url", "article_url")):
