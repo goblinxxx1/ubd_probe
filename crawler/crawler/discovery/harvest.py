@@ -4,6 +4,7 @@ from crawler.discovery.attribution import attribute, build_page_ctx, _outbound_h
 from crawler.discovery.blocklist import is_blocked_host
 from crawler.discovery.brand_feed import _host
 from crawler.discovery.passive import normalize_ref
+from crawler.extract.aggregate import aggregate_page
 from crawler.extract.categories import resolve_offer_categories
 from crawler.payloads import offer_payload
 
@@ -98,16 +99,22 @@ class ActiveHarvester:
             hosts = _outbound_hosts(passing)
             if hosts:
                 self._aggregator_store.add(hosts, self._aggregator_max_domains)
+        collected = []
         for item in passing:
             attr = attribute(item, ctx, hardening_enabled=self._hardening_enabled,
                              aggregator_min_outbound=self._aggregator_min_outbound)
             if attr is None:
                 continue
             offer = self._extractor.extract(item, attr.provider, cats)
-            offer.offer_category_ids = resolve_offer_categories(
-                self._api, cats, offer.offer_category_matches)
-            self._api.submit_offer(offer_payload(offer))
-            summary["offers"] += 1
+            collected.append((offer, attr))
+        if not collected:
+            return
+        page_offer = aggregate_page([o for o, _ in collected])
+        page_offer.offer_category_ids = resolve_offer_categories(
+            self._api, cats, page_offer.offer_category_matches)
+        self._api.submit_offer(offer_payload(page_offer))
+        summary["offers"] += 1
+        for _, attr in collected:
             if attr.suggest_url_or_handle:
                 s_ref = normalize_ref(attr.suggest_type, attr.suggest_url_or_handle)
                 if s_ref not in known:
