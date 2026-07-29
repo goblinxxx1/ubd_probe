@@ -1,0 +1,53 @@
+from crawler.discovery.search_pass import SearchPass
+from crawler.discovery.search_state import SearchState
+from crawler.discovery.query_grid import QueryGrid
+from crawler.models import SourceCandidate
+
+
+class _Disc:
+    """Fake ActiveDiscovery: records keyword lists, returns one candidate."""
+    def __init__(self): self.calls = []
+    def run(self, keywords, known):
+        self.calls.append(list(keywords))
+        return [SourceCandidate(name="c", type="website", url_or_handle="https://c.example")]
+
+
+class _Plan:
+    def __init__(self, name, cursor_key, include_pins, ok):
+        self.name = name; self.discovery = _Disc(); self.cursor_key = cursor_key
+        self.include_pins = include_pins; self._ok = ok; self.reset_calls = 0
+    def succeeded(self): return self._ok
+    def reset(self): self.reset_calls += 1
+
+
+def _grid(): return QueryGrid([f"q{i}" for i in range(10)])
+
+
+def test_providers_get_distinct_slices_and_pins(tmp_path):
+    st = SearchState(str(tmp_path / "s.json"))
+    ddg = _Plan("duckduckgo", "grid_cursor", True, ok=True)
+    sx = _Plan("searxng", "searxng_cursor", False, ok=True)
+    sp = SearchPass([ddg, sx], st, _grid(), queries_per_pass=3, static_keywords=["пін"])
+    sp.run(set())
+    # DDG starts at grid_cursor 0 -> q0..q2 + pin; SearXNG seeded at len//2=5 -> q5..q7, no pin
+    assert ddg.discovery.calls == [["q0", "q1", "q2", "пін"]]
+    assert sx.discovery.calls == [["q5", "q6", "q7"]]
+
+
+def test_advance_on_success_moves_only_successful_cursor(tmp_path):
+    st = SearchState(str(tmp_path / "s.json"))
+    ddg = _Plan("duckduckgo", "grid_cursor", True, ok=True)
+    sx = _Plan("searxng", "searxng_cursor", False, ok=False)   # searxng failed this pass
+    sp = SearchPass([ddg, sx], st, _grid(), queries_per_pass=3)
+    sp.run(set())
+    assert st.grid_cursor == 3            # DDG advanced 0 -> 3
+    assert st.searxng_cursor == -1        # SearXNG stayed unseeded (no advance on failure)
+    assert ddg.reset_calls == 1 and sx.reset_calls == 1   # reset called each pass
+
+
+def test_provider_for_site_query_prefers_ddg(tmp_path):
+    st = SearchState(str(tmp_path / "s.json"))
+    ddg = _Plan("duckduckgo", "grid_cursor", True, ok=True)
+    sx = _Plan("searxng", "searxng_cursor", False, ok=True)
+    sp = SearchPass([sx, ddg], st, _grid(), queries_per_pass=2)
+    assert sp.provider_for_site_query() is ddg.discovery
