@@ -15,6 +15,7 @@ from app.models.categories import (
 from app.models.enums import CreatedBy, DiscountType, OfferStatus, OfferType
 
 if TYPE_CHECKING:
+    from app.models.offer_discount import OfferDiscount
     from app.models.offer_link import OfferLink
     from app.models.offer_location import OfferLocation
 
@@ -66,6 +67,10 @@ class Offer(Base):
     )
     locations: Mapped[list["OfferLocation"]] = relationship(
         back_populates="offer", cascade="all, delete-orphan", lazy="selectin"
+    )
+    discounts: Mapped[list["OfferDiscount"]] = relationship(
+        back_populates="offer", cascade="all, delete-orphan",
+        order_by="OfferDiscount.sort_order", lazy="selectin",
     )
     location_names = association_proxy("locations", "name", creator=_mk_location)
     supersedes: Mapped["Offer | None"] = relationship(
