@@ -11,3 +11,12 @@ def _norm(s: str) -> str:
 def content_hash(title: str, provider: str, body: str) -> str:
     joined = " | ".join(_norm(x) for x in (title, provider, body))
     return hashlib.sha256(joined.encode("utf-8")).hexdigest()
+
+
+def page_content_hash(title: str, provider: str, discounts: list[dict]) -> str:
+    keys = sorted(
+        f"{d.get('discount_type')}|{d.get('discount_value')}|{_norm(d.get('label') or '')}"
+        for d in discounts
+    )
+    joined = " | ".join([_norm(title), _norm(provider), *keys])
+    return hashlib.sha256(joined.encode("utf-8")).hexdigest()
