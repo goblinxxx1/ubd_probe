@@ -1,7 +1,7 @@
 import httpx
 from types import SimpleNamespace
 
-from crawler.discovery.providers import SearxngProvider, build_search_provider
+from crawler.discovery.providers import SearxngProvider, build_search_plans
 
 
 def _factory(handler):
@@ -33,10 +33,13 @@ def test_searxng_best_effort_on_http_error():
     assert p("kw") == []
 
 
-def test_build_provider_supports_searxng():
+def test_build_plans_supports_searxng(tmp_path):
     cfg = SimpleNamespace(search_providers=["searxng"], search_results_per_keyword=3,
-                          search_min_delay=0, searxng_url="http://searxng:8080")
-    assert callable(build_search_provider(cfg))
+                          search_min_delay=0, searxng_url="http://searxng:8080",
+                          search_state_path=str(tmp_path / "s.json"), search_budget=0)
+    plans = build_search_plans(cfg)
+    assert [p.name for p in plans] == ["searxng"]
+    assert plans[0].cursor_key == "searxng_cursor"
 
 
 def test_searxng_slice_ok_tracks_success_and_reset():

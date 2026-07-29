@@ -196,41 +196,6 @@ class SearxngProvider:
         return out
 
 
-def build_search_provider(config, state=None):
-    """Combine enabled search providers into one callable, or None."""
-    providers = []
-    for name in config.search_providers:
-        if name == "duckduckgo":
-            if state is None:
-                state = SearchState.load(config.search_state_path)
-            rotating = RotatingDdgProvider(
-                pool=config.search_backends, state=state,
-                results_per_keyword=config.search_results_per_keyword,
-                min_delay=config.search_min_delay, jitter=config.search_jitter,
-                cooldown_base=config.search_backend_cooldown_base_seconds,
-                cooldown_cap=config.search_backend_cooldown_cap_seconds,
-                global_backoff_seconds=config.search_global_backoff_hours * 3600)
-            providers.append(SearchCache(rotating, state,
-                                         config.search_cache_ttl_hours * 3600))
-        elif name == "searxng":
-            providers.append(SearxngProvider(
-                base_url=config.searxng_url,
-                results_per_keyword=config.search_results_per_keyword,
-                min_delay=config.search_min_delay))
-        else:
-            log.warning("unknown search provider %r, ignoring", name)
-    if not providers:
-        return None
-
-    def combined(keyword):
-        out = []
-        for p in providers:
-            out.extend(p(keyword))
-        return out
-
-    return combined
-
-
 @dataclass
 class SearchProviderPlan:
     """One search provider bound to its own ActiveDiscovery, grid cursor, and

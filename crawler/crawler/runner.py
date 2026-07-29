@@ -13,7 +13,7 @@ log = logging.getLogger(__name__)
 
 class Runner:
     def __init__(self, api_client, fetchers: dict, extractor, rate_limiter,
-                 discovery=None, keywords=None, harvester=None, brand_feed=None,
+                 discovery=None, search_pass=None, harvester=None, brand_feed=None,
                  freshness_ttl_days=30, corpus_recorder=None,
                  walker=None, domain_rate_limiter=None,
                  domain_feed=None, domain_registry=None,
@@ -24,8 +24,8 @@ class Runner:
         self._fetchers = fetchers
         self._extractor = extractor
         self._rl = rate_limiter
-        self._discovery = discovery
-        self._keywords = keywords or []
+        self._discovery = discovery            # retained ONLY for site: queries
+        self._search_pass = search_pass
         self._harvester = harvester
         self._brand_feed = brand_feed
         self._freshness_ttl_days = freshness_ttl_days
@@ -74,8 +74,8 @@ class Runner:
                 feeds = []
                 if self._domain_feed is not None:
                     feeds.append(self._domain_feed.candidates(known_hosts))
-                if self._discovery is not None and self._keywords:
-                    feeds.append(self._discovery.run(self._keywords, known))
+                if self._search_pass is not None:
+                    feeds.append(self._search_pass.run(known))
                 if self._brand_feed is not None:
                     feeds.append(self._brand_feed.candidates(known))
                 if self._osm_feed is not None:

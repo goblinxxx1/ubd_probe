@@ -4,7 +4,6 @@ import httpx
 
 from crawler.accounts.pool import AccountPool
 from crawler.api_client import ApiClient
-from crawler.discovery.active import ActiveDiscovery
 from crawler.discovery.aggregator_feed import AggregatorDomainFeed, AggregatorDomainStore
 from crawler.discovery import blocklist
 from crawler.discovery.brand_feed import (
@@ -13,8 +12,9 @@ from crawler.discovery.domain_feed import DomainFeed
 from crawler.discovery.domain_registry import DomainRegistry
 from crawler.discovery.harvest import ActiveHarvester
 from crawler.discovery.osm_feed import OsmDomainFeed, OsmEnumerator
-from crawler.discovery.providers import build_search_provider
-from crawler.discovery.query_grid import QueryGrid, merge_queries
+from crawler.discovery.providers import build_search_plans
+from crawler.discovery.search_pass import SearchPass
+from crawler.discovery.query_grid import QueryGrid
 from crawler.discovery.robots import RobotsPolicy
 from crawler.discovery.search_state import SearchState
 from crawler.discovery.walker import DomainWalker
@@ -107,20 +107,17 @@ def build_runner(config) -> Runner:
     rate_limiter = RateLimiter(config.min_delay_seconds)
 
     discovery = None
+    search_pass = None
     harvester = None
     brand_feed = None
-    keywords = config.search_keywords
     state = None
     if config.active_discovery:
         state = SearchState.load(config.search_state_path)
-        batch, new_cursor = QueryGrid().next_batch(
-            config.search_queries_per_pass, state.grid_cursor)
-        state.set_grid_cursor(new_cursor)
-        keywords = merge_queries(batch, config.search_keywords)
-        provider = build_search_provider(config, state=state)
-        if provider is not None:
-            budget = config.search_budget or len(keywords)
-            discovery = ActiveDiscovery(budget=budget, search_provider=provider)
+        plans = build_search_plans(config, state=state)
+        if plans:
+            search_pass = SearchPass(plans, state, QueryGrid(),
+                                     config.search_queries_per_pass, config.search_keywords)
+            discovery = search_pass.provider_for_site_query()   # DDG discovery for site: queries
     if config.brand_feed_enabled:
         brand_feed = _build_brand_feed(config)
     osm_feed = None
@@ -170,7 +167,7 @@ def build_runner(config) -> Runner:
         except Exception as exc:  # noqa: BLE001 — snowball best-effort
             log.warning("snowball ingest failed: %s", exc)
 
-    if ((discovery is not None or brand_feed is not None
+    if ((search_pass is not None or brand_feed is not None
          or osm_feed is not None or domain_feed is not None
          or aggregator_feed is not None)
             and config.active_fetch_budget):
@@ -184,7 +181,7 @@ def build_runner(config) -> Runner:
                                     aggregator_store=aggregator_store,
                                     aggregator_max_domains=config.aggregator_max_domains)
     return Runner(api, fetchers, extractor, rate_limiter,
-                  discovery=discovery, keywords=keywords, harvester=harvester,
+                  discovery=discovery, search_pass=search_pass, harvester=harvester,
                   brand_feed=brand_feed, freshness_ttl_days=config.freshness_ttl_days,
                   corpus_recorder=corpus_recorder,
                   walker=walker, domain_rate_limiter=domain_rl,
