@@ -8,6 +8,7 @@ from crawler.discovery.aggregator_feed import AggregatorDomainFeed, AggregatorDo
 from crawler.discovery import blocklist
 from crawler.discovery.brand_feed import (
     BRAND_SEEDS, BrandDomainCache, BrandFeed, BrandResolver, refresh_brand_domains)
+from crawler.discovery.city_axis import CityAxis
 from crawler.discovery.domain_feed import DomainFeed
 from crawler.discovery.domain_registry import DomainRegistry
 from crawler.discovery.harvest import ActiveHarvester
@@ -115,8 +116,11 @@ def build_runner(config) -> Runner:
         state = SearchState.load(config.search_state_path)
         plans = build_search_plans(config, state=state)
         if plans:
+            city_axis = CityAxis() if config.city_axis_enabled else None
             search_pass = SearchPass(plans, state, QueryGrid(),
-                                     config.search_queries_per_pass, config.search_keywords)
+                                     config.search_queries_per_pass, config.search_keywords,
+                                     city_axis=city_axis,
+                                     city_queries_per_pass=config.city_queries_per_pass)
             discovery = search_pass.provider_for_site_query()   # DDG discovery for site: queries
     if config.brand_feed_enabled:
         brand_feed = _build_brand_feed(config)

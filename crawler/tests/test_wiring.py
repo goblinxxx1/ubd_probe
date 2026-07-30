@@ -395,3 +395,21 @@ def test_build_runner_aggregator_only_still_builds_harvester(tmp_path):
     runner = build_runner(cfg)
     assert runner._harvester is not None
     assert runner._harvester._aggregator_store is not None
+
+
+def test_build_runner_wires_city_axis(tmp_path):
+    cfg = _base_cfg(tmp_path, active_discovery=True, search_providers=["duckduckgo"],
+                    city_axis_enabled=True)
+    runner = build_runner(cfg)
+    assert runner._search_pass is not None
+    assert runner._search_pass._city_axis is not None
+    assert len(runner._search_pass._city_axis) > 1000        # gazetteer loaded
+    assert runner._search_pass._city_k == 10                 # default budget
+
+
+def test_build_runner_city_axis_disabled(tmp_path):
+    cfg = _base_cfg(tmp_path, active_discovery=True, search_providers=["duckduckgo"],
+                    city_axis_enabled=False)
+    runner = build_runner(cfg)
+    assert runner._search_pass is not None
+    assert runner._search_pass._city_axis is None            # byte-eq off
