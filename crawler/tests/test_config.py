@@ -207,3 +207,27 @@ def test_require_discount_env_override(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("REQUIRE_DISCOUNT", "false")
     assert load_config().require_discount is False
+
+
+def test_city_axis_raw_defaults():
+    from crawler.config import _RawSettings
+    s = _RawSettings()
+    assert s.city_axis_enabled is True
+    assert s.city_queries_per_pass == 10
+
+
+def test_city_axis_config_dataclass_defaults():
+    from crawler.config import Config
+    cfg = Config(internal_api_url="x", crawler_api_key="k", extractor="heuristic",
+                 active_discovery=False, request_timeout=1.0, min_delay_seconds=0.0)
+    assert cfg.city_axis_enabled is True
+    assert cfg.city_queries_per_pass == 10
+
+
+def test_load_config_passes_city_axis(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)      # no .env -> env overrides apply cleanly
+    monkeypatch.setenv("CITY_AXIS_ENABLED", "false")
+    monkeypatch.setenv("CITY_QUERIES_PER_PASS", "4")
+    cfg = load_config()
+    assert cfg.city_axis_enabled is False
+    assert cfg.city_queries_per_pass == 4
