@@ -38,9 +38,16 @@ def _dedup_sources(conn) -> None:
     for h, ids in by_host.items():
         if len(ids) < 2:
             continue
-        counts = {sid: conn.execute(sa.text(
-            "SELECT COUNT(*) FROM offers WHERE source_id=:s"), {"s": sid}).scalar() for sid in ids}
-        keep = max(ids, key=lambda s: (counts[s], -s))     # most offers; tie -> lowest id
+
+        def _score(sid):
+            pub = conn.execute(sa.text(
+                "SELECT COUNT(*) FROM offers WHERE source_id=:s AND status='published'"),
+                {"s": sid}).scalar()
+            tot = conn.execute(sa.text(
+                "SELECT COUNT(*) FROM offers WHERE source_id=:s"), {"s": sid}).scalar()
+            return (pub, tot, -sid)   # keep the published-owner first, then most offers, then lowest id
+
+        keep = max(ids, key=_score)
         for sid in ids:
             if sid != keep:
                 conn.execute(sa.text("UPDATE sources SET is_active=0 WHERE id=:s"), {"s": sid})
@@ -52,7 +59,9 @@ def _reject_published_pending_dups(conn) -> None:
         "  SELECT DISTINCT article_url_canonical AS a FROM offers "
         "  WHERE status='published' AND article_url_canonical IS NOT NULL"
         ") pub ON p.article_url_canonical = pub.a "
-        "SET p.status='rejected' WHERE p.status='pending_review'"))
+        # only accumulated NON-shadow dups; keep legitimate shadow re-moderations (supersedes set)
+        "SET p.status='rejected' "
+        "WHERE p.status='pending_review' AND p.supersedes_offer_id IS NULL"))
 
 
 def upgrade() -> None:

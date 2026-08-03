@@ -57,3 +57,39 @@ def test_reject_pending_dups_of_published(db_session):
     db_session.expire_all()
     assert db_session.get(Offer, pend.id).status == OfferStatus.rejected
     assert db_session.get(Offer, pub.id).status == OfferStatus.published
+
+
+def test_reject_keeps_legitimate_shadow(db_session):
+    # a shadow (supersedes_offer_id set) is a legit in-flight re-moderation — must NOT be rejected
+    pub = Offer(type=OfferType.discount, title="P", description="", provider="P",
+                article_url_canonical="b.army/x", status=OfferStatus.published,
+                created_by=CreatedBy.crawler)
+    db_session.add(pub); db_session.commit()
+    shadow = Offer(type=OfferType.discount, title="S", description="", provider="P",
+                   article_url_canonical="b.army/x", status=OfferStatus.pending_review,
+                   supersedes_offer_id=pub.id, created_by=CreatedBy.crawler)
+    db_session.add(shadow); db_session.commit()
+    _load("_reject_published_pending_dups")(db_session.connection())
+    db_session.expire_all()
+    assert db_session.get(Offer, shadow.id).status == OfferStatus.pending_review  # preserved
+
+
+def test_dedup_prefers_published_owner(db_session):
+    # keeper = source owning the published card, even if the other has more (rejected) offers
+    s_pub = Source(name="Pub", type=SourceType.website, url_or_handle="https://b.army/specials",
+                   is_active=True, created_by=CreatedBy.admin)
+    s_other = Source(name="Other", type=SourceType.website, url_or_handle="https://b.army",
+                     is_active=True, created_by=CreatedBy.admin)
+    db_session.add_all([s_pub, s_other]); db_session.commit()
+    db_session.add(Offer(type=OfferType.discount, title="P", description="", provider="P",
+                         source_id=s_pub.id, status=OfferStatus.published,
+                         created_by=CreatedBy.crawler))
+    for _ in range(3):   # s_other has MORE total offers but none published
+        db_session.add(Offer(type=OfferType.discount, title="R", description="", provider="P",
+                             source_id=s_other.id, status=OfferStatus.rejected,
+                             created_by=CreatedBy.crawler))
+    db_session.commit()
+    _load("_dedup_sources")(db_session.connection())
+    db_session.expire_all()
+    assert db_session.get(Source, s_pub.id).is_active is True    # published-owner kept
+    assert db_session.get(Source, s_other.id).is_active is False

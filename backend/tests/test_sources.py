@@ -142,3 +142,14 @@ def test_delete_source_that_discovered_a_suggestion(db_session):
     db_session.expire_all()
     assert db_session.get(source_crud.Source, src.id) is None
     assert db_session.get(SuggestedSource, sug_id).discovered_from_source_id is None  # nulled, survives
+
+
+def test_get_or_create_source_by_ref_dedups_website_by_host(db_session):
+    # freshness-promotion path must also honor one-active-website-source-per-host
+    from app.crud import source as source_crud
+    from app.models.enums import CreatedBy, SourceType
+    a = source_crud.get_or_create_source_by_ref(
+        db_session, SourceType.website, "https://b.army", "Root", CreatedBy.crawler)
+    b = source_crud.get_or_create_source_by_ref(
+        db_session, SourceType.website, "https://b.army/page-b", "PageB", CreatedBy.crawler)
+    assert b.id == a.id                                    # same host -> existing, no 2nd source

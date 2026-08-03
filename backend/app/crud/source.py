@@ -62,6 +62,14 @@ def delete_source(db: Session, source_id: int) -> None:
 
 def get_or_create_source_by_ref(db: Session, type_: SourceType, url_or_handle: str,
                                 name: str, created_by: CreatedBy) -> Source:
+    if type_ == SourceType.website:
+        host = source_host(url_or_handle)
+        if host:
+            for s in (db.query(Source)
+                      .filter(Source.type == SourceType.website, Source.is_active.is_(True))
+                      .all()):
+                if source_host(s.url_or_handle) == host:
+                    return s                              # one active website source per host
     existing = db.query(Source).filter(Source.type == type_,
                                        Source.url_or_handle == url_or_handle).first()
     if existing is not None:
