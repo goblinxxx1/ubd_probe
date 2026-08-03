@@ -4,7 +4,6 @@ from crawler.discovery.walker import url_is_promo
 
 
 @pytest.mark.parametrize("url", [
-    "https://shop.ua/sale",
     "https://shop.ua/promo/summer",
     "https://shop.ua/akcii",
     "https://shop.ua/akcii-znizhki",
@@ -26,6 +25,8 @@ def test_promo_urls_match(url):
     "https://shop.ua/blog/how-to",
     "https://shop.ua/about",
     "https://shop.ua/cart",
+    "https://shop.ua/sale",                 # 'sale' token removed (chereviki-salewa collision)
+    "https://shop.ua/chereviki-salewa",     # brand 'Salewa' must not match
 ])
 def test_non_promo_urls_do_not_match(url):
     assert url_is_promo(url) is False

@@ -18,12 +18,14 @@ SEED_OFFER_TRIGGERS: tuple[str, ...] = (
 )
 SEED_URL_TOKENS: tuple[str, ...] = (
     # --- ядро (ТОЧНО як у walker, 26) ---
-    "sale", "promo", "akci", "akcii", "aktsi", "znizhk", "znyzhk", "rozprodazh",
+    "promo", "akci", "akcii", "aktsi", "znizhk", "znyzhk", "rozprodazh",
     "discount", "discounts", "offer", "offers", "deal", "deals", "black-friday",
     "blackfriday", "specialpropoz", "spec-propoz", "cyber-monday",
     "акці", "акция", "знижк", "розпродаж", "спецпропоз", "дисконт", "вигід",
     # --- розширення ---
-    "utsinka", "bonus", "cashback", "special", "specialna", "spec-cina", "hot",
+    # NB: "sale"/"hot" removed — over-matched product slugs (chereviki-«sale»wa brand,
+    # termos-«hot»-and-cold), stealing the walker's page_cap from real veteran/info pages.
+    "utsinka", "bonus", "cashback", "special", "specialna", "spec-cina",
 )
 
 DISCOUNT_CTX = re.compile(

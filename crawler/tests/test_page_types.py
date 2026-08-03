@@ -19,8 +19,17 @@ def test_info_slugs_are_target():
 
 
 def test_promo_slugs_still_target():
-    assert pl.page_is_target("https://s.ua/sale") is True
+    assert pl.page_is_target("https://s.ua/promo") is True
     assert pl.page_is_target("https://s.ua/akcii") is True
+    assert pl.page_is_target("https://s.ua/rozprodazh") is True
+
+
+def test_sale_hot_no_longer_match_product_slugs():
+    # real terraincognita product slugs that stole the page_cap budget via sale/hot
+    assert pl.page_is_target("https://terraincognita.com.ua/chereviki-salewa-ms-mtn-397/") is False
+    assert pl.page_is_target("https://terraincognita.com.ua/termos-hot-and-cold-stuff-0-75-l/") is False
+    # the real veteran-discount page (payment/delivery) is still targeted
+    assert pl.page_is_target("https://terraincognita.com.ua/oplata-dostavka/") is True
 
 
 # --- INCLUDE by anchor text (opaque URL) ---

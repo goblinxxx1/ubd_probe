@@ -27,9 +27,10 @@ def test_new_trigger_makes_offer_recognisable():
 
 
 def test_url_is_promo_matches_tokens():
-    assert pl.url_is_promo("https://shop.ua/sale/winter")
+    assert pl.url_is_promo("https://shop.ua/promo/winter")
     assert pl.url_is_promo("https://shop.ua/%D0%B0%D0%BA%D1%86%D1%96%D1%97")  # акції
     assert not pl.url_is_promo("https://shop.ua/about")
+    assert not pl.url_is_promo("https://shop.ua/chereviki-salewa")  # 'sale' removed: brand-safe
 
 
 def test_learned_terms_augment_offer_triggers(tmp_path):

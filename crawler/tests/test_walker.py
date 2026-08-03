@@ -40,7 +40,7 @@ def _cand(url="https://shop.ua"):
 
 def test_sitemap_path_filters_promo_homepage_first_and_caps(monkeypatch):
     monkeypatch.setattr(walker_mod, "collect_sitemap_urls",
-                        lambda *a, **k: ["https://shop.ua/sale", "https://shop.ua/product/1",
+                        lambda *a, **k: ["https://shop.ua/akcii", "https://shop.ua/product/1",
                                          "https://shop.ua/promo", "https://shop.ua/blog"])
     policy = FakePolicy(FakeRobots(sitemaps=["https://shop.ua/sitemap.xml"]))
     w = DomainWalker(client=object(), robots=policy, rate_limiter=NoWait(),
@@ -49,19 +49,19 @@ def test_sitemap_path_filters_promo_homepage_first_and_caps(monkeypatch):
     assert isinstance(plan, WalkPlan)
     assert plan.domain == "shop.ua"
     assert plan.urls[0] == "https://shop.ua"          # homepage first
-    assert plan.urls == ["https://shop.ua", "https://shop.ua/sale"]  # capped at 2, promo only
+    assert plan.urls == ["https://shop.ua", "https://shop.ua/akcii"]  # capped at 2, promo only
 
 
 def test_disallowed_urls_are_dropped(monkeypatch):
     monkeypatch.setattr(walker_mod, "collect_sitemap_urls",
-                        lambda *a, **k: ["https://shop.ua/sale", "https://shop.ua/promo"])
+                        lambda *a, **k: ["https://shop.ua/akcii", "https://shop.ua/promo"])
     policy = FakePolicy(FakeRobots(sitemaps=["https://shop.ua/s.xml"],
                                    disallow=("/promo",)))
     w = DomainWalker(client=object(), robots=policy, rate_limiter=NoWait(),
                      domain_page_cap=10, bfs_trigger_min=1)
     plan = w.walk(_cand())
     assert "https://shop.ua/promo" not in plan.urls
-    assert "https://shop.ua/sale" in plan.urls
+    assert "https://shop.ua/akcii" in plan.urls
 
 
 def test_disallowed_homepage_yields_no_urls(monkeypatch):
@@ -86,7 +86,7 @@ def test_bfs_fallback_when_sitemap_thin(monkeypatch):
 
     # BFS fetches homepage HTML and follows same-domain promo links
     class HtmlResp:
-        text = ('<a href="/sale">s</a><a href="https://other.ua/promo">x</a>'
+        text = ('<a href="/akcii">s</a><a href="https://other.ua/promo">x</a>'
                 '<a href="/product/1">p</a>')
         content = None
         status_code = 200
@@ -102,7 +102,7 @@ def test_bfs_fallback_when_sitemap_thin(monkeypatch):
     w = DomainWalker(client=HtmlClient(), robots=policy, rate_limiter=NoWait(),
                      bfs_trigger_min=3, bfs_max_pages=3, domain_page_cap=10)
     plan = w.walk(_cand())
-    assert "https://shop.ua/sale" in plan.urls          # in-domain promo link found by BFS
+    assert "https://shop.ua/akcii" in plan.urls          # in-domain promo link found by BFS
     assert all("other.ua" not in u for u in plan.urls)   # off-domain dropped
 
 
@@ -158,7 +158,7 @@ def test_bfs_collects_target_by_anchor_and_skips_excluded(monkeypatch):
 
 def test_seed_gate_root_candidate_is_kept(monkeypatch):
     monkeypatch.setattr(walker_mod, "collect_sitemap_urls",
-                        lambda *a, **k: ["https://shop.ua/sale"])
+                        lambda *a, **k: ["https://shop.ua/akcii"])
     policy = FakePolicy(FakeRobots(sitemaps=["https://shop.ua/s.xml"]))
     w = DomainWalker(client=object(), robots=policy, rate_limiter=NoWait(),
                      domain_page_cap=10, bfs_trigger_min=1)
@@ -168,10 +168,10 @@ def test_seed_gate_root_candidate_is_kept(monkeypatch):
 
 def test_seed_gate_product_candidate_url_is_dropped(monkeypatch):
     monkeypatch.setattr(walker_mod, "collect_sitemap_urls",
-                        lambda *a, **k: ["https://shop.ua/sale"])
+                        lambda *a, **k: ["https://shop.ua/akcii"])
     policy = FakePolicy(FakeRobots(sitemaps=["https://shop.ua/s.xml"]))
     w = DomainWalker(client=object(), robots=policy, rate_limiter=NoWait(),
                      domain_page_cap=10, bfs_trigger_min=1)
     plan = w.walk(_cand("https://shop.ua/product/12"))      # active non-target candidate
     assert "https://shop.ua/product/12" not in plan.urls    # candidate URL not fetched
-    assert "https://shop.ua/sale" in plan.urls              # domain still walked
+    assert "https://shop.ua/akcii" in plan.urls              # domain still walked
