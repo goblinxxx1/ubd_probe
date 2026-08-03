@@ -7,3 +7,11 @@ export function confirmDelete(message = "Видалити цей запис?") {
     cancelButtonText: "Скасувати",
   });
 }
+
+export function confirmAction(message, title = "Підтвердження") {
+  return ElMessageBox.confirm(message, title, {
+    type: "warning",
+    confirmButtonText: "Так",
+    cancelButtonText: "Скасувати",
+  });
+}

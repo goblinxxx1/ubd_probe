@@ -14,10 +14,15 @@ vi.mock("@/api/offers", () => ({
   reject: vi.fn(() => Promise.resolve({})),
   remove: vi.fn(() => Promise.resolve({})),
   restore: vi.fn(() => Promise.resolve({})),
+  blockHost: vi.fn(() => Promise.resolve({ host: "h", status: "approved" })),
 }));
 vi.mock("element-plus", async (importOriginal) => {
   const actual = await importOriginal();
-  return { ...actual, ElMessage: { success: vi.fn(), error: vi.fn() } };
+  return {
+    ...actual,
+    ElMessage: { success: vi.fn(), error: vi.fn() },
+    ElMessageBox: { confirm: vi.fn(() => Promise.resolve()) },
+  };
 });
 import * as offers from "@/api/offers";
 
@@ -133,5 +138,29 @@ describe("OffersListView", () => {
     expect(link.exists()).toBe(true);
     expect(link.attributes("target")).toBe("_blank");
     expect(link.attributes("rel")).toContain("noopener");
+  });
+
+  it("block-host calls the API after confirm and reloads", async () => {
+    const router = makeRouter();
+    router.push("/");
+    await router.isReady();
+    const wrapper = mount(OffersListView, { global: { plugins: [router, ElementPlus] } });
+    await flushPromises();
+    await wrapper.vm.onBlockHost(1);
+    await flushPromises();
+    expect(offers.blockHost).toHaveBeenCalledWith(1);
+  });
+
+  it("block-host does nothing when confirm is cancelled", async () => {
+    const { ElMessageBox } = await import("element-plus");
+    ElMessageBox.confirm.mockRejectedValueOnce("cancel");
+    const router = makeRouter();
+    router.push("/");
+    await router.isReady();
+    const wrapper = mount(OffersListView, { global: { plugins: [router, ElementPlus] } });
+    await flushPromises();
+    await wrapper.vm.onBlockHost(1);
+    await flushPromises();
+    expect(offers.blockHost).not.toHaveBeenCalled();
   });
 });

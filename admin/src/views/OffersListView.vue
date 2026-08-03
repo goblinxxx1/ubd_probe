@@ -6,7 +6,7 @@ import { useApiList } from "@/composables/useApiList";
 import * as offers from "@/api/offers";
 import { OFFER_STATUSES, OFFER_TYPES } from "@/constants/enums";
 import { enumLabel, formatDate, statusTagType, isHttpUrl, supersedeSummary } from "@/utils/format";
-import { confirmDelete } from "@/utils/confirm";
+import { confirmDelete, confirmAction } from "@/utils/confirm";
 import { extractError } from "@/utils/errors";
 import DataTableToolbar from "@/components/DataTableToolbar.vue";
 import ResponsiveTable from "@/components/ResponsiveTable.vue";
@@ -71,6 +71,21 @@ async function onRestore(id) {
   }
 }
 
+async function onBlockHost(id) {
+  try {
+    await confirmAction("Заблокувати хост цього офера в медіа-блоклісті? Краулер більше не братиме цей сайт.");
+  } catch {
+    return;
+  }
+  try {
+    const res = await offers.blockHost(id);
+    ElMessage.success(`Заблоковано: ${res.host}`);
+    await load();
+  } catch (e) {
+    ElMessage.error(extractError(e));
+  }
+}
+
 async function onDelete(id) {
   try {
     await confirmDelete();
@@ -97,7 +112,7 @@ function pluralZnyzhka(n) {
   return "знижок";
 }
 
-defineExpose({ onPublish, onReject, onRestore, onDelete, load, applyFilters, items, tab });
+defineExpose({ onPublish, onReject, onRestore, onDelete, onBlockHost, load, applyFilters, items, tab });
 </script>
 
 <template>
@@ -154,6 +169,9 @@ defineExpose({ onPublish, onReject, onRestore, onDelete, load, applyFilters, ite
         <el-button v-if="row.status !== 'published'" size="small" type="success" @click="onPublish(row.id)">Опублікувати</el-button>
         <el-button v-if="row.status === 'pending_review'" size="small" type="warning" @click="onReject(row.id)">Відхилити</el-button>
         <el-button v-if="row.status === 'rejected'" size="small" type="success" @click="onRestore(row.id)">Відновити</el-button>
+        <el-button
+          v-if="(row.status === 'pending_review' || row.status === 'published') && isHttpUrl(row.site_url)"
+          size="small" type="danger" plain @click="onBlockHost(row.id)">Заблокувати</el-button>
         <el-button size="small" type="danger" @click="onDelete(row.id)">Видалити</el-button>
       </template>
     </ResponsiveTable>
