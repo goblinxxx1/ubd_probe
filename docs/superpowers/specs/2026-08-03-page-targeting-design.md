@@ -1,4 +1,4 @@
-# Якісний добір сторінок для DomainWalker — дизайн
+# Якісний добір сторінок крола (walker + active search) — дизайн
 
 Дата: 2026-08-03
 Гілка: `feat/page-targeting`
@@ -25,6 +25,10 @@ bonus/cashback/special/hot`). І sitemap-фільтр, і BFS-класифіка
 Замінити вузький `url_is_promo` у walker на **таксономію цільових типів сторінок** із двома
 сигналами (URL-слаг + текст лінка) і **пріоритетом відсіку**. Таксономія — **курована в коді**
 (як наявний `url_is_promo`), **без config-ручки**.
+
+Оскільки active search (harvester) обходить домени **тим самим** `DomainWalker`, зміна
+автоматично поширюється й на нього: DDG-результати фетчать лише цільові типи сторінок, а
+нецільовий кандидат-URL не фетчиться зовсім — **менше фетч-запитів на прохід**.
 
 ## Класифікатор `page_is_target`
 
@@ -87,9 +91,38 @@ def page_is_target(url: str, anchor_text: str | None = None) -> bool:
   - інакше `page_is_target(url, anchor)` → target → зібрати в `found`;
   - інакше нейтральне → у фронтир (`nxt`, йти глибше).
   (Реалізаційно: одна перевірка EXCLUDE окремо для skip, потім target для collect, інакше frontier.)
-- `_finalize`, `page_cap`, per-domain politeness, homepage-always-first — **без змін**.
+- `page_cap`, per-domain politeness — **без змін**.
 - `url_is_promo` **лишається** (промо = підмножина target; його наявні тести не чіпаємо).
   Walker більше його прямо не викликає, але re-export можна лишити для сумісності.
+
+### Гейт seed/candidate URL (спільне правило passive + active)
+
+`_finalize` наразі **завжди** додає `homepage` першим. Змінюємо: **seed-URL фетчиться-як-ціль
+лише якщо це корінь домену АБО `page_is_target(seed)`**:
+```python
+def _seed_is_target(url, domain) -> bool:
+    return _is_root(url, domain) or page_is_target(url)   # _is_root: path in ("", "/")
+```
+- **Passive** (approved source, `url_or_handle` = корінь домену) → корінь → **завжди** фетчиться (незмінна поведінка).
+- **Active** (DDG-результат = довільний шлях) → гейтиться: промо/інфо-URL → фетчиться;
+  товар/блог-URL → **НЕ** фетчиться як homepage, але домен усе одно обходиться (sitemap/BFS
+  дають цільові сторінки). Це і є «ходити тільки по цим урлам» для active search.
+
+BFS-seed (`frontier=[homepage]`) лишається від candidate-URL — це один фетч заради **лінків**
+(виявлення цільових сторінок домену), не для екстракції; зібраний у `found` лише target.
+
+## Інтеграція в active search (harvester)
+
+Active search уже використовує **той самий** `DomainWalker` (`ActiveHarvester._plan` → `walker.walk(cand)`
+для website-кандидатів), тож зміни walker'а (`page_is_target` + seed-гейт) **автоматично** звужують
+active search: кожен DDG-результат досі роздувається в обхід домену, але фетчаться лише цільові
+типи сторінок, а нецільовий кандидат-URL (товар/блог) не фетчиться зовсім. Це зменшує к-ть
+фетч-запитів на прохід (головна мета).
+
+**No-walker fallback** (`_plan` повертає `[cand.url_or_handle]`, коли `sitemap_depth_enabled` та
+`domain_rating_enabled` обидва OFF — рідкісний конфіг): застосувати той самий seed-гейт —
+повертати URL лише якщо root-or-`page_is_target`, інакше `[]`. Тримає інваріант «лише цільові URL»
+і в цьому шляху.
 
 ## Що НЕ змінюється / межі
 
@@ -115,12 +148,22 @@ def page_is_target(url: str, anchor_text: str | None = None) -> bool:
 **`test_walker` / `test_promo_url_filter`** (доповнити/адаптувати):
 - sitemap-фільтр використовує `page_is_target` (інфо-сторінка проходить, товарна — ні);
 - BFS: `_links` повертає `(url, anchor)`; target-лінк (за анкором) збирається; excluded-лінк
-  повністю пропускається (не у фронтир); нейтральний — у фронтир.
+  повністю пропускається (не у фронтир); нейтральний — у фронтир;
+- **seed-гейт**: `walk()` із homepage=корінь домену → корінь у `plan.urls` (passive незмінний);
+  `walk()` із candidate=товарний URL (не корінь, не target) → цей URL **НЕ** в `plan.urls`, але
+  цільові сторінки домену — є; candidate=промо-URL (не корінь) → у `plan.urls`.
+
+**`test_harvest`** (доповнити):
+- no-walker fallback: нецільовий кандидат-URL → `_plan` дає `[]` (не фетчиться);
+  root/target кандидат → фетчиться.
 
 ## Критерії готовності
 
 - Нові + наявні crawler-тести зелені (`pytest -q`).
 - Walker таргетить інфо-типи (контакти/доставка/про-нас/лояльність/військові/FAQ/корисна-інформація)
   за слагом і за текстом лінка; відсікає товари/кошик/акаунт/блог.
+- Seed-гейт: passive (корінь домену) незмінний; active нецільовий кандидат-URL не фетчиться.
+- Active search (harvester через той самий walker) фетчить менше сторінок/прохід — цільові типи.
 - `url_is_promo` та його тести не зламані.
-- Жива Docker-перевірка: на реальному домені walker повертає інфо-цільові URL, не товарні.
+- Жива Docker-перевірка: на реальному домені walker повертає інфо-цільові URL, не товарні;
+  active-search прохід фетчить менше сторінок, ніж до зміни.
