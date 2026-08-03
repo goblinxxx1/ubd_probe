@@ -120,3 +120,25 @@ def test_delete_source_with_crawl_state_and_offers(db_session):
     assert db_session.get(source_crud.Source, src.id) is None          # source gone
     assert db_session.get(Offer, off_id).source_id is None             # offer orphaned, survives
     assert db_session.query(SourceCrawlState).filter_by(source_id=src.id).count() == 0
+
+
+def test_delete_source_that_discovered_a_suggestion(db_session):
+    # 3rd FK to sources.id: suggested_sources.discovered_from_source_id (RESTRICT) — must not 500.
+    from app.crud import source as source_crud
+    from app.schemas.source import SourceCreate
+    from app.models import SuggestedSource
+    from app.models.enums import CreatedBy, SourceType, SuggestionStatus
+    src = source_crud.create_source(db_session, SourceCreate(
+        name="Disc", type=SourceType.website, url_or_handle="https://disc.ua"),
+        created_by=CreatedBy.admin)
+    sug = SuggestedSource(name="Found", type=SourceType.website,
+                          url_or_handle="https://found.ua",
+                          discovered_from_source_id=src.id, status=SuggestionStatus.pending)
+    db_session.add(sug)
+    db_session.commit()
+    sug_id = sug.id
+
+    source_crud.delete_source(db_session, src.id)          # must NOT raise IntegrityError
+    db_session.expire_all()
+    assert db_session.get(source_crud.Source, src.id) is None
+    assert db_session.get(SuggestedSource, sug_id).discovered_from_source_id is None  # nulled, survives
