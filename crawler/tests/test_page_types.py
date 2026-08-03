@@ -52,6 +52,15 @@ def test_no_substring_false_positives():
     assert pl.page_is_target("https://s.ua/vintage") is False          # 'tag' vs vintage
 
 
+def test_exclude_tokens_no_substring_collisions():
+    # EXCLUDE hard-prunes (skip + no traverse) — must not misfire on legit paths.
+    assert pl.is_excluded("https://s.ua/border-crossing") is False     # '/order' not 'order'
+    assert pl.is_excluded("https://s.ua/basketball-shoes") is False    # 'basket' removed
+    assert pl.is_excluded("https://s.ua/research-center") is False     # '/search' not 'search'
+    assert pl.is_excluded("https://s.ua/order/history") is True        # '/order' still excluded
+    assert pl.is_excluded("https://s.ua/search?q=x") is True           # '/search' still excluded
+
+
 # --- seed gate ---
 def test_seed_is_target_root_always():
     assert pl.seed_is_target("https://s.ua") is True          # empty path

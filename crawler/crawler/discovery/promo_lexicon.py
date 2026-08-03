@@ -75,8 +75,8 @@ _PAGE_TYPE_TOKENS: tuple[str, ...] = (
     "dostavka", "oplata", "delivery", "payment", "shipping",
     # про нас
     "pro-nas", "pro_nas", "pronas", "pro-kompaniyu", "about", "o-nas", "o_nas",
-    # лояльність / бонусна програма
-    "loyaln", "loyalty", "bonus", "club",
+    # лояльність / бонусна програма ("bonus" already in SEED_URL_TOKENS)
+    "loyaln", "loyalty", "club",
     # faq / корисна інформація
     "faq", "pytannya", "pitannya", "korysn", "korisn", "useful",
     # кирилиця (decoded percent-encoded paths)
@@ -89,10 +89,10 @@ INCLUDE_TOKENS: tuple[str, ...] = SEED_URL_TOKENS + _PAGE_TYPE_TOKENS
 # Low-yield page types — never fetch as target, never traverse into (BFS).
 EXCLUDE_TOKENS: tuple[str, ...] = (
     "/product", "/tovar", "/goods", "/item", "/p/",
-    "cart", "koshyk", "checkout", "basket", "order",
+    "cart", "koshyk", "checkout", "/order",
     "account", "login", "signin", "register", "cabinet", "kabinet",
     "profile", "wishlist",
-    "blog", "news", "novyny", "search", "poshuk", "filter", "/tag", "privacy", "cookie",
+    "blog", "news", "novyny", "/search", "poshuk", "filter", "/tag", "privacy", "cookie",
 )
 
 # Link-anchor-text signals (lowercased substrings) for opaque URLs.
