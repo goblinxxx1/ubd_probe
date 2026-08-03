@@ -69,3 +69,18 @@ def test_update_offer_rejects_invalid_dates_and_discount(client, db_session):
                                 headers=h)
     assert bad_discount.status_code == 422
     assert bad_discount.json()["code"] == "validation_error"
+
+
+def test_restore_offer_returns_to_queue(client, db_session):
+    token = _admin_token(db_session)
+    h = {"Authorization": f"Bearer {token}"}
+    rejected = offer_crud.create_offer(
+        db_session, OfferCreate(type=OfferType.discount, title="Junk", provider="P"),
+        created_by=CreatedBy.crawler, status=OfferStatus.rejected)
+
+    resp = client.post(f"/api/admin/offers/{rejected.id}/restore", headers=h)
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "pending_review"
+
+    queue = client.get("/api/admin/offers?status=pending_review", headers=h).json()
+    assert queue["total"] == 1

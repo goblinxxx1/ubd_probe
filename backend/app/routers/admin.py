@@ -108,6 +108,12 @@ def reject_offer(offer_id: int, db: Session = Depends(get_db),
     return offer_crud.set_status(db, offer_id, OfferStatus.rejected, admin.id)
 
 
+@router.post("/offers/{offer_id}/restore", response_model=OfferOut)
+def restore_offer(offer_id: int, db: Session = Depends(get_db),
+                  admin=Depends(get_current_admin)):
+    return offer_crud.set_status(db, offer_id, OfferStatus.pending_review, admin.id)
+
+
 @router.delete("/offers/{offer_id}", status_code=204)
 def delete_offer(offer_id: int, db: Session = Depends(get_db), _=Depends(get_current_admin)):
     offer_crud.delete_offer(db, offer_id)
