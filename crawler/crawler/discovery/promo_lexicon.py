@@ -90,8 +90,8 @@ INCLUDE_TOKENS: tuple[str, ...] = SEED_URL_TOKENS + _PAGE_TYPE_TOKENS
 EXCLUDE_TOKENS: tuple[str, ...] = (
     "/product", "/tovar", "/goods", "/item", "/p/",
     "cart", "koshyk", "checkout", "/order",
-    "account", "login", "signin", "register", "cabinet", "kabinet",
-    "profile", "wishlist",
+    "account", "login", "signin", "/register", "cabinet", "kabinet",
+    "/profile", "wishlist",
     "blog", "news", "novyny", "/search", "poshuk", "filter", "/tag", "privacy", "cookie",
 )
 

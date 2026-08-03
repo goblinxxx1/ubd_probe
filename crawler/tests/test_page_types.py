@@ -59,6 +59,10 @@ def test_exclude_tokens_no_substring_collisions():
     assert pl.is_excluded("https://s.ua/research-center") is False     # '/search' not 'search'
     assert pl.is_excluded("https://s.ua/order/history") is True        # '/order' still excluded
     assert pl.is_excluded("https://s.ua/search?q=x") is True           # '/search' still excluded
+    assert pl.is_excluded("https://s.ua/company-profile") is False     # '/profile' not 'profile'
+    assert pl.is_excluded("https://s.ua/club-registration") is False   # '/register' not 'register'
+    assert pl.is_excluded("https://s.ua/profile/edit") is True         # '/profile' still excluded
+    assert pl.is_excluded("https://s.ua/register") is True             # '/register' still excluded
 
 
 # --- seed gate ---
