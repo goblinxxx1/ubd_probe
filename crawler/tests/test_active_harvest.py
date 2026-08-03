@@ -129,6 +129,48 @@ def test_blocklisted_website_candidate_skipped():
     assert fetched == ["https://shop.ua"]  # blocklisted host skipped, other fetched
 
 
+def test_foreign_and_blocklisted_hosts_never_crawled():
+    """Guarantee: RU/BY/other foreign-ccTLD hosts AND every blocklisted host
+    (SEED media, gov.ua, social, plus LEARNED) are gated out of the crawl at the
+    harvest chokepoint — only legit UA / generic-gTLD hosts are ever fetched."""
+    from crawler.discovery import blocklist
+    api = FakeApi()
+    fetched = []
+    class CountingFetcher:
+        def fetch(self, source, k): fetched.append(source["url_or_handle"]); return [], None
+    h = ActiveHarvester(api, {"website": CountingFetcher()}, GateExtractor(),
+                        rate_limiter=None, fetch_budget=100)
+
+    foreign = [
+        "https://brsm.by", "https://poodle.by",              # Belarus
+        "https://shop.ru", "https://apteka.ru", "https://x.msk.ru",  # Russia (+subdomain)
+        "https://военная-служба.рф",                         # Russia IDN ccTLD
+        "https://deal.pl", "https://store.kz", "https://x.md",       # other foreign ccTLD
+    ]
+    seed_blocked = [
+        "https://nv.ua", "https://tsn.ua", "https://veteranam.info",  # SEED media/aggregator
+        "https://x.gov.ua",                                          # gov.ua rule
+        "https://x.com", "https://youtube.com",                     # SEED social
+    ]
+    learned_blocked = ["https://buketik24.com.ua", "https://roza.cv.ua"]  # admin-approved
+    legit = [
+        "https://shop.ua", "https://rozetka.com.ua",         # .ua / *.ua
+        "https://someshop.com", "https://aksioma.clinic",    # generic gTLD (legit UA biz)
+    ]
+
+    blocklist.reload_learned(["buketik24.com.ua", "roza.cv.ua"])
+    try:
+        cands = [_cand(url=u) for u in foreign + seed_blocked + learned_blocked + legit]
+        h.harvest(cands, cats=None, known=set(), summary=_summary())
+    finally:
+        blocklist.reload_learned(None)
+
+    # exactly the legit hosts, in order — nothing else reached the fetcher
+    assert fetched == legit
+    for bad in foreign + seed_blocked + learned_blocked:
+        assert bad not in fetched
+
+
 def test_error_in_one_candidate_isolated():
     api = FakeApi()
     class BoomFetcher:
