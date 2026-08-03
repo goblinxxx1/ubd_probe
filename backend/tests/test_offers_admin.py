@@ -86,6 +86,21 @@ def test_restore_offer_returns_to_queue(client, db_session):
     assert queue["total"] == 1
 
 
+def test_restore_non_rejected_offer_is_422(client, db_session):
+    token = _admin_token(db_session)
+    h = {"Authorization": f"Bearer {token}"}
+    published = offer_crud.create_offer(
+        db_session, OfferCreate(type=OfferType.discount, title="Live", provider="P"),
+        created_by=CreatedBy.admin, status=OfferStatus.published)
+
+    resp = client.post(f"/api/admin/offers/{published.id}/restore", headers=h)
+    assert resp.status_code == 422
+    assert resp.json()["code"] == "validation_error"
+
+    # статус лишається незмінним, оффер не знято з публікації
+    assert offer_crud.get_offer(db_session, published.id).status == OfferStatus.published
+
+
 def test_block_host_from_site_url_approves_host(client, db_session):
     token = _admin_token(db_session)
     h = {"Authorization": f"Bearer {token}"}

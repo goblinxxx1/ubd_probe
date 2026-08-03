@@ -7,6 +7,7 @@ from app.crud import category as category_crud
 from app.crud import offer as offer_crud
 from app.crud import source as source_crud
 from app.crud import suggested_source as suggestion_crud
+from app.core.errors import validation_error
 from app.deps import get_current_admin, get_db, require_super_admin
 from app.models import OfferCategory, TargetCategory
 from app.models.enums import BlockedHostStatus, CreatedBy, OfferStatus, OfferType, SuggestionStatus
@@ -111,6 +112,9 @@ def reject_offer(offer_id: int, db: Session = Depends(get_db),
 @router.post("/offers/{offer_id}/restore", response_model=OfferOut)
 def restore_offer(offer_id: int, db: Session = Depends(get_db),
                   admin=Depends(get_current_admin)):
+    offer = offer_crud.get_offer(db, offer_id)
+    if offer.status != OfferStatus.rejected:
+        raise validation_error("Відновити можна лише відхилений оффер")
     return offer_crud.set_status(db, offer_id, OfferStatus.pending_review, admin.id)
 
 
