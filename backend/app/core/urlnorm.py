@@ -24,7 +24,7 @@ _TRACKING_PARAMS = frozenset({
 })
 
 # Pagination/sort params stripped for offer dedup (a paginated listing is one identity).
-_PAGINATION_PARAMS = frozenset({"page", "p", "start", "offset"})
+_PAGINATION_PARAMS = frozenset({"page", "start", "offset"})
 
 
 def canonicalize_target_url(url: str) -> str | None:

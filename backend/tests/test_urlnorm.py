@@ -32,15 +32,17 @@ def test_non_http_and_junk_and_empty_return_none():
     assert canonicalize_target_url("") is None
 
 
-from app.core.urlnorm import canonicalize_target_url, source_host
+from app.core.urlnorm import source_host
 
 
 def test_pagination_params_stripped():
     base = "https://batart.army/en/en-gb-specials"
     assert canonicalize_target_url(base + "?page=2") == "batart.army/en/en-gb-specials"
     assert canonicalize_target_url(base + "?page=3") == canonicalize_target_url(base)
-    assert canonicalize_target_url(base + "?p=5") == "batart.army/en/en-gb-specials"
+    assert canonicalize_target_url(base + "?PAGE=2") == "batart.army/en/en-gb-specials"  # case-insens
     assert canonicalize_target_url(base + "?start=20&offset=40") == "batart.army/en/en-gb-specials"
+    # 'p' is NOT stripped — too generic (e.g. WordPress ?p=ID permalink -> over-merge)
+    assert canonicalize_target_url(base + "?p=5") == "batart.army/en/en-gb-specials?p=5"
 
 
 def test_meaningful_query_kept():
