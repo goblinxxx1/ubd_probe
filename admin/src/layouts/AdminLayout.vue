@@ -2,13 +2,13 @@
 import { computed, ref, onMounted, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
-import * as offers from "@/api/offers";
+import { useModerationStore } from "@/stores/moderation";
 import { useBreakpoint } from "@/composables/useBreakpoint";
 
 const auth = useAuthStore();
 const router = useRouter();
 const isSuperAdmin = computed(() => auth.isSuperAdmin);
-const pendingCount = ref(0);
+const moderation = useModerationStore();
 const { isTablet } = useBreakpoint();
 const drawerOpen = ref(false);
 defineExpose({ drawerOpen });
@@ -17,13 +17,8 @@ watch(isTablet, (v) => {
   if (!v) drawerOpen.value = false;
 });
 
-onMounted(async () => {
-  try {
-    const result = await offers.list({ status: "pending_review", size: 1 });
-    pendingCount.value = result?.total ?? 0;
-  } catch {
-    // badge is non-critical — ignore errors silently
-  }
+onMounted(() => {
+  moderation.refresh();
 });
 
 function logout() {
@@ -39,7 +34,7 @@ function logout() {
       <nav>
         <router-link :to="{ name: 'offers' }" @click="drawerOpen = false">Оффери</router-link>
         <router-link :to="{ name: 'moderation' }" @click="drawerOpen = false">
-          <el-badge :value="pendingCount" :hidden="!pendingCount">Черга модерації</el-badge>
+          <el-badge :value="moderation.pendingCount" :hidden="!moderation.pendingCount">Черга модерації</el-badge>
         </router-link>
         <router-link :to="{ name: 'sources' }" @click="drawerOpen = false">Джерела</router-link>
         <router-link :to="{ name: 'suggested-sources' }" @click="drawerOpen = false">Запропоновані джерела</router-link>

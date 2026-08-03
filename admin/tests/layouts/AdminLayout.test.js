@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { mount } from "@vue/test-utils";
+import { mount, flushPromises } from "@vue/test-utils";
 import { createPinia, setActivePinia } from "pinia";
 import { createRouter, createMemoryHistory } from "vue-router";
 import ElementPlus from "element-plus";
@@ -51,6 +51,20 @@ describe("AdminLayout", () => {
     const wrapper = mount(AdminLayout, { global: { plugins: [router, ElementPlus] } });
     expect(wrapper.text()).toContain("Категорії");
     expect(wrapper.text()).toContain("Адміни");
+  });
+
+  it("shows the pending-review count on the moderation badge from the store", async () => {
+    const offers = await import("@/api/offers");
+    offers.list.mockResolvedValueOnce({ items: [], total: 5 });
+    const auth = useAuthStore();
+    auth.token = "t";
+    auth.role = "moderator";
+    const router = makeRouter();
+    router.push("/");
+    await router.isReady();
+    const wrapper = mount(AdminLayout, { global: { plugins: [router, ElementPlus] } });
+    await flushPromises();
+    expect(wrapper.text()).toContain("5");
   });
 });
 
