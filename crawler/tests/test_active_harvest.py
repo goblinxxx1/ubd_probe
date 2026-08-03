@@ -336,3 +336,23 @@ def test_no_store_is_byte_equivalent():
                         GateExtractor(), rate_limiter=None, fetch_budget=5)
     h.harvest([_cand(url="https://veteranam.info")], cats=None, known=set(), summary=_summary())
     assert api.offers == []      # no crash, no capture path
+
+
+def test_no_walker_drops_non_target_candidate(monkeypatch):
+    import crawler.discovery.harvest as h
+    monkeypatch.setattr(h, "resolve_offer_categories", lambda *a, **k: [])
+    monkeypatch.setattr(h, "attribute",
+                        lambda item, ctx, **kw: type("A", (), {
+                            "provider": "shop.ua", "suggest_url_or_handle": None,
+                            "suggest_type": "website", "suggest_name": "Shop"})())
+
+    class PlatformRL:
+        def wait(self, platform): pass
+
+    fetcher = _Fetcher()
+    harv = ActiveHarvester(_Api(), {"website": fetcher}, _Extractor(), rate_limiter=PlatformRL())
+    summary = {"offers": 0, "suggestions": 0, "errors": 0}
+    cand = SourceCandidate(name="Shop", type="website",
+                           url_or_handle="https://shop.ua/product/12")
+    harv.harvest([cand], cats=object(), known=set(), summary=summary)
+    assert fetcher.urls == []                              # non-target candidate not fetched

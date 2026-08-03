@@ -4,6 +4,7 @@ from crawler.discovery.attribution import attribute, build_page_ctx, _outbound_h
 from crawler.discovery.blocklist import is_blocked_host
 from crawler.discovery.brand_feed import _host
 from crawler.discovery.passive import normalize_ref
+from crawler.discovery.promo_lexicon import seed_is_target
 from crawler.extract.aggregate import aggregate_page
 from crawler.extract.categories import resolve_offer_categories
 from crawler.payloads import offer_payload
@@ -62,10 +63,13 @@ class ActiveHarvester:
                                       summary["errors"] - before_e)
 
     def _plan(self, cand):
-        """(urls, domain, delay) for a candidate. Website candidates expand via the walker."""
+        """(urls, domain, delay) for a candidate. Website candidates expand via the walker;
+        without a walker, a website candidate is fetched only if root-or-target (seed gate)."""
         if self._walker is not None and cand.type == "website":
             plan = self._walker.walk(cand)
             return plan.urls, plan.domain, plan.crawl_delay
+        if cand.type == "website" and not seed_is_target(cand.url_or_handle):
+            return [], None, None
         return [cand.url_or_handle], None, None
 
     def _wait(self, cand_type, domain, delay) -> None:
