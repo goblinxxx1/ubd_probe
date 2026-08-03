@@ -30,3 +30,27 @@ def test_non_http_and_junk_and_empty_return_none():
     assert canonicalize_target_url("mailto:a@b.com") is None
     assert canonicalize_target_url("not a url") is None
     assert canonicalize_target_url("") is None
+
+
+from app.core.urlnorm import canonicalize_target_url, source_host
+
+
+def test_pagination_params_stripped():
+    base = "https://batart.army/en/en-gb-specials"
+    assert canonicalize_target_url(base + "?page=2") == "batart.army/en/en-gb-specials"
+    assert canonicalize_target_url(base + "?page=3") == canonicalize_target_url(base)
+    assert canonicalize_target_url(base + "?p=5") == "batart.army/en/en-gb-specials"
+    assert canonicalize_target_url(base + "?start=20&offset=40") == "batart.army/en/en-gb-specials"
+
+
+def test_meaningful_query_kept():
+    assert canonicalize_target_url("https://s.ua/x?id=5") == "s.ua/x?id=5"
+    # meaningful param survives alongside a stripped pagination param
+    assert canonicalize_target_url("https://s.ua/x?id=5&page=2") == "s.ua/x?id=5"
+
+
+def test_source_host():
+    assert source_host("https://www.Batart.Army/en/specials?page=2") == "batart.army"
+    assert source_host("http://foo.ua") == "foo.ua"
+    assert source_host("t.me/chan") is None          # non-http(s)
+    assert source_host("") is None

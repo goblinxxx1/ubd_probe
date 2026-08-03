@@ -23,6 +23,9 @@ _TRACKING_PARAMS = frozenset({
     "oly_enc_id", "oly_anon_id", "icid", "scid", "srsltid", "spm",
 })
 
+# Pagination/sort params stripped for offer dedup (a paginated listing is one identity).
+_PAGINATION_PARAMS = frozenset({"page", "p", "start", "offset"})
+
 
 def canonicalize_target_url(url: str) -> str | None:
     """Scheme-less, www-less offer dedup key: lowercased host (no port/userinfo, www. dropped),
@@ -37,7 +40,9 @@ def canonicalize_target_url(url: str) -> str | None:
     if not host:
         return None
     kept = sorted((k, v) for k, v in parse_qsl(p.query)
-                  if not k.lower().startswith("utm_") and k.lower() not in _TRACKING_PARAMS)
+                  if not k.lower().startswith("utm_")
+                  and k.lower() not in _TRACKING_PARAMS
+                  and k.lower() not in _PAGINATION_PARAMS)
     query = urlencode(kept)
     path = p.path.rstrip("/")
     return f"{host}{path}" + (f"?{query}" if query else "")
@@ -53,3 +58,14 @@ def normalize_ref(type: str, url_or_handle: str) -> str:
     s = re.sub(r"^www\.", "", s)
     s = re.sub(r"^(t\.me/|instagram\.com/|facebook\.com/)", "", s)
     return s.lstrip("@").rstrip("/")
+
+
+def source_host(url: str) -> str | None:
+    """Bare host for source dedup: lowercased, www-less; None for non-http(s)/junk."""
+    if not url:
+        return None
+    p = urlsplit(url.strip())
+    if p.scheme not in ("http", "https") or not p.netloc:
+        return None
+    host = (p.hostname or "").removeprefix("www.").lower()
+    return host or None
