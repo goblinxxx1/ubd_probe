@@ -84,3 +84,58 @@ def test_restore_offer_returns_to_queue(client, db_session):
 
     queue = client.get("/api/admin/offers?status=pending_review", headers=h).json()
     assert queue["total"] == 1
+
+
+def test_block_host_from_site_url_approves_host(client, db_session):
+    token = _admin_token(db_session)
+    h = {"Authorization": f"Bearer {token}"}
+    offer = offer_crud.create_offer(
+        db_session,
+        OfferCreate(type=OfferType.discount, title="Junk", provider="News Site",
+                    site_url="https://www.junk-media.example/promo?utm_source=x"),
+        created_by=CreatedBy.crawler, status=OfferStatus.pending_review)
+
+    resp = client.post(f"/api/admin/offers/{offer.id}/block-host", headers=h)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["host"] == "junk-media.example"   # bare host: no scheme/www/path
+    assert body["status"] == "approved"
+
+    # host now in the crawler's LEARNED list
+    blocked = client.get("/api/admin/host-candidates?status=approved", headers=h).json()
+    assert any(b["host"] == "junk-media.example" for b in blocked)
+
+    # offer itself is untouched
+    assert client.get(f"/api/admin/offers/{offer.id}", headers=h).json()["status"] == "pending_review"
+
+
+def test_block_host_falls_back_to_link_site_url(client, db_session):
+    token = _admin_token(db_session)
+    h = {"Authorization": f"Bearer {token}"}
+    # no offer-level site_url; link carries it
+    offer = offer_crud.create_offer(
+        db_session,
+        OfferCreate(type=OfferType.discount, title="Junk", provider="P",
+                    site_url="https://linkhost.example/deal"),
+        created_by=CreatedBy.crawler, status=OfferStatus.pending_review)
+    offer.site_url = None
+    db_session.commit()
+
+    resp = client.post(f"/api/admin/offers/{offer.id}/block-host", headers=h)
+    assert resp.status_code == 200
+    assert resp.json()["host"] == "linkhost.example"
+
+
+def test_block_host_without_host_is_422(client, db_session):
+    token = _admin_token(db_session)
+    h = {"Authorization": f"Bearer {token}"}
+    offer = offer_crud.create_offer(
+        db_session, OfferCreate(type=OfferType.discount, title="No host", provider="P"),
+        created_by=CreatedBy.admin, status=OfferStatus.pending_review)
+    for link in offer.links:
+        link.site_url = None
+    db_session.commit()
+
+    resp = client.post(f"/api/admin/offers/{offer.id}/block-host", headers=h)
+    assert resp.status_code == 422
+    assert resp.json()["code"] == "validation_error"

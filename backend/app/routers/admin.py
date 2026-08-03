@@ -114,6 +114,16 @@ def restore_offer(offer_id: int, db: Session = Depends(get_db),
     return offer_crud.set_status(db, offer_id, OfferStatus.pending_review, admin.id)
 
 
+@router.post("/offers/{offer_id}/block-host", response_model=BlockedHostOut)
+def block_offer_host(offer_id: int, db: Session = Depends(get_db),
+                     admin=Depends(get_current_admin)):
+    offer = offer_crud.get_offer(db, offer_id)
+    host_src = offer.site_url or next(
+        (link.site_url for link in offer.links if link.site_url), None)
+    # add_manual сам bare-host'ить URL і кидає validation_error на порожньому -> 422.
+    return blocked_host_crud.add_manual(db, host_src or "", admin.id)
+
+
 @router.delete("/offers/{offer_id}", status_code=204)
 def delete_offer(offer_id: int, db: Session = Depends(get_db), _=Depends(get_current_admin)):
     offer_crud.delete_offer(db, offer_id)
