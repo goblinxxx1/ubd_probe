@@ -60,3 +60,66 @@ def offer_triggers() -> tuple[str, ...]:
 def url_is_promo(url: str) -> bool:
     path = unquote(urlsplit(url or "").path).lower()
     return any(tok in path for tok in SEED_URL_TOKENS)
+
+
+# --- page-type targeting (superset of promo; drives DomainWalker page selection) ---
+
+# High-yield info/veteran page-type slugs (promo slugs come from SEED_URL_TOKENS).
+_PAGE_TYPE_TOKENS: tuple[str, ...] = (
+    # для військових / ветеранів
+    "viysk", "viyskov", "viyskovosluzhb", "military", "army", "zsu",
+    "veteran", "zahisnik", "zakhisnik", "defender",
+    # контакти
+    "kontakt", "contact",
+    # доставка й оплата
+    "dostavka", "oplata", "delivery", "payment", "shipping",
+    # про нас
+    "pro-nas", "pro_nas", "pronas", "pro-kompaniyu", "about", "o-nas", "o_nas",
+    # лояльність / бонусна програма
+    "loyaln", "loyalty", "bonus", "club",
+    # faq / корисна інформація
+    "faq", "pytannya", "pitannya", "korysn", "korisn", "useful",
+    # кирилиця (decoded percent-encoded paths)
+    "військов", "ветеран", "захисник", "контакт", "доставка", "оплата",
+    "про-нас", "лояльн", "бонус", "корисн", "питання",
+)
+
+INCLUDE_TOKENS: tuple[str, ...] = SEED_URL_TOKENS + _PAGE_TYPE_TOKENS
+
+# Low-yield page types — never fetch as target, never traverse into (BFS).
+EXCLUDE_TOKENS: tuple[str, ...] = (
+    "/product", "/tovar", "/goods", "/item", "/p/",
+    "cart", "koshyk", "checkout", "basket", "order",
+    "account", "login", "signin", "register", "cabinet", "kabinet",
+    "profile", "wishlist",
+    "blog", "news", "novyny", "search", "poshuk", "filter", "/tag", "privacy", "cookie",
+)
+
+# Link-anchor-text signals (lowercased substrings) for opaque URLs.
+INCLUDE_ANCHORS: tuple[str, ...] = (
+    "військов", "ветеран", "зсу", "захисник", "убд",
+    "знижка для військовослужбовц", "контакт", "доставка", "оплата",
+    "про нас", "про компанію", "лояльн", "бонусна програма", "клуб",
+    "корисна інформація", "питання", "акці", "знижк",
+)
+
+
+def is_excluded(url: str) -> bool:
+    path = unquote(urlsplit(url or "").path).lower()
+    return any(t in path for t in EXCLUDE_TOKENS)
+
+
+def page_is_target(url: str, anchor_text: str | None = None) -> bool:
+    if is_excluded(url):
+        return False                                    # EXCLUDE wins
+    path = unquote(urlsplit(url or "").path).lower()
+    if any(t in path for t in INCLUDE_TOKENS):
+        return True
+    if anchor_text and any(a in anchor_text.lower() for a in INCLUDE_ANCHORS):
+        return True
+    return False
+
+
+def seed_is_target(url: str) -> bool:
+    """A seed/candidate URL is fetched-as-target iff it is the domain root or a target."""
+    return unquote(urlsplit(url or "").path) in ("", "/") or page_is_target(url)
