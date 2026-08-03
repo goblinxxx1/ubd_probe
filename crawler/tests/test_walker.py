@@ -115,3 +115,42 @@ def test_walk_never_raises(monkeypatch):
                      bfs_trigger_min=99)
     plan = w.walk(_cand())
     assert plan.urls == ["https://shop.ua"]              # fallback to homepage
+
+
+def test_info_pages_are_targeted_from_sitemap(monkeypatch):
+    monkeypatch.setattr(walker_mod, "collect_sitemap_urls",
+                        lambda *a, **k: ["https://shop.ua/kontakty",
+                                         "https://shop.ua/product/1",
+                                         "https://shop.ua/dostavka-i-oplata",
+                                         "https://shop.ua/blog/post"])
+    policy = FakePolicy(FakeRobots(sitemaps=["https://shop.ua/s.xml"]))
+    w = DomainWalker(client=object(), robots=policy, rate_limiter=NoWait(),
+                     domain_page_cap=10, bfs_trigger_min=1)
+    plan = w.walk(_cand())
+    assert "https://shop.ua/kontakty" in plan.urls          # info page targeted
+    assert "https://shop.ua/dostavka-i-oplata" in plan.urls
+    assert "https://shop.ua/product/1" not in plan.urls     # excluded
+    assert "https://shop.ua/blog/post" not in plan.urls     # excluded
+
+
+def test_bfs_collects_target_by_anchor_and_skips_excluded(monkeypatch):
+    monkeypatch.setattr(walker_mod, "collect_sitemap_urls", lambda *a, **k: [])
+
+    class HtmlResp:
+        text = ('<a href="/page/12">Знижка для військовослужбовців</a>'
+                '<a href="/product/9">Товар</a>'
+                '<a href="/kontakty">Контакти</a>')
+        content = None
+        status_code = 200
+        def raise_for_status(self): pass
+
+    class HtmlClient:
+        def get(self, url, **kw): return HtmlResp()
+
+    policy = FakePolicy(FakeRobots())
+    w = DomainWalker(client=HtmlClient(), robots=policy, rate_limiter=NoWait(),
+                     bfs_trigger_min=3, bfs_max_pages=1, domain_page_cap=10)
+    plan = w.walk(_cand())
+    assert "https://shop.ua/page/12" in plan.urls           # target by anchor text
+    assert "https://shop.ua/kontakty" in plan.urls          # target by slug
+    assert "https://shop.ua/product/9" not in plan.urls     # excluded, not collected

@@ -9,7 +9,8 @@ from urllib.parse import urljoin
 from selectolax.parser import HTMLParser
 
 from crawler.discovery.passive import normalize_ref
-from crawler.discovery.promo_lexicon import url_is_promo  # re-export for callers
+from crawler.discovery.promo_lexicon import (  # re-export url_is_promo for callers/tests
+    is_excluded, page_is_target, seed_is_target, url_is_promo)
 from crawler.discovery.sitemap import collect_sitemap_urls
 from crawler.util.hosts import bare_host
 
@@ -56,9 +57,9 @@ class DomainWalker:
             sm_urls = robots.sitemaps() or [f"https://{domain}/sitemap.xml"]
             found = collect_sitemap_urls(
                 sm_urls, self._client, self._rl, domain, delay, self._sitemap_max_docs,
-                promo_filter=lambda u: _same_domain(u, domain) and url_is_promo(u),
+                promo_filter=lambda u: _same_domain(u, domain) and page_is_target(u),
                 promo_target=self._page_cap)
-            promo = [u for u in found if _same_domain(u, domain) and url_is_promo(u)]
+            promo = [u for u in found if _same_domain(u, domain) and page_is_target(u)]
             if len(promo) < self._bfs_trigger_min:
                 promo += self._bfs(homepage, domain, robots, delay)
             urls = self._finalize(homepage, promo, robots)
@@ -95,18 +96,20 @@ class DomainWalker:
                 if not robots.can_fetch(page):
                     continue
                 fetched += 1
-                for link in self._links(page, domain, delay):
+                for link, anchor in self._links(page, domain, delay):
                     if link in seen:
                         continue
                     seen.add(link)
-                    if url_is_promo(link):
+                    if is_excluded(link):
+                        continue                        # hard skip: no collect, no traverse
+                    if page_is_target(link, anchor):
                         found.append(link)
                     else:
-                        nxt.append(link)
+                        nxt.append(link)                # neutral -> traverse deeper
             frontier = nxt
         return found
 
-    def _links(self, url, domain, delay) -> list[str]:
+    def _links(self, url, domain, delay) -> list[tuple[str, str]]:
         try:
             self._rl.wait(domain, delay)
             resp = self._client.get(url, follow_redirects=True)
@@ -115,12 +118,12 @@ class DomainWalker:
         except Exception as exc:  # noqa: BLE001 — one page failing must not stop BFS
             log.warning("bfs link fetch failed for %s: %s", url, exc)
             return []
-        out: list[str] = []
+        out: list[tuple[str, str]] = []
         for a in tree.css("a"):
             href = a.attributes.get("href")
             if not href:
                 continue
             absolute = urljoin(url, href)
             if _same_domain(absolute, domain):
-                out.append(absolute.split("#")[0])
+                out.append((absolute.split("#")[0], a.text() or ""))
         return out
