@@ -71,3 +71,30 @@ def test_get_or_create_source_by_ref_reactivates(db_session):
     b = source_crud.get_or_create_source_by_ref(
         db_session, SourceType.website, "https://shop.example/x", "Shop", CreatedBy.crawler)
     assert b.id == a.id and b.is_active is True
+
+
+from app.crud import source as source_crud
+from app.schemas.source import SourceCreate
+from app.models.enums import CreatedBy, SourceType
+
+
+def test_create_source_dedups_website_by_host(db_session):
+    a = source_crud.create_source(db_session, SourceCreate(
+        name="Root", type=SourceType.website, url_or_handle="https://batart.army"),
+        created_by=CreatedBy.admin)
+    b = source_crud.create_source(db_session, SourceCreate(
+        name="Specials", type=SourceType.website,
+        url_or_handle="https://batart.army/en/specials?page=2"), created_by=CreatedBy.admin)
+    assert b.id == a.id                                   # same host -> existing returned
+    n = db_session.query(source_crud.Source).filter_by(url_or_handle="https://batart.army").count()
+    assert n == 1
+
+
+def test_create_source_allows_different_host_and_type(db_session):
+    a = source_crud.create_source(db_session, SourceCreate(
+        name="A", type=SourceType.website, url_or_handle="https://a.ua"),
+        created_by=CreatedBy.admin)
+    b = source_crud.create_source(db_session, SourceCreate(
+        name="B", type=SourceType.website, url_or_handle="https://b.ua"),
+        created_by=CreatedBy.admin)
+    assert b.id != a.id                                   # different host -> new

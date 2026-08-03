@@ -35,3 +35,18 @@ def test_new_source_still_suggested(db_session):
                                           url_or_handle="https://other.example"))
     assert out is not None
     assert db_session.query(SuggestedSource).count() == 1
+
+
+def test_website_suggestion_deduped_by_host(db_session):
+    from app.crud import source as source_crud, suggested_source as sug_crud
+    from app.schemas.source import SourceCreate
+    from app.schemas.suggested_source import SuggestedSourceCreate
+    from app.models.enums import CreatedBy, SourceType
+    source_crud.create_source(db_session, SourceCreate(
+        name="Root", type=SourceType.website, url_or_handle="https://batart.army"),
+        created_by=CreatedBy.admin)
+    # a DIFFERENT path on the same host must be 204'd (None)
+    out = sug_crud.create_suggestion(db_session, SuggestedSourceCreate(
+        name="Specials", type=SourceType.website,
+        url_or_handle="https://batart.army/en/specials?page=3"))
+    assert out is None

@@ -1,12 +1,21 @@
 from sqlalchemy.orm import Session
 
 from app.core.errors import not_found
+from app.core.urlnorm import source_host
 from app.models import Source
 from app.models.enums import CreatedBy, SourceType
 from app.schemas.source import SourceCreate, SourceUpdate
 
 
 def create_source(db: Session, data: SourceCreate, created_by: CreatedBy) -> Source:
+    if data.type == SourceType.website:
+        host = source_host(data.url_or_handle)
+        if host:
+            for s in (db.query(Source)
+                      .filter(Source.type == SourceType.website, Source.is_active.is_(True))
+                      .all()):
+                if source_host(s.url_or_handle) == host:
+                    return s                              # dedup: one active website source per host
     obj = Source(name=data.name, type=data.type, url_or_handle=data.url_or_handle,
                  is_active=data.is_active, created_by=created_by)
     db.add(obj)
