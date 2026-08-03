@@ -48,7 +48,12 @@ def update_source(db: Session, source_id: int, data: SourceUpdate) -> Source:
 
 
 def delete_source(db: Session, source_id: int) -> None:
+    from app.models import Offer, SourceCrawlState   # local import avoids cycle
     obj = get_source(db, source_id)
+    db.query(SourceCrawlState).filter(SourceCrawlState.source_id == source_id)\
+        .delete(synchronize_session=False)                # ephemeral crawl cursor — safe to drop
+    db.query(Offer).filter(Offer.source_id == source_id)\
+        .update({Offer.source_id: None}, synchronize_session=False)   # offers survive orphaned
     db.delete(obj)
     db.commit()
 

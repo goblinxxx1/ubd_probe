@@ -98,3 +98,25 @@ def test_create_source_allows_different_host_and_type(db_session):
         name="B", type=SourceType.website, url_or_handle="https://b.ua"),
         created_by=CreatedBy.admin)
     assert b.id != a.id                                   # different host -> new
+
+
+def test_delete_source_with_crawl_state_and_offers(db_session):
+    from app.crud import source as source_crud
+    from app.schemas.source import SourceCreate
+    from app.models import Offer, SourceCrawlState
+    from app.models.enums import CreatedBy, OfferStatus, OfferType, SourceType
+    src = source_crud.create_source(db_session, SourceCreate(
+        name="S", type=SourceType.website, url_or_handle="https://del.ua"),
+        created_by=CreatedBy.admin)
+    db_session.add(SourceCrawlState(source_id=src.id, last_seen_key="k"))
+    off = Offer(type=OfferType.discount, title="T", description="", provider="P",
+                source_id=src.id, status=OfferStatus.published, created_by=CreatedBy.crawler)
+    db_session.add(off)
+    db_session.commit()
+    off_id = off.id
+
+    source_crud.delete_source(db_session, src.id)          # must NOT raise IntegrityError
+    db_session.expire_all()
+    assert db_session.get(source_crud.Source, src.id) is None          # source gone
+    assert db_session.get(Offer, off_id).source_id is None             # offer orphaned, survives
+    assert db_session.query(SourceCrawlState).filter_by(source_id=src.id).count() == 0
