@@ -61,6 +61,16 @@ async function onReject(id) {
   }
 }
 
+async function onRestore(id) {
+  try {
+    await offers.restore(id);
+    ElMessage.success("Відновлено");
+    await load();
+  } catch (e) {
+    ElMessage.error(extractError(e));
+  }
+}
+
 async function onDelete(id) {
   try {
     await confirmDelete();
@@ -87,7 +97,7 @@ function pluralZnyzhka(n) {
   return "знижок";
 }
 
-defineExpose({ onPublish, onReject, onDelete, load, applyFilters, items, tab });
+defineExpose({ onPublish, onReject, onRestore, onDelete, load, applyFilters, items, tab });
 </script>
 
 <template>
@@ -102,6 +112,7 @@ defineExpose({ onPublish, onReject, onDelete, load, applyFilters, items, tab });
     <el-tabs v-if="!fixedStatus" v-model="tab" @tab-change="applyFilters({})">
       <el-tab-pane label="Опубліковані" name="published" />
       <el-tab-pane label="На модерації" name="pending_review" />
+      <el-tab-pane label="Відхилені" name="rejected" />
     </el-tabs>
 
     <DataTableToolbar @search="(q) => applyFilters({ q })">
@@ -142,6 +153,7 @@ defineExpose({ onPublish, onReject, onDelete, load, applyFilters, items, tab });
         <el-button size="small" @click="edit(row.id)">Редагувати</el-button>
         <el-button v-if="row.status !== 'published'" size="small" type="success" @click="onPublish(row.id)">Опублікувати</el-button>
         <el-button v-if="row.status === 'pending_review'" size="small" type="warning" @click="onReject(row.id)">Відхилити</el-button>
+        <el-button v-if="row.status === 'rejected'" size="small" type="success" @click="onRestore(row.id)">Відновити</el-button>
         <el-button size="small" type="danger" @click="onDelete(row.id)">Видалити</el-button>
       </template>
     </ResponsiveTable>

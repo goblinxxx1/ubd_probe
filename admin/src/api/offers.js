@@ -7,3 +7,4 @@ export const update = (id, payload) => client.patch(`/admin/offers/${id}`, paylo
 export const publish = (id) => client.post(`/admin/offers/${id}/publish`).then((r) => r.data);
 export const reject = (id) => client.post(`/admin/offers/${id}/reject`).then((r) => r.data);
 export const remove = (id) => client.delete(`/admin/offers/${id}`).then((r) => r.data);
+export const restore = (id) => client.post(`/admin/offers/${id}/restore`).then((r) => r.data);

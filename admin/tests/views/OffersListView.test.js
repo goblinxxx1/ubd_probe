@@ -13,6 +13,7 @@ vi.mock("@/api/offers", () => ({
   publish: vi.fn(() => Promise.resolve({})),
   reject: vi.fn(() => Promise.resolve({})),
   remove: vi.fn(() => Promise.resolve({})),
+  restore: vi.fn(() => Promise.resolve({})),
 }));
 vi.mock("element-plus", async (importOriginal) => {
   const actual = await importOriginal();
@@ -92,6 +93,30 @@ describe("OffersListView", () => {
     const wrapper = mount(OffersListView, { global: { plugins: [router, ElementPlus] } });
     await flushPromises();
     expect(wrapper.text()).toContain("2 знижки");
+  });
+
+  it("switching to the rejected tab reloads with rejected status", async () => {
+    const router = makeRouter();
+    router.push("/");
+    await router.isReady();
+    const wrapper = mount(OffersListView, { global: { plugins: [router, ElementPlus] } });
+    await flushPromises();
+    wrapper.vm.tab = "rejected";
+    await wrapper.vm.applyFilters({});
+    await flushPromises();
+    expect(offers.list).toHaveBeenLastCalledWith({ status: "rejected", page: 1, size: 20 });
+  });
+
+  it("restore calls the API and reloads", async () => {
+    const router = makeRouter();
+    router.push("/");
+    await router.isReady();
+    const wrapper = mount(OffersListView, { global: { plugins: [router, ElementPlus] } });
+    await flushPromises();
+    await wrapper.vm.onRestore(1);
+    await flushPromises();
+    expect(offers.restore).toHaveBeenCalledWith(1);
+    expect(offers.list).toHaveBeenCalledTimes(2);
   });
 
   it("renders a clickable source link when site_url is present", async () => {
