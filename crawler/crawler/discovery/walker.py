@@ -72,6 +72,8 @@ class DomainWalker:
         out: list[str] = []
         seen: set[str] = set()
         for url in [homepage, *promo]:
+            if url == homepage and not seed_is_target(homepage):
+                continue                                # active non-target candidate: skip seed
             if not robots.can_fetch(url):
                 continue
             key = normalize_ref("website", url)

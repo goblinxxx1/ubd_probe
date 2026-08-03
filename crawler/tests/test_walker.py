@@ -154,3 +154,24 @@ def test_bfs_collects_target_by_anchor_and_skips_excluded(monkeypatch):
     assert "https://shop.ua/page/12" in plan.urls           # target by anchor text
     assert "https://shop.ua/kontakty" in plan.urls          # target by slug
     assert "https://shop.ua/product/9" not in plan.urls     # excluded, not collected
+
+
+def test_seed_gate_root_candidate_is_kept(monkeypatch):
+    monkeypatch.setattr(walker_mod, "collect_sitemap_urls",
+                        lambda *a, **k: ["https://shop.ua/sale"])
+    policy = FakePolicy(FakeRobots(sitemaps=["https://shop.ua/s.xml"]))
+    w = DomainWalker(client=object(), robots=policy, rate_limiter=NoWait(),
+                     domain_page_cap=10, bfs_trigger_min=1)
+    plan = w.walk(_cand("https://shop.ua"))                 # root candidate (passive)
+    assert plan.urls[0] == "https://shop.ua"                # root always fetched
+
+
+def test_seed_gate_product_candidate_url_is_dropped(monkeypatch):
+    monkeypatch.setattr(walker_mod, "collect_sitemap_urls",
+                        lambda *a, **k: ["https://shop.ua/sale"])
+    policy = FakePolicy(FakeRobots(sitemaps=["https://shop.ua/s.xml"]))
+    w = DomainWalker(client=object(), robots=policy, rate_limiter=NoWait(),
+                     domain_page_cap=10, bfs_trigger_min=1)
+    plan = w.walk(_cand("https://shop.ua/product/12"))      # active non-target candidate
+    assert "https://shop.ua/product/12" not in plan.urls    # candidate URL not fetched
+    assert "https://shop.ua/sale" in plan.urls              # domain still walked
