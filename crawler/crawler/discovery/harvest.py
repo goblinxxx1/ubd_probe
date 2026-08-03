@@ -48,6 +48,10 @@ class ActiveHarvester:
             # осідає й не ре-фідиться.
             if cand.type == "website" and is_foreign_host(cand.url_or_handle):
                 continue
+            # Блокліст = не краулити взагалі: заблокований хост ніколи не фетчиться/
+            # не обходиться (не лише «не приписувати як провайдера»).
+            if cand.type == "website" and is_blocked_host(cand.url_or_handle):
+                continue
             if normalize_ref(cand.type, cand.url_or_handle) in known:
                 continue
             if (cand.type == "website" and not cand.bypass_host_skip

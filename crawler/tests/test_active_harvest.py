@@ -111,6 +111,24 @@ def test_foreign_candidate_does_not_consume_budget():
     assert fetched == ["https://shop.ua"]
 
 
+def test_blocklisted_website_candidate_skipped():
+    # a host in the blocklist must never be fetched/walked (not just un-attributed)
+    from crawler.discovery import blocklist
+    api = FakeApi()
+    fetched = []
+    class CountingFetcher:
+        def fetch(self, source, k): fetched.append(source["url_or_handle"]); return [], None
+    h = ActiveHarvester(api, {"website": CountingFetcher()}, GateExtractor(),
+                        rate_limiter=None, fetch_budget=5)
+    blocklist.reload_learned(["buketik24.com.ua"])
+    try:
+        cands = [_cand(url="https://buketik24.com.ua"), _cand(url="https://shop.ua")]
+        h.harvest(cands, cats=None, known=set(), summary=_summary())
+    finally:
+        blocklist.reload_learned(None)
+    assert fetched == ["https://shop.ua"]  # blocklisted host skipped, other fetched
+
+
 def test_error_in_one_candidate_isolated():
     api = FakeApi()
     class BoomFetcher:
@@ -335,12 +353,16 @@ def _blocklisted_item():
 
 
 def test_blocklisted_page_captures_outbound_hosts():
+    # The active admission gate now skips blocklisted candidates entirely (see
+    # test_blocklisted_website_candidate_skipped), so outbound capture is exercised
+    # at the _process_page unit — it stays reachable via non-active-candidate paths.
     api = FakeApi()
     store = _RecStore()
     h = ActiveHarvester(api, {"website": FakeFetcher([_blocklisted_item()])},
                         GateExtractor(), rate_limiter=None, fetch_budget=5,
                         aggregator_store=store, aggregator_max_domains=500)
-    h.harvest([_cand(url="https://veteranam.info")], cats=None, known=set(), summary=_summary())
+    h._process_page(_cand(url="https://veteranam.info"), [_blocklisted_item()],
+                    cats=None, known=set(), summary=_summary())
     assert store.added and store.added[0] == ({"realbiz.com.ua"}, 500)
     assert api.offers == []     # aggregator page still emits no offer (interim drop kept)
 
