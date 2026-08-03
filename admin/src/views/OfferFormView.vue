@@ -14,6 +14,14 @@ const dictionaries = useDictionariesStore();
 const id = route.params.id || null;
 const initial = ref(null);
 
+// Return to the section (and tab) the user came from, carried as query on entry;
+// falls back to the offers list.
+function backToOrigin() {
+  const from = route.query.from || "offers";
+  const query = route.query.tab ? { tab: route.query.tab } : {};
+  router.push({ name: from, query });
+}
+
 onMounted(async () => {
   await dictionaries.load();
   if (id) {
@@ -34,7 +42,7 @@ async function onSubmit(payload) {
       await offers.create(payload);
       ElMessage.success("Створено");
     }
-    router.push({ name: "offers" });
+    backToOrigin();
   } catch (e) {
     ElMessage.error(extractError(e));
   }
@@ -45,13 +53,13 @@ async function onSubmitPublish(payload) {
     await offers.update(id, payload);
     await offers.publish(id);
     ElMessage.success("Збережено та опубліковано");
-    router.push({ name: "offers" });
+    backToOrigin();
   } catch (e) {
     ElMessage.error(extractError(e));
   }
 }
 
-defineExpose({ onSubmit, onSubmitPublish });
+defineExpose({ onSubmit, onSubmitPublish, backToOrigin });
 </script>
 
 <template>
@@ -63,7 +71,7 @@ defineExpose({ onSubmit, onSubmitPublish });
       :offer-categories="dictionaries.offerCategories"
       @submit="onSubmit"
       @submit-publish="onSubmitPublish"
-      @cancel="router.push({ name: 'offers' })"
+      @cancel="backToOrigin"
     />
   </div>
 </template>

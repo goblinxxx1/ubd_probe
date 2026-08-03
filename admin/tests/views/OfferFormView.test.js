@@ -27,6 +27,7 @@ function mountView(path, routeName, params = {}) {
     history: createMemoryHistory(),
     routes: [
       { path: "/", name: "offers", component: stub },
+      { path: "/moderation", name: "moderation", component: stub },
       { path: "/offers/new", name: "offer-new", component: OfferFormView },
       { path: "/offers/:id/edit", name: "offer-edit", component: OfferFormView },
     ],
@@ -65,5 +66,31 @@ describe("OfferFormView", () => {
     await flushPromises();
     expect(offers.update).toHaveBeenCalledWith("5", { title: "Pub", type: "event", provider: "P" });
     expect(offers.publish).toHaveBeenCalledWith("5");
+  });
+
+  it("returns to the originating section after save", async () => {
+    const wrapper = await mountView("/offers/5/edit?from=moderation");
+    await flushPromises();
+    const spy = vi.spyOn(wrapper.vm.$router, "push");
+    wrapper.vm.onSubmit({ title: "Upd", type: "discount", provider: "P" });
+    await flushPromises();
+    expect(spy).toHaveBeenCalledWith({ name: "moderation", query: {} });
+  });
+
+  it("returns to the originating offers tab after save", async () => {
+    const wrapper = await mountView("/offers/5/edit?from=offers&tab=rejected");
+    await flushPromises();
+    const spy = vi.spyOn(wrapper.vm.$router, "push");
+    wrapper.vm.onSubmit({ title: "Upd", type: "discount", provider: "P" });
+    await flushPromises();
+    expect(spy).toHaveBeenCalledWith({ name: "offers", query: { tab: "rejected" } });
+  });
+
+  it("falls back to the offers list when no origin is given", async () => {
+    const wrapper = await mountView("/offers/5/edit");
+    await flushPromises();
+    const spy = vi.spyOn(wrapper.vm.$router, "push");
+    wrapper.vm.backToOrigin();
+    expect(spy).toHaveBeenCalledWith({ name: "offers", query: {} });
   });
 });

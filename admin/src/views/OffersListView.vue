@@ -1,8 +1,9 @@
 <script setup>
 import { onMounted, ref } from "vue";
-import { useRouter } from "vue-router";
+import { useRouter, useRoute } from "vue-router";
 import { ElMessage } from "element-plus";
 import { useApiList } from "@/composables/useApiList";
+import { useModerationStore } from "@/stores/moderation";
 import * as offers from "@/api/offers";
 import { OFFER_STATUSES, OFFER_TYPES } from "@/constants/enums";
 import { enumLabel, formatDate, statusTagType, isHttpUrl, supersedeSummary } from "@/utils/format";
@@ -13,10 +14,19 @@ import ResponsiveTable from "@/components/ResponsiveTable.vue";
 
 const props = defineProps({ fixedStatus: { type: String, default: null } });
 const router = useRouter();
+const route = useRoute();
+const moderation = useModerationStore();
 
-// Main offers page is split into two status tabs; the moderation-queue variant
-// (fixedStatus set) pins its status and shows no tabs.
-const tab = ref("published");
+// Main offers page is split into status tabs; the moderation-queue variant
+// (fixedStatus set) pins its status and shows no tabs. The active tab lives in the
+// URL (?tab=) so it survives an edit round-trip (return-to-origin).
+const tab = ref(props.fixedStatus ? "pending_review" : (route.query.tab || "published"));
+
+// Keep the tab in the URL (no remount) and reload — tabbed offers view only.
+function onTabChange() {
+  if (!props.fixedStatus) router.replace({ query: { ...route.query, tab: tab.value } });
+  applyFilters({});
+}
 
 const columns = [
   { label: "Заголовок", slot: "title" },
@@ -46,6 +56,7 @@ async function onPublish(id) {
     await offers.publish(id);
     ElMessage.success("Опубліковано");
     await load();
+    moderation.refresh();
   } catch (e) {
     ElMessage.error(extractError(e));
   }
@@ -56,6 +67,7 @@ async function onReject(id) {
     await offers.reject(id);
     ElMessage.success("Відхилено");
     await load();
+    moderation.refresh();
   } catch (e) {
     ElMessage.error(extractError(e));
   }
@@ -66,6 +78,7 @@ async function onRestore(id) {
     await offers.restore(id);
     ElMessage.success("Відновлено");
     await load();
+    moderation.refresh();
   } catch (e) {
     ElMessage.error(extractError(e));
   }
@@ -96,13 +109,17 @@ async function onDelete(id) {
     await offers.remove(id);
     ElMessage.success("Видалено");
     await load();
+    moderation.refresh();
   } catch (e) {
     ElMessage.error(extractError(e));
   }
 }
 
 function edit(id) {
-  router.push({ name: "offer-edit", params: { id } });
+  const query = props.fixedStatus
+    ? { from: route.name }
+    : { from: route.name, tab: tab.value };
+  router.push({ name: "offer-edit", params: { id }, query });
 }
 
 function pluralZnyzhka(n) {
@@ -112,19 +129,19 @@ function pluralZnyzhka(n) {
   return "знижок";
 }
 
-defineExpose({ onPublish, onReject, onRestore, onDelete, onBlockHost, load, applyFilters, items, tab });
+defineExpose({ onPublish, onReject, onRestore, onDelete, onBlockHost, edit, load, applyFilters, items, tab });
 </script>
 
 <template>
   <div class="offers-list">
     <div class="header">
       <h2>{{ fixedStatus ? "Черга модерації" : "Оффери" }}</h2>
-      <el-button v-if="!fixedStatus" type="primary" @click="router.push({ name: 'offer-new' })">
+      <el-button v-if="!fixedStatus" type="primary" @click="router.push({ name: 'offer-new', query: { from: route.name } })">
         Створити оффер
       </el-button>
     </div>
 
-    <el-tabs v-if="!fixedStatus" v-model="tab" @tab-change="applyFilters({})">
+    <el-tabs v-if="!fixedStatus" v-model="tab" @tab-change="onTabChange">
       <el-tab-pane label="Опубліковані" name="published" />
       <el-tab-pane label="На модерації" name="pending_review" />
       <el-tab-pane label="Відхилені" name="rejected" />
@@ -143,6 +160,14 @@ defineExpose({ onPublish, onReject, onRestore, onDelete, onBlockHost, load, appl
         </el-select>
       </template>
     </DataTableToolbar>
+
+    <el-pagination
+      layout="prev, pager, next"
+      :total="total"
+      :page-size="size"
+      :current-page="page"
+      @current-change="setPage"
+    />
 
     <ResponsiveTable :columns="columns" :rows="items" :loading="loading" :actions-width="280">
       <template #col-title="{ row }">

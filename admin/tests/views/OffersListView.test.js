@@ -25,6 +25,7 @@ vi.mock("element-plus", async (importOriginal) => {
   };
 });
 import * as offers from "@/api/offers";
+import { useModerationStore } from "@/stores/moderation";
 
 function makeRouter() {
   const stub = { template: "<div/>" };
@@ -74,7 +75,8 @@ describe("OffersListView", () => {
     await wrapper.vm.onPublish(1);
     await flushPromises();
     expect(offers.publish).toHaveBeenCalledWith(1);
-    expect(offers.list).toHaveBeenCalledTimes(2);
+    // mount load + reload after the action + moderation badge refresh
+    expect(offers.list).toHaveBeenCalledTimes(3);
   });
 
   it("forces status when fixedStatus is set", async () => {
@@ -121,7 +123,8 @@ describe("OffersListView", () => {
     await wrapper.vm.onRestore(1);
     await flushPromises();
     expect(offers.restore).toHaveBeenCalledWith(1);
-    expect(offers.list).toHaveBeenCalledTimes(2);
+    // mount load + reload after the action + moderation badge refresh
+    expect(offers.list).toHaveBeenCalledTimes(3);
   });
 
   it("renders a clickable source link when site_url is present", async () => {
@@ -162,5 +165,55 @@ describe("OffersListView", () => {
     await wrapper.vm.onBlockHost(1);
     await flushPromises();
     expect(offers.blockHost).not.toHaveBeenCalled();
+  });
+
+  it("publish refreshes the moderation badge count", async () => {
+    const router = makeRouter();
+    router.push("/");
+    await router.isReady();
+    const wrapper = mount(OffersListView, { global: { plugins: [router, ElementPlus] } });
+    await flushPromises();
+    const store = useModerationStore();
+    const spy = vi.spyOn(store, "refresh");
+    await wrapper.vm.onPublish(1);
+    await flushPromises();
+    expect(spy).toHaveBeenCalled();
+  });
+
+  it("renders a pagination bar both above and below the table", async () => {
+    offers.list.mockResolvedValueOnce({
+      items: [{ id: 1, title: "T", provider: "P", type: "discount", status: "published", valid_until: null }],
+      total: 40,
+    });
+    const router = makeRouter();
+    router.push("/");
+    await router.isReady();
+    const wrapper = mount(OffersListView, { global: { plugins: [router, ElementPlus] } });
+    await flushPromises();
+    expect(wrapper.findAllComponents({ name: "ElPagination" }).length).toBe(2);
+  });
+
+  it("initialises the tab from the URL query", async () => {
+    const router = makeRouter();
+    router.push("/?tab=rejected");
+    await router.isReady();
+    mount(OffersListView, { global: { plugins: [router, ElementPlus] } });
+    await flushPromises();
+    expect(offers.list).toHaveBeenCalledWith({ status: "rejected", page: 1, size: 20 });
+  });
+
+  it("edit navigates carrying from + tab query", async () => {
+    const router = makeRouter();
+    const spy = vi.spyOn(router, "push");
+    router.push("/");
+    await router.isReady();
+    const wrapper = mount(OffersListView, { global: { plugins: [router, ElementPlus] } });
+    await flushPromises();
+    wrapper.vm.tab = "pending_review";
+    wrapper.vm.edit(5);
+    expect(spy).toHaveBeenCalledWith({
+      name: "offer-edit", params: { id: 5 },
+      query: { from: "offers", tab: "pending_review" },
+    });
   });
 });
