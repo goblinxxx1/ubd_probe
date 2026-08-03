@@ -63,6 +63,16 @@ def test_blocklisted_host_filtered(monkeypatch):
     assert _enum(els, min_pois=2).enumerate() == {"Good": "good.ua"}
 
 
+def test_foreign_cctld_website_filtered():
+    # UA POI of a brand whose website is a .by domain (e.g. БРСМ -> brsm.by) must
+    # not poison the domain cache
+    els = [{"tags": {"brand": "БРСМ", "website": "https://brsm.by"}},
+           {"tags": {"brand": "БРСМ", "website": "https://brsm.by"}},
+           {"tags": {"brand": "Good", "website": "https://good.ua"}},
+           {"tags": {"brand": "Good", "website": "https://good.ua"}}]
+    assert _enum(els, min_pois=2).enumerate() == {"Good": "good.ua"}
+
+
 def test_missing_brand_or_website_skipped():
     els = [{"tags": {"website": "https://x.ua"}},        # no brand
            {"tags": {"brand": "Y"}},                     # no website

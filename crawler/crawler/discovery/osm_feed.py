@@ -11,7 +11,7 @@ import httpx
 from crawler.discovery.blocklist import is_blocked_host
 from crawler.discovery.passive import normalize_ref
 from crawler.models import SourceCandidate
-from crawler.util.hosts import bare_host
+from crawler.util.hosts import bare_host, is_foreign_host
 
 log = logging.getLogger(__name__)
 
@@ -53,7 +53,8 @@ class OsmEnumerator:
         picked: dict[str, str] = {}
         for brand, hosts in by_brand.items():
             host, count = hosts.most_common(1)[0]
-            if count >= self._min_pois and not is_blocked_host(host):
+            if (count >= self._min_pois and not is_blocked_host(host)
+                    and not is_foreign_host(host)):  # UA-only: drop foreign ccTLD website tags
                 picked[brand] = host
         # dedup by host (stable brand order), cap
         seen: set[str] = set()

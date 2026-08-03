@@ -8,6 +8,7 @@ from crawler.discovery.promo_lexicon import seed_is_target
 from crawler.extract.aggregate import aggregate_page
 from crawler.extract.categories import resolve_offer_categories
 from crawler.payloads import offer_payload
+from crawler.util.hosts import is_foreign_host
 
 log = logging.getLogger(__name__)
 
@@ -41,6 +42,11 @@ class ActiveHarvester:
             if used >= self._budget:
                 break
             if cand.type not in _FETCHABLE:
+                continue
+            # UA-only: never fetch/walk a foreign-ccTLD site (напр. .by). Гейт до
+            # витрати бюджету й до запису в domain_registry, тож іноземний хост не
+            # осідає й не ре-фідиться.
+            if cand.type == "website" and is_foreign_host(cand.url_or_handle):
                 continue
             if normalize_ref(cand.type, cand.url_or_handle) in known:
                 continue
