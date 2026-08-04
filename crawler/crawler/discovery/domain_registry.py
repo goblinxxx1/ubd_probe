@@ -65,9 +65,15 @@ class DomainRegistry:
         e = self._data["domains"].get(_host(host))
         return float(e["score"]) if e else 0.0
 
-    def top(self, n, known_hosts):
+    def seen_within(self, host, seconds) -> bool:
+        e = self._data["domains"].get(_host(host))
+        return e is not None and (self._clock() - e["last_seen"]) < seconds
+
+    def top(self, n, known_hosts, cooldown_seconds=0):
+        now = self._clock()
         rows = [(h, e["score"]) for h, e in self._data["domains"].items()
-                if e["score"] >= self._promote and h not in known_hosts]
+                if e["score"] >= self._promote and h not in known_hosts
+                and not (cooldown_seconds and now - e["last_seen"] < cooldown_seconds)]
         rows.sort(key=lambda r: (-r[1], r[0]))
         return [h for h, _ in rows[:max(0, int(n))]]
 

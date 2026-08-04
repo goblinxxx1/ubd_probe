@@ -93,3 +93,26 @@ def test_top_tie_break_by_host_on_equal_scores(tmp_path):
     r.record("b.ua", offers=5, errors=0)      # recorded first
     r.record("a.ua", offers=5, errors=0)      # equal score
     assert r.top(10, set()) == ["a.ua", "b.ua"]   # host asc, not insertion order
+
+
+def test_seen_within_reflects_last_seen(tmp_path):
+    t = {"v": 1000.0}
+    r = DomainRegistry(str(tmp_path / "r.json"), clock=lambda: t["v"])
+    r.record("a.ua", offers=1, errors=0)   # last_seen = 1000
+    t["v"] = 1000.0 + 50
+    assert r.seen_within("a.ua", 100) is True
+    assert r.seen_within("a.ua", 40) is False
+    assert r.seen_within("never.ua", 100) is False
+
+
+def test_top_excludes_recently_seen_when_cooldown_set(tmp_path):
+    t = {"v": 1000.0}
+    r = DomainRegistry(str(tmp_path / "r.json"), clock=lambda: t["v"])
+    r.record("hi.ua", offers=5, errors=0)    # highest score, seen at 1000
+    t["v"] = 1000.0 + 10
+    r.record("lo.ua", offers=1, errors=0)    # lower score, seen at 1010
+    t["v"] = 1000.0 + 20
+    assert r.top(10, set(), cooldown_seconds=100) == []
+    assert r.top(10, set(), cooldown_seconds=0) == ["hi.ua", "lo.ua"]
+    t["v"] = 1000.0 + 150
+    assert r.top(10, set(), cooldown_seconds=100) == ["hi.ua", "lo.ua"]
