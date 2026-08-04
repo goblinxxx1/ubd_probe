@@ -423,3 +423,25 @@ def test_run_without_schedule_runs_both():
     runner.run()
     assert api.state[1] == "newkey"    # passive ran (backward compat)
     assert api.expired_calls == [30]
+
+
+def test_site_query_excludes_blocklisted_registry_hosts(tmp_path):
+    from crawler.discovery import blocklist
+    api = FakeApi([{"id": 1, "type": "website", "name": "S", "url_or_handle": "http://x"}])
+    reg = DomainRegistry(str(tmp_path / "r.json"), clock=lambda: 1.0)
+    reg.record("proven.ua", offers=3, errors=0)    # productive, allowed
+    reg.record("badnews.ua", offers=3, errors=0)   # productive, blocklisted
+    state = SearchState(str(tmp_path / "s.json"), clock=lambda: 1.0)
+    disc = _MutatingDiscovery()
+    blocklist.reload_learned(["badnews.ua"])
+    try:
+        runner = Runner(api, {"website": FakeFetcher([])}, get_extractor("heuristic"), _rl(),
+                        harvester=_RecordingHarvester(), discovery=disc, domain_registry=reg,
+                        site_planner=SiteQueryPlanner(terms=("знижка",)),
+                        site_state=state, site_query_budget=5)
+        runner.run_active()
+    finally:
+        blocklist.reload_learned(None)
+    qs = " ".join(q for call in disc.calls for q in call)
+    assert "proven.ua" in qs
+    assert "badnews.ua" not in qs

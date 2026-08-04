@@ -35,3 +35,17 @@ def test_respects_per_pass_cap(tmp_path):
 
 def test_empty_registry_returns_empty(tmp_path):
     assert DomainFeed(_reg(tmp_path), per_pass=8).candidates(set()) == []
+
+
+def test_skips_blocklisted_hosts(tmp_path):
+    from crawler.discovery import blocklist
+    r = _reg(tmp_path)
+    r.record("good.ua", offers=3, errors=0)
+    r.record("bad.ua", offers=3, errors=0)
+    blocklist.reload_learned(["bad.ua"])
+    try:
+        hosts = [c.url_or_handle for c in DomainFeed(r, per_pass=8).candidates(set())]
+    finally:
+        blocklist.reload_learned(None)
+    assert "https://bad.ua" not in hosts
+    assert "https://good.ua" in hosts

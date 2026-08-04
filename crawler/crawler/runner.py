@@ -2,6 +2,7 @@ import logging
 import time
 from itertools import zip_longest
 
+from crawler.discovery.blocklist import is_blocked_host
 from crawler.discovery.brand_feed import _host
 from crawler.discovery.passive import extract_source_candidates, normalize_ref
 from crawler.extract.aggregate import aggregate_page
@@ -104,7 +105,8 @@ class Runner:
             if (self._site_planner is not None and self._site_state is not None
                     and self._discovery is not None and self._domain_registry is not None):
                 cur = self._site_state.site_cursor
-                reg = self._domain_registry.top(self._site_query_budget, known_hosts)
+                reg = [h for h in self._domain_registry.top(self._site_query_budget, known_hosts)
+                       if not is_blocked_host(h)]   # never site-query a blocklisted host
                 site_queries, new_cur = self._site_planner.next_batch(
                     reg, self._site_query_budget, cur)
                 if site_queries:
