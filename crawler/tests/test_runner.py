@@ -445,3 +445,20 @@ def test_site_query_excludes_blocklisted_registry_hosts(tmp_path):
     qs = " ".join(q for call in disc.calls for q in call)
     assert "proven.ua" in qs
     assert "badnews.ua" not in qs
+
+
+def test_site_query_pool_respects_revisit_cooldown(tmp_path):
+    api = FakeApi([{"id": 1, "type": "website", "name": "S", "url_or_handle": "http://x"}])
+    t = {"v": 1000.0}
+    reg = DomainRegistry(str(tmp_path / "r.json"), clock=lambda: t["v"])
+    reg.record("proven.ua", offers=3, errors=0)   # seen at 1000
+    t["v"] = 1000.0 + 10
+    state = SearchState(str(tmp_path / "s.json"), clock=lambda: 1.0)
+    disc = _MutatingDiscovery()
+    runner = Runner(api, {"website": FakeFetcher([])}, get_extractor("heuristic"), _rl(),
+                    harvester=_RecordingHarvester(), discovery=disc, domain_registry=reg,
+                    site_planner=SiteQueryPlanner(terms=("знижка",)),
+                    site_state=state, site_query_budget=5, revisit_cooldown_seconds=100)
+    runner.run_active()
+    qs = " ".join(q for call in disc.calls for q in call)
+    assert "proven.ua" not in qs

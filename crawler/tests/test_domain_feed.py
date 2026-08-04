@@ -49,3 +49,14 @@ def test_skips_blocklisted_hosts(tmp_path):
         blocklist.reload_learned(None)
     assert "https://bad.ua" not in hosts
     assert "https://good.ua" in hosts
+
+
+def test_domain_feed_passes_cooldown_to_top(tmp_path):
+    from crawler.discovery.domain_feed import DomainFeed
+    from crawler.discovery.domain_registry import DomainRegistry
+    t = {"v": 1000.0}
+    r = DomainRegistry(str(tmp_path / "r.json"), clock=lambda: t["v"], promote_min_score=0.5)
+    r.record("recent.ua", offers=5, errors=0)   # seen at 1000
+    t["v"] = 1000.0 + 10
+    hosts = [c.url_or_handle for c in DomainFeed(r, per_pass=8, cooldown_seconds=100).candidates(set())]
+    assert hosts == []

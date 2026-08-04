@@ -6,13 +6,14 @@ from crawler.models import SourceCandidate
 
 
 class DomainFeed:
-    def __init__(self, registry, per_pass=8):
+    def __init__(self, registry, per_pass=8, cooldown_seconds=0):
         self._registry = registry
         self._per_pass = per_pass
+        self._cooldown = cooldown_seconds
 
     def candidates(self, known_hosts):
         out = []
-        for host in self._registry.top(self._per_pass, known_hosts):
+        for host in self._registry.top(self._per_pass, known_hosts, self._cooldown):
             if is_blocked_host(host):   # never re-surface a blocklisted host as a candidate
                 continue
             out.append(SourceCandidate(

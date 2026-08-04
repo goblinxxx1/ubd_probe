@@ -23,7 +23,7 @@ class Runner:
                  domain_evict_min_score=0.1, domain_evict_ttl_seconds=2_592_000.0,
                  site_planner=None, site_state=None, site_query_budget=5,
                  osm_feed=None, aggregator_feed=None,
-                 passive_schedule=None, now=time.time):
+                 passive_schedule=None, now=time.time, revisit_cooldown_seconds=0):
         self._api = api_client
         self._fetchers = fetchers
         self._extractor = extractor
@@ -47,6 +47,7 @@ class Runner:
         self._aggregator_feed = aggregator_feed
         self._passive_schedule = passive_schedule
         self._now = now
+        self._revisit_cooldown = revisit_cooldown_seconds
 
     def _fetch_for(self, source: dict, last_seen_key):
         fetcher = self._fetchers.get(source["type"])
@@ -105,8 +106,9 @@ class Runner:
             if (self._site_planner is not None and self._site_state is not None
                     and self._discovery is not None and self._domain_registry is not None):
                 cur = self._site_state.site_cursor
-                reg = [h for h in self._domain_registry.top(self._site_query_budget, known_hosts)
-                       if not is_blocked_host(h)]   # never site-query a blocklisted host
+                reg = [h for h in self._domain_registry.top(
+                           self._site_query_budget, known_hosts, self._revisit_cooldown)
+                       if not is_blocked_host(h)]   # skip blocklisted + recently-visited hosts
                 site_queries, new_cur = self._site_planner.next_batch(
                     reg, self._site_query_budget, cur)
                 if site_queries:
