@@ -1,9 +1,11 @@
 """Offline curated query grid: generate DDG search phrases from vocabulary axes.
 
-v1 template: "{intent} {audience}" only. Brands are not a query axis — brand
-DOMAINS are covered directly by brand_feed. Cities are NOT a query axis either
-(they live in geo.py for extraction). Deterministic, stable order — the same
-technique as lexicon.py/geo.py: curated tuples, no ML."""
+build_grid materializes "{intent} {audience}" (the 351 base) plus a geo block
+"{intent} {audience} {city}" over a curated top-city list (GRID_CITIES) — city
+is a TRUE grid multiplier (B3a), not the old diagonal suffix. Brands are not a
+query axis — brand DOMAINS are covered directly by brand_feed. geo.py still
+recognizes the full gazetteer for EXTRACTION; only query targeting is curated.
+Deterministic, stable order — curated tuples, no ML."""
 
 # Audience surface forms (map onto the 7 canonical TARGET_LEXICON slugs).
 AUDIENCE_FORMS = (

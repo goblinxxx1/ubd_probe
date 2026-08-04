@@ -221,8 +221,8 @@ def test_require_discount_env_override(monkeypatch, tmp_path):
 
 
 def test_grid_cities_raw_default_true():
-    from crawler.config import _RawSettings as Settings
-    s = Settings()
+    from crawler.config import _RawSettings
+    s = _RawSettings()
     assert s.grid_cities_enabled is True
 
 
