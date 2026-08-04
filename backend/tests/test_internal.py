@@ -141,6 +141,27 @@ def test_approved_offers_returns_published(client, db_session):
     assert any("Знижка 20%" in row["text"] and row["host"] == "shop.ua" for row in body)
 
 
+def test_approved_offers_include_category_names(client, db_session):
+    from app.crud import offer as offer_crud
+    from app.models import OfferCategory
+    from app.models.enums import CreatedBy, OfferStatus, OfferType
+    from app.schemas.offer import OfferCreate
+
+    oc = OfferCategory(name="Медицина", slug="medytsyna")
+    db_session.add(oc); db_session.commit()
+    offer_crud.create_offer(
+        db_session,
+        OfferCreate(type=OfferType.discount, title="Стоматологія Люкс", provider="P",
+                    site_url="https://clinic.ua/sale", offer_category_ids=[oc.id]),
+        created_by=CreatedBy.admin, status=OfferStatus.published)
+
+    r = client.get("/api/internal/approved-offers",
+                   headers={"X-API-Key": settings.crawler_api_key})
+    assert r.status_code == 200
+    row = next(o for o in r.json() if "Стоматологія Люкс" in o["text"])
+    assert row["categories"] == ["Медицина"]
+
+
 def test_approved_offers_requires_api_key(client):
     assert client.get("/api/internal/approved-offers").status_code == 401
 

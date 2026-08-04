@@ -102,7 +102,8 @@ def set_bot_account_state(platform: str, username: str, data: BotAccountStateUpd
 class ApprovedOfferOut(BaseModel):
     text: str
     host: str
-    approved_at: datetime
+    approved_at: datetime | None = None
+    categories: list[str] = []
 
 
 def _host(url):
@@ -117,6 +118,7 @@ def list_approved_offers(since: datetime | None = None, db: Session = Depends(ge
             text=f"{o.title}\n{o.description or ''}".strip(),
             host=_host(o.site_url or o.article_url),
             approved_at=o.updated_at,
+            categories=[c.name for c in o.offer_categories],
         )
         for o in rows
     ]
