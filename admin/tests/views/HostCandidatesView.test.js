@@ -28,6 +28,19 @@ describe("HostCandidatesView", () => {
     expect(hosts.list).toHaveBeenCalledWith({ status: "pending" });
   });
 
+  it("paginates the list with a bar above and below", async () => {
+    hosts.list.mockResolvedValueOnce(
+      Array.from({ length: 25 }, (_, i) => ({ id: i + 1, host: `h${i}.example`, status: "pending", media_ratio: 0.5, aggregator_ratio: 0.1, support: 2, sample_urls: [] })),
+    );
+    const wrapper = mount(HostCandidatesView, { global: { plugins: [ElementPlus] } });
+    await flushPromises();
+    expect(wrapper.findAllComponents({ name: "ElPagination" }).length).toBe(2);
+    expect(wrapper.vm.pageItems.length).toBe(20);
+    wrapper.vm.setPage(2);
+    await flushPromises();
+    expect(wrapper.vm.pageItems.length).toBe(5);
+  });
+
   it("approve calls the API and reloads", async () => {
     const wrapper = mount(HostCandidatesView, { global: { plugins: [ElementPlus] } });
     await flushPromises();

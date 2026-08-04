@@ -6,6 +6,7 @@ import { SOURCE_TYPES } from "@/constants/enums";
 import { enumLabel, isHttpUrl } from "@/utils/format";
 import { confirmDelete } from "@/utils/confirm";
 import { extractError } from "@/utils/errors";
+import { useClientPagination } from "@/composables/useClientPagination";
 import ResponsiveTable from "@/components/ResponsiveTable.vue";
 
 const columns = [
@@ -16,6 +17,7 @@ const columns = [
 ];
 
 const items = ref([]);
+const { page, size, total, pageItems, setPage } = useClientPagination(items, 20);
 const loading = ref(false);
 const dialogVisible = ref(false);
 const editingId = ref(null);
@@ -73,7 +75,7 @@ async function onDelete(id) {
   }
 }
 
-defineExpose({ items, load, openCreate, openEdit, save, onDelete, form, editingId });
+defineExpose({ items, pageItems, page, total, setPage, load, openCreate, openEdit, save, onDelete, form, editingId });
 </script>
 
 <template>
@@ -83,7 +85,15 @@ defineExpose({ items, load, openCreate, openEdit, save, onDelete, form, editingI
       <el-button type="primary" @click="openCreate">Додати джерело</el-button>
     </div>
 
-    <ResponsiveTable :columns="columns" :rows="items" :loading="loading" :actions-width="200">
+    <el-pagination
+      layout="prev, pager, next"
+      :total="total"
+      :page-size="size"
+      :current-page="page"
+      @current-change="setPage"
+    />
+
+    <ResponsiveTable :columns="columns" :rows="pageItems" :loading="loading" :actions-width="200">
       <template #col-type="{ row }">{{ enumLabel(SOURCE_TYPES, row.type) }}</template>
       <template #col-ref="{ row }">
         <el-link
@@ -101,6 +111,14 @@ defineExpose({ items, load, openCreate, openEdit, save, onDelete, form, editingI
         <el-button size="small" type="danger" @click="onDelete(row.id)">Видалити</el-button>
       </template>
     </ResponsiveTable>
+
+    <el-pagination
+      layout="prev, pager, next"
+      :total="total"
+      :page-size="size"
+      :current-page="page"
+      @current-change="setPage"
+    />
 
     <el-dialog v-model="dialogVisible" :title="editingId ? 'Редагувати джерело' : 'Нове джерело'">
       <el-form label-position="top">

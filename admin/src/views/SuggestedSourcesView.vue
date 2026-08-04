@@ -5,9 +5,11 @@ import * as suggested from "@/api/suggestedSources";
 import { SOURCE_TYPES, SUGGESTION_STATUSES } from "@/constants/enums";
 import { enumLabel, isHttpUrl, noteSegments } from "@/utils/format";
 import { extractError } from "@/utils/errors";
+import { useClientPagination } from "@/composables/useClientPagination";
 import ResponsiveTable from "@/components/ResponsiveTable.vue";
 
 const items = ref([]);
+const { page, size, total, pageItems, setPage } = useClientPagination(items, 20);
 const loading = ref(false);
 const status = ref("pending");
 
@@ -49,7 +51,7 @@ async function onReject(id) {
   }
 }
 
-defineExpose({ items, load, onApprove, onReject, status });
+defineExpose({ items, pageItems, page, total, setPage, load, onApprove, onReject, status });
 </script>
 
 <template>
@@ -61,7 +63,15 @@ defineExpose({ items, load, onApprove, onReject, status });
       </el-select>
     </div>
 
-    <ResponsiveTable :columns="columns" :rows="items" :loading="loading" :actions-width="220">
+    <el-pagination
+      layout="prev, pager, next"
+      :total="total"
+      :page-size="size"
+      :current-page="page"
+      @current-change="setPage"
+    />
+
+    <ResponsiveTable :columns="columns" :rows="pageItems" :loading="loading" :actions-width="220">
       <template #col-type="{ row }">{{ enumLabel(SOURCE_TYPES, row.type) }}</template>
       <template #col-ref="{ row }">
         <el-link
@@ -93,6 +103,14 @@ defineExpose({ items, load, onApprove, onReject, status });
         <span v-else>{{ enumLabel(SUGGESTION_STATUSES, row.status) }}</span>
       </template>
     </ResponsiveTable>
+
+    <el-pagination
+      layout="prev, pager, next"
+      :total="total"
+      :page-size="size"
+      :current-page="page"
+      @current-change="setPage"
+    />
   </div>
 </template>
 

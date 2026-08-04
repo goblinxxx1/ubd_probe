@@ -5,9 +5,11 @@ import * as hosts from "@/api/hostCandidates";
 import { SUGGESTION_STATUSES } from "@/constants/enums";
 import { enumLabel, isHttpUrl } from "@/utils/format";
 import { extractError } from "@/utils/errors";
+import { useClientPagination } from "@/composables/useClientPagination";
 import ResponsiveTable from "@/components/ResponsiveTable.vue";
 
 const items = ref([]);
+const { page, size, total, pageItems, setPage } = useClientPagination(items, 20);
 const loading = ref(false);
 const status = ref("pending");
 const newHost = ref("");
@@ -65,7 +67,7 @@ async function onAdd() {
   }
 }
 
-defineExpose({ items, load, onApprove, onReject, onAdd, status, newHost });
+defineExpose({ items, pageItems, page, total, setPage, load, onApprove, onReject, onAdd, status, newHost });
 </script>
 
 <template>
@@ -87,7 +89,15 @@ defineExpose({ items, load, onApprove, onReject, onAdd, status, newHost });
       </div>
     </div>
 
-    <ResponsiveTable :columns="columns" :rows="items" :loading="loading" :actions-width="220">
+    <el-pagination
+      layout="prev, pager, next"
+      :total="total"
+      :page-size="size"
+      :current-page="page"
+      @current-change="setPage"
+    />
+
+    <ResponsiveTable :columns="columns" :rows="pageItems" :loading="loading" :actions-width="220">
       <template #col-media="{ row }">{{ (row.media_ratio * 100).toFixed(0) }}%</template>
       <template #col-aggr="{ row }">{{ (row.aggregator_ratio * 100).toFixed(0) }}%</template>
       <template #col-samples="{ row }">
@@ -104,6 +114,14 @@ defineExpose({ items, load, onApprove, onReject, onAdd, status, newHost });
         <span v-else>{{ enumLabel(SUGGESTION_STATUSES, row.status) }}</span>
       </template>
     </ResponsiveTable>
+
+    <el-pagination
+      layout="prev, pager, next"
+      :total="total"
+      :page-size="size"
+      :current-page="page"
+      @current-change="setPage"
+    />
   </div>
 </template>
 

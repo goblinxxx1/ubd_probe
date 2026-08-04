@@ -25,6 +25,19 @@ describe("SuggestedSourcesView", () => {
     expect(suggested.list).toHaveBeenCalledWith({ status: "pending" });
   });
 
+  it("paginates the list with a bar above and below", async () => {
+    suggested.list.mockResolvedValueOnce(
+      Array.from({ length: 25 }, (_, i) => ({ id: i + 1, name: `N${i}`, type: "telegram", url_or_handle: `@n${i}`, discovery_note: "x", status: "pending" })),
+    );
+    const wrapper = mount(SuggestedSourcesView, { global: { plugins: [ElementPlus] } });
+    await flushPromises();
+    expect(wrapper.findAllComponents({ name: "ElPagination" }).length).toBe(2);
+    expect(wrapper.vm.pageItems.length).toBe(20);
+    wrapper.vm.setPage(2);
+    await flushPromises();
+    expect(wrapper.vm.pageItems.length).toBe(5);
+  });
+
   it("approve calls the API and reloads", async () => {
     const wrapper = mount(SuggestedSourcesView, { global: { plugins: [ElementPlus] } });
     await flushPromises();

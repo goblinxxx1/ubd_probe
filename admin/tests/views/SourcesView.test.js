@@ -25,6 +25,19 @@ describe("SourcesView", () => {
     expect(sources.list).toHaveBeenCalled();
   });
 
+  it("paginates the list with a bar above and below", async () => {
+    sources.list.mockResolvedValueOnce(
+      Array.from({ length: 25 }, (_, i) => ({ id: i + 1, name: `S${i}`, type: "website", url_or_handle: `https://s${i}.ua`, is_active: true })),
+    );
+    const wrapper = mount(SourcesView, { global: { plugins: [ElementPlus] } });
+    await flushPromises();
+    expect(wrapper.findAllComponents({ name: "ElPagination" }).length).toBe(2);
+    expect(wrapper.vm.pageItems.length).toBe(20);
+    wrapper.vm.setPage(2);
+    await flushPromises();
+    expect(wrapper.vm.pageItems.length).toBe(5);
+  });
+
   it("creates a source via the dialog", async () => {
     const wrapper = mount(SourcesView, { global: { plugins: [ElementPlus] } });
     await flushPromises();
