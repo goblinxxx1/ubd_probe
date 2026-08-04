@@ -42,6 +42,18 @@ def test_bootstrap_seeds_categories_and_feeds_corpus(tmp_path):
     assert isinstance(n_cand, int)
 
 
+def test_bootstrap_recovers_from_corrupted_learned_file(tmp_path):
+    cfg = _cfg(tmp_path)
+    open(cfg.query_lexicon_learned_path, "w", encoding="utf-8").write("42")
+    api = _Api([{"text": "Стоматологія Люкс\nзнижка", "host": "a.com",
+                 "categories": ["Медицина"]}])
+    n_cat, n_cand = bootstrap(cfg, api, _Rec())
+    learned = json.loads(open(cfg.query_lexicon_learned_path, encoding="utf-8").read())
+    assert isinstance(learned, list)
+    cats = [e["term"] for e in learned if e.get("source") == "category"]
+    assert cats == ["Медицина"] and n_cat == 1
+
+
 def test_bootstrap_unstops_a_category(tmp_path):
     cfg = _cfg(tmp_path)
     open(cfg.query_stoplist_path, "w", encoding="utf-8").write(

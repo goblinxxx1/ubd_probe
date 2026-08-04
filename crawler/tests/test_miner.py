@@ -42,6 +42,12 @@ def test_mine_default_tokenizer_is_unchanged():
     assert any(s.term == "знижка" for s in scores)
 
 
+def test_mine_single_token_vocab_returns_empty_no_zerodivision():
+    rows = [{"text": "стоматологія", "label": "pass", "host": "a.com"}]
+    scores = mine(rows)
+    assert scores == []
+
+
 def test_mine_accepts_custom_tokenizer():
     # NOTE: a single-term vocab makes mine()'s log-odds denominator
     # (alpha*(len(vocab)-1)) exactly 0 -> ZeroDivisionError, a pre-existing

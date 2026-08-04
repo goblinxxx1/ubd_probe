@@ -34,6 +34,17 @@ def test_run_query_miner_writes_service_candidates(tmp_path):
     assert n == len(cand)
 
 
+def test_run_query_miner_known_stems_are_case_insensitive(tmp_path):
+    cfg = _cfg(tmp_path)
+    open(cfg.query_lexicon_learned_path, "w", encoding="utf-8").write(
+        json.dumps([{"term": "Стоматологія", "source": "category"}]))
+    n = run_query_miner(cfg)
+    cand = json.loads(open(cfg.query_candidates_path, encoding="utf-8").read())
+    terms = [c["term"] for c in cand]
+    assert "стоматологія" not in terms
+    assert n == len(cand)
+
+
 def test_run_query_miner_respects_soft_stoplist(tmp_path):
     cfg = _cfg(tmp_path)
     # pre-block "стоматологія" with a high z so factor keeps it suppressed

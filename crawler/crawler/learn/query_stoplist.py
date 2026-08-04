@@ -2,6 +2,7 @@
 stays suppressed only while its new z ≤ z_at_reject × resurface_factor — so a service
 that gains much stronger support later can resurface. Categories override (unstop)."""
 
+import argparse
 import json
 import os
 
@@ -50,3 +51,26 @@ def is_suppressed(term, z, blocked, factor) -> bool:
     if term not in blocked:
         return False
     return z <= blocked[term] * factor
+
+
+def _main(argv=None):
+    p = argparse.ArgumentParser(prog="query_stoplist")
+    sub = p.add_subparsers(dest="cmd", required=True)
+    rj = sub.add_parser("reject")
+    rj.add_argument("term")
+    rj.add_argument("--candidates", required=True)
+    rj.add_argument("--stoplist", required=True)
+    us = sub.add_parser("unstop")
+    us.add_argument("term")
+    us.add_argument("--stoplist", required=True)
+    a = p.parse_args(argv)
+    if a.cmd == "reject":
+        reject(a.term, a.candidates, a.stoplist)
+        print(f"rejected: {a.term}")
+    elif a.cmd == "unstop":
+        unstop(a.term, a.stoplist)
+        print(f"unstopped: {a.term}")
+
+
+if __name__ == "__main__":  # pragma: no cover
+    _main()

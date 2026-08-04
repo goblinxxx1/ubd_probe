@@ -14,9 +14,12 @@ from crawler.models import RawItem
 def _load(path, default):
     try:
         with open(path, encoding="utf-8") as fh:
-            return json.load(fh)
+            data = json.load(fh)
     except (OSError, ValueError):
         return default
+    if not isinstance(data, type(default)):
+        return default
+    return data
 
 
 def _save(path, data):

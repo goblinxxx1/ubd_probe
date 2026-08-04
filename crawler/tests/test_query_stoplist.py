@@ -51,6 +51,17 @@ def test_reject_with_non_dict_candidates_does_not_raise(tmp_path):
     assert qs.load_blocked(stop) == {"кава": 0.0}
 
 
+def test_cli_reject_and_unstop(tmp_path):
+    cand = _cands(tmp_path)
+    stop = str(tmp_path / "q_stop.json")
+
+    qs._main(["reject", "кава", "--candidates", cand, "--stoplist", stop])
+    assert "кава" in qs.load_blocked(stop)
+
+    qs._main(["unstop", "кава", "--stoplist", stop])
+    assert "кава" not in qs.load_blocked(stop)
+
+
 def test_reject_twice_is_idempotent_and_keeps_original_z(tmp_path):
     cand = _cands(tmp_path)
     stop = str(tmp_path / "q_stop.json")

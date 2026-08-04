@@ -38,6 +38,8 @@ def mine(rows, known_stems=(), stoplist=(), snowball_weight: int = 3, alpha: flo
                 neg[t] = True
 
     vocab = set(y_pass) | set(y_fail)
+    if len(vocab) < 2:
+        return []
     a0 = alpha * len(vocab)
     n_pass = sum(y_pass.values()) + a0
     n_fail = sum(y_fail.values()) + a0

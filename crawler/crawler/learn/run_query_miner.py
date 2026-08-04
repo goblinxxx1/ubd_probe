@@ -13,7 +13,7 @@ from crawler.learn.vetoes import survivors
 def run_query_miner(config) -> int:
     ql.reload_learned(getattr(config, "query_lexicon_learned_path", None))
     rows = read_corpus(config.corpus_path)
-    known = ql.learned_services()
+    known = tuple(s.casefold() for s in ql.learned_services())
     scores = mine(rows, known_stems=known, stoplist=(), tokenizer=service_terms)
     blocked = load_blocked(config.query_stoplist_path)
     factor = config.query_lexicon_resurface_factor
