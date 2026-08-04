@@ -30,3 +30,22 @@ def test_dedup_casefold(tmp_path):
     path = _write(tmp_path, [{"term": "Кава", "z": 2.0}, {"term": "кава", "z": 1.0}])
     ql.reload_learned(path)
     assert ql.learned_services() == ("Кава",)
+
+
+def test_reload_wrong_shape_scalar_is_empty(tmp_path):
+    p = tmp_path / "q_learned.json"
+    p.write_text("42", encoding="utf-8")
+    ql.reload_learned(str(p))
+    assert ql.learned_services() == ()
+
+
+def test_reload_wrong_shape_object_or_null_is_empty(tmp_path):
+    p = tmp_path / "q_learned.json"
+    p.write_text("null", encoding="utf-8")
+    ql.reload_learned(str(p))
+    assert ql.learned_services() == ()
+
+    p2 = tmp_path / "q_learned2.json"
+    p2.write_text(json.dumps({"term": "кава"}), encoding="utf-8")
+    ql.reload_learned(str(p2))
+    assert ql.learned_services() == ()

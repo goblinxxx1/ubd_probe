@@ -18,6 +18,9 @@ def reload_learned(path: str | None) -> None:
     except (OSError, ValueError):
         _learned = ()
         return
+    if not isinstance(data, list):
+        _learned = ()
+        return
     entries = [e for e in data if isinstance(e, dict) and e.get("term")]
     cats = [e for e in entries if e.get("source") == "category"]
     rest = sorted((e for e in entries if e.get("source") != "category"),
