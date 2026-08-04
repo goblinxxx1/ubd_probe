@@ -18,3 +18,15 @@ def tokenize(text: str) -> list[str]:
     lemmas = [_lemma(w) for w in _WORD.findall(text or "")]
     bigrams = [f"{a} {b}" for a, b in zip(lemmas, lemmas[1:])]
     return lemmas + bigrams
+
+
+def service_terms(text: str) -> list[str]:
+    """Noun-only lemmas (+ noun-noun bigrams) for the QUERY miner: service/category
+    terms, dropping verbs/adjectives/adverbs. Deterministic via the pinned uk dict."""
+    nouns: list[str] = []
+    for w in _WORD.findall(text or ""):
+        parsed = _morph.parse(w.lower())
+        if parsed and parsed[0].tag.POS == "NOUN":
+            nouns.append(parsed[0].normal_form)
+    bigrams = [f"{a} {b}" for a, b in zip(nouns, nouns[1:])]
+    return nouns + bigrams
