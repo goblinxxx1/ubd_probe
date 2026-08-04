@@ -107,3 +107,18 @@ def test_next_batch_clamps_bad_cursor_and_n():
 def test_empty_grid_is_safe():
     batch, cur = QueryGrid([]).next_batch(5, 0)
     assert batch == [] and cur == 0
+
+
+def test_services_block_appended_after_geo():
+    base = build_grid()                       # 1701, no services
+    g = build_grid(services=["стоматологія", "автосервіс"])
+    assert g[:len(base)] == base              # byte-stable: services appended after
+    added = len(g) - len(base)
+    assert added == 2 * len(GEO_AUDIENCES)    # 6 per service
+    assert "стоматологія ветерани" in g
+    assert "автосервіс військові" in g
+
+
+def test_services_none_or_empty_is_byte_eq():
+    assert build_grid(services=None) == build_grid()
+    assert build_grid(services=[]) == build_grid()

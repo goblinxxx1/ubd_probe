@@ -58,14 +58,13 @@ BRANDS = (
 )
 
 
-def build_grid(cities: list[str] | None = None) -> list[str]:
-    """Materialized search space: the 351 "{intent} {audience}" base (unchanged
-    order — byte-stable prefix) then a geo block GEO_INTENTS×GEO_AUDIENCES×cities
-    ("{intent} {audience} {city}"), deduped case-insensitively, stable order.
-
-    `cities=None` uses GRID_CITIES (~1701 total); `cities=[]` yields the plain 351
-    (rollback / OFF). City is the innermost axis so adjacent entries differ by city."""
+def build_grid(cities: list[str] | None = None,
+               services: list[str] | None = None) -> list[str]:
+    """351 base + geo block (B3a) + service block (B3b: "{service} {audience}" over
+    GEO_AUDIENCES). Base+geo order unchanged (byte-stable 1701 prefix); services
+    appended after. `cities=[]`→no geo; `services` None/[]→no service block (byte-eq)."""
     city_list = list(GRID_CITIES) if cities is None else list(cities)
+    svc_list = list(services or ())
     seen: set[str] = set()
     out: list[str] = []
 
@@ -82,6 +81,9 @@ def build_grid(cities: list[str] | None = None) -> list[str]:
         for aud in GEO_AUDIENCES:
             for city in city_list:
                 _add(f"{head} {aud} {city}".strip())
+    for svc in svc_list:                     # service block (B3b): service → audience
+        for aud in GEO_AUDIENCES:
+            _add(f"{svc} {aud}".strip())
     return out
 
 
