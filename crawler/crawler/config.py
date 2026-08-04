@@ -31,6 +31,7 @@ class _RawSettings(BaseSettings):
     search_budget: int = 0  # 0 = process all keywords
     active_fetch_budget: int = 80
     search_queries_per_pass: int = 40
+    search_block_size: int = 15
     city_axis_enabled: bool = True
     city_queries_per_pass: int = 10
     site_query_enabled: bool = True
@@ -120,6 +121,7 @@ class Config:
     search_budget: int | None = None
     active_fetch_budget: int = 80
     search_queries_per_pass: int = 40
+    search_block_size: int = 15
     city_axis_enabled: bool = True
     city_queries_per_pass: int = 10
     site_query_enabled: bool = True
@@ -232,6 +234,7 @@ def load_config() -> Config:
         search_budget=(s.search_budget or None),
         active_fetch_budget=s.active_fetch_budget,
         search_queries_per_pass=s.search_queries_per_pass,
+        search_block_size=s.search_block_size,
         city_axis_enabled=s.city_axis_enabled,
         city_queries_per_pass=s.city_queries_per_pass,
         site_query_enabled=s.site_query_enabled,

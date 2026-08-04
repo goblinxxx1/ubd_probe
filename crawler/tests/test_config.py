@@ -251,3 +251,11 @@ def test_active_revisit_cooldown_default_and_override(monkeypatch, tmp_path):
     assert load_config().active_revisit_cooldown_days == 21
     monkeypatch.setenv("ACTIVE_REVISIT_COOLDOWN_DAYS", "7")
     assert load_config().active_revisit_cooldown_days == 7
+
+
+def test_search_block_size_default_and_override(monkeypatch, tmp_path):
+    from crawler.config import load_config
+    monkeypatch.chdir(tmp_path)
+    assert load_config().search_block_size == 15
+    monkeypatch.setenv("SEARCH_BLOCK_SIZE", "8")
+    assert load_config().search_block_size == 8

@@ -119,7 +119,7 @@ def build_runner(config) -> Runner:
         if plans:
             city_axis = CityAxis() if config.city_axis_enabled else None
             search_pass = SearchPass(plans, state, QueryGrid(),
-                                     config.search_queries_per_pass, config.search_keywords,
+                                     config.search_block_size, config.search_keywords,
                                      city_axis=city_axis,
                                      city_queries_per_pass=config.city_queries_per_pass)
             discovery = search_pass.provider_for_site_query()   # DDG discovery for site: queries
