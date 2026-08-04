@@ -140,6 +140,7 @@ def build_runner(config) -> Runner:
         walker, domain_rl = _build_walker(config, web_client)
 
     domain_registry = None
+    revisit_cooldown = config.active_revisit_cooldown_days * 86400
     domain_feed = None
     if config.domain_rating_enabled:
         domain_registry = DomainRegistry.load(
@@ -148,7 +149,8 @@ def build_runner(config) -> Runner:
             offer_weight=config.domain_offer_weight,
             error_weight=config.domain_error_weight,
             promote_min_score=config.domain_promote_min_score)
-        domain_feed = DomainFeed(domain_registry, per_pass=config.domain_feed_per_pass)
+        domain_feed = DomainFeed(domain_registry, per_pass=config.domain_feed_per_pass,
+                                 cooldown_seconds=revisit_cooldown)
         if walker is None:
             walker, domain_rl = _build_walker(config, web_client)   # passive deep-walk needs it
 
@@ -184,7 +186,8 @@ def build_runner(config) -> Runner:
                                     hardening_enabled=config.attribution_hardening_enabled,
                                     aggregator_min_outbound=config.aggregator_min_outbound,
                                     aggregator_store=aggregator_store,
-                                    aggregator_max_domains=config.aggregator_max_domains)
+                                    aggregator_max_domains=config.aggregator_max_domains,
+                                    revisit_cooldown_seconds=revisit_cooldown)
     return Runner(api, fetchers, extractor, rate_limiter,
                   discovery=discovery, search_pass=search_pass, harvester=harvester,
                   brand_feed=brand_feed, freshness_ttl_days=config.freshness_ttl_days,
@@ -197,4 +200,5 @@ def build_runner(config) -> Runner:
                   site_query_budget=config.site_query_budget,
                   osm_feed=osm_feed, aggregator_feed=aggregator_feed,
                   passive_schedule=PassiveSchedule(config.passive_state_path,
-                                                   config.passive_interval_seconds))
+                                                   config.passive_interval_seconds),
+                  revisit_cooldown_seconds=revisit_cooldown)

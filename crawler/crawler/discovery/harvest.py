@@ -20,7 +20,7 @@ class ActiveHarvester:
                  walker=None, domain_rate_limiter=None, corpus_recorder=None,
                  domain_registry=None, hardening_enabled=True,
                  aggregator_min_outbound=3, aggregator_store=None,
-                 aggregator_max_domains=500):
+                 aggregator_max_domains=500, revisit_cooldown_seconds=0):
         self._api = api
         self._fetchers = fetchers
         self._extractor = extractor
@@ -34,6 +34,7 @@ class ActiveHarvester:
         self._aggregator_min_outbound = aggregator_min_outbound
         self._aggregator_store = aggregator_store
         self._aggregator_max_domains = aggregator_max_domains
+        self._revisit_cooldown = revisit_cooldown_seconds
 
     def harvest(self, candidates, cats, known, summary, known_hosts=None) -> None:
         known_hosts = known_hosts or set()
@@ -51,6 +52,11 @@ class ActiveHarvester:
             # Блокліст = не краулити взагалі: заблокований хост ніколи не фетчиться/
             # не обходиться (не лише «не приписувати як провайдера»).
             if cand.type == "website" and is_blocked_host(cand.url_or_handle):
+                continue
+            # Revisit-cooldown: не ре-краулити домен, бачений у межах вікна cooldown
+            # (belt для фідів, крім DomainFeed/site:, що вже фільтрують через top()).
+            if (cand.type == "website" and self._revisit_cooldown and self._registry is not None
+                    and self._registry.seen_within(_host(cand.url_or_handle), self._revisit_cooldown)):
                 continue
             if normalize_ref(cand.type, cand.url_or_handle) in known:
                 continue

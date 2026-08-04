@@ -446,3 +446,21 @@ def test_no_walker_drops_non_target_candidate(monkeypatch):
                            url_or_handle="https://shop.ua/product/12")
     harv.harvest([cand], cats=object(), known=set(), summary=summary)
     assert fetcher.urls == []                              # non-target candidate not fetched
+
+
+def test_recently_seen_website_candidate_skipped(tmp_path):
+    from crawler.discovery.domain_registry import DomainRegistry
+    api = FakeApi()
+    fetched = []
+    class CountingFetcher:
+        def fetch(self, source, k): fetched.append(source["url_or_handle"]); return [], None
+    t = {"v": 1000.0}
+    reg = DomainRegistry(str(tmp_path / "r.json"), clock=lambda: t["v"])
+    reg.record("seen.example", offers=1, errors=0)   # last_seen = 1000
+    t["v"] = 1000.0 + 10
+    h = ActiveHarvester(api, {"website": CountingFetcher()}, GateExtractor(),
+                        rate_limiter=None, fetch_budget=5,
+                        domain_registry=reg, revisit_cooldown_seconds=100)
+    h.harvest([_cand(url="https://seen.example"), _cand(url="https://fresh.example")],
+              cats=None, known=set(), summary=_summary())
+    assert fetched == ["https://fresh.example"]

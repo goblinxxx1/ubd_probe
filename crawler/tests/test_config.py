@@ -242,3 +242,12 @@ def test_load_config_passes_city_axis(monkeypatch, tmp_path):
     cfg = load_config()
     assert cfg.city_axis_enabled is False
     assert cfg.city_queries_per_pass == 4
+
+
+def test_active_revisit_cooldown_default_and_override(monkeypatch, tmp_path):
+    from crawler.config import load_config
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("ACTIVE_REVISIT_COOLDOWN_DAYS", raising=False)
+    assert load_config().active_revisit_cooldown_days == 21
+    monkeypatch.setenv("ACTIVE_REVISIT_COOLDOWN_DAYS", "7")
+    assert load_config().active_revisit_cooldown_days == 7

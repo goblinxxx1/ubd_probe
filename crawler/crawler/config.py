@@ -39,6 +39,7 @@ class _RawSettings(BaseSettings):
     freshness_ttl_days: int = 30
     passive_interval_seconds: int = 172800   # 48h default; passive source-crawl cadence
     passive_state_path: str = "/data/passive_state.json"
+    active_revisit_cooldown_days: int = 21
     brand_feed_enabled: bool = True
     brand_feed_refresh_hours: int = 336
     brand_domains_path: str = "/data/brand_domains.json"
@@ -127,6 +128,7 @@ class Config:
     freshness_ttl_days: int = 30
     passive_interval_seconds: int = 172800   # 48h default; passive source-crawl cadence
     passive_state_path: str = "/data/passive_state.json"
+    active_revisit_cooldown_days: int = 21
     brand_feed_enabled: bool = True
     brand_feed_refresh_hours: int = 336
     brand_domains_path: str = "/data/brand_domains.json"
@@ -238,6 +240,7 @@ def load_config() -> Config:
         freshness_ttl_days=s.freshness_ttl_days,
         passive_interval_seconds=s.passive_interval_seconds,
         passive_state_path=s.passive_state_path,
+        active_revisit_cooldown_days=s.active_revisit_cooldown_days,
         brand_feed_enabled=s.brand_feed_enabled,
         brand_feed_refresh_hours=s.brand_feed_refresh_hours,
         brand_domains_path=s.brand_domains_path,
