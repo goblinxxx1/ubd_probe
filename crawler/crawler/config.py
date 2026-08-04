@@ -32,8 +32,7 @@ class _RawSettings(BaseSettings):
     active_fetch_budget: int = 80
     search_queries_per_pass: int = 40
     search_block_size: int = 15
-    city_axis_enabled: bool = True
-    city_queries_per_pass: int = 10
+    grid_cities_enabled: bool = True
     site_query_enabled: bool = True
     site_query_budget: int = 5
     searxng_url: str = "http://searxng:8080"
@@ -122,8 +121,7 @@ class Config:
     active_fetch_budget: int = 80
     search_queries_per_pass: int = 40
     search_block_size: int = 15
-    city_axis_enabled: bool = True
-    city_queries_per_pass: int = 10
+    grid_cities_enabled: bool = True
     site_query_enabled: bool = True
     site_query_budget: int = 5
     searxng_url: str = "http://searxng:8080"
@@ -235,8 +233,7 @@ def load_config() -> Config:
         active_fetch_budget=s.active_fetch_budget,
         search_queries_per_pass=s.search_queries_per_pass,
         search_block_size=s.search_block_size,
-        city_axis_enabled=s.city_axis_enabled,
-        city_queries_per_pass=s.city_queries_per_pass,
+        grid_cities_enabled=s.grid_cities_enabled,
         site_query_enabled=s.site_query_enabled,
         site_query_budget=s.site_query_budget,
         searxng_url=s.searxng_url,
