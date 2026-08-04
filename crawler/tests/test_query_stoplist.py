@@ -29,3 +29,41 @@ def test_unstop_removes_term(tmp_path):
     qs.reject("кава", _cands(tmp_path), stop)
     qs.unstop("кава", stop)
     assert qs.load_blocked(stop) == {}
+
+
+def test_load_blocked_wrong_shaped_scalar_does_not_raise(tmp_path):
+    p = tmp_path / "q_stop.json"
+    p.write_text("42", encoding="utf-8")
+    assert qs.load_blocked(str(p)) == {}
+
+    p.write_text("null", encoding="utf-8")
+    assert qs.load_blocked(str(p)) == {}
+
+
+def test_reject_with_non_dict_candidates_does_not_raise(tmp_path):
+    cand = tmp_path / "q_cand.json"
+    cand.write_text(json.dumps(["кава"]), encoding="utf-8")
+    stop = str(tmp_path / "q_stop.json")
+
+    qs.reject("кава", str(cand), stop)
+
+    # term is still recorded, with z=0.0 since no matching candidate dict was found
+    assert qs.load_blocked(stop) == {"кава": 0.0}
+
+
+def test_reject_twice_is_idempotent_and_keeps_original_z(tmp_path):
+    cand = _cands(tmp_path)
+    stop = str(tmp_path / "q_stop.json")
+
+    qs.reject("кава", cand, stop)
+    assert qs.load_blocked(stop) == {"кава": 3.0}
+
+    # second reject: candidates file no longer has "кава" (z would default to 0.0
+    # if overwritten), so idempotency must preserve the original z=3.0 and not duplicate
+    qs.reject("кава", cand, stop)
+
+    raw = json.loads(open(stop, encoding="utf-8").read())
+    matches = [e for e in raw if e.get("term") == "кава"]
+    assert len(matches) == 1
+    assert matches[0]["z"] == 3.0
+    assert qs.load_blocked(stop) == {"кава": 3.0}

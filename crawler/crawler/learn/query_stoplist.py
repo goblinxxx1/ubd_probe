@@ -9,9 +9,12 @@ import os
 def _load(path, default):
     try:
         with open(path, encoding="utf-8") as fh:
-            return json.load(fh)
+            data = json.load(fh)
     except (OSError, ValueError):
         return default
+    if not isinstance(data, type(default)):
+        return default
+    return data
 
 
 def _save(path, data):
@@ -26,17 +29,19 @@ def load_blocked(path) -> dict[str, float]:
 
 
 def reject(term, candidates_path, stoplist_path) -> None:
-    cand = next((c for c in _load(candidates_path, []) if c.get("term") == term), {})
+    cand = next((c for c in _load(candidates_path, [])
+                 if isinstance(c, dict) and c.get("term") == term), {})
     stop = _load(stoplist_path, [])
-    if not any(e.get("term") == term for e in stop):
+    if not any(isinstance(e, dict) and e.get("term") == term for e in stop):
         stop.append({"term": term, "z": float(cand.get("z") or 0.0)})
         _save(stoplist_path, stop)
-    _save(candidates_path, [c for c in _load(candidates_path, []) if c.get("term") != term])
+    _save(candidates_path, [c for c in _load(candidates_path, [])
+                             if not (isinstance(c, dict) and c.get("term") == term)])
 
 
 def unstop(term, stoplist_path) -> None:
     stop = _load(stoplist_path, [])
-    kept = [e for e in stop if e.get("term") != term]
+    kept = [e for e in stop if not (isinstance(e, dict) and e.get("term") == term)]
     if len(kept) != len(stop):
         _save(stoplist_path, kept)
 
