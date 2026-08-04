@@ -10,6 +10,7 @@ log = logging.getLogger(__name__)
 
 _EMPTY = {"version": 1, "cursor": 0, "grid_cursor": 0, "site_cursor": 0,
           "approved_cursor": 0, "searxng_cursor": -1, "city_cursor": 0,
+          "block_cursor": 0, "cycle": 0,
           "next_allowed_at": 0.0, "backends": {}, "cache": {}}
 
 
@@ -53,6 +54,23 @@ class SearchState:
 
     def set_grid_cursor(self, value: int) -> None:
         self._data["grid_cursor"] = int(value)
+        self._save()
+
+    # --- block-partition cursor + cycle (DDG/searxng disjoint adjacent blocks, per-cycle swap) ---
+    @property
+    def block_cursor(self) -> int:
+        return int(self._data.get("block_cursor", 0))
+
+    def set_block_cursor(self, value: int) -> None:
+        self._data["block_cursor"] = int(value)
+        self._save()
+
+    @property
+    def cycle(self) -> int:
+        return int(self._data.get("cycle", 0))
+
+    def set_cycle(self, value: int) -> None:
+        self._data["cycle"] = int(value)
         self._save()
 
     # --- searxng rotation cursor (independent of grid_cursor; -1 = unseeded -> offset at read) ---

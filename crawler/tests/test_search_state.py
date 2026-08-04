@@ -212,3 +212,14 @@ def test_set_city_cursor_persists_and_is_independent(tmp_path):
     assert reloaded.city_cursor == 9
     assert reloaded.grid_cursor == 5          # untouched
     assert reloaded.searxng_cursor == -1      # untouched
+
+
+def test_block_cursor_and_cycle_persist(tmp_path):
+    from crawler.discovery.search_state import SearchState
+    p = str(tmp_path / "s.json")
+    st = SearchState(p)
+    assert st.block_cursor == 0 and st.cycle == 0
+    st.set_block_cursor(30)
+    st.set_cycle(2)
+    assert SearchState.load(p).block_cursor == 30
+    assert SearchState.load(p).cycle == 2
