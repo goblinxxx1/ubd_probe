@@ -1,4 +1,5 @@
 import logging
+import time
 from itertools import zip_longest
 
 from crawler.discovery.brand_feed import _host
@@ -20,7 +21,8 @@ class Runner:
                  domain_feed=None, domain_registry=None,
                  domain_evict_min_score=0.1, domain_evict_ttl_seconds=2_592_000.0,
                  site_planner=None, site_state=None, site_query_budget=5,
-                 osm_feed=None, aggregator_feed=None):
+                 osm_feed=None, aggregator_feed=None,
+                 passive_schedule=None, now=time.time):
         self._api = api_client
         self._fetchers = fetchers
         self._extractor = extractor
@@ -42,6 +44,8 @@ class Runner:
         self._site_query_budget = site_query_budget
         self._osm_feed = osm_feed
         self._aggregator_feed = aggregator_feed
+        self._passive_schedule = passive_schedule
+        self._now = now
 
     def _fetch_for(self, source: dict, last_seen_key):
         fetcher = self._fetchers.get(source["type"])
@@ -50,13 +54,88 @@ class Runner:
         self._rl.wait(source["type"])
         return fetcher.fetch(source, last_seen_key)
 
+    @staticmethod
+    def _empty_summary() -> dict:
+        return {"sources": 0, "offers": 0, "suggestions": 0, "expired": 0, "errors": 0}
+
     def run(self) -> dict:
+        """Active-first orchestration: active discovery runs every loop; the passive
+        source-crawl runs only when its (rare) cadence is due. With no passive_schedule
+        (tests / one-shot) both run — backward compatible."""
+        summary = self.run_active()
+        if self._passive_schedule is None or self._passive_schedule.due():
+            p = self.run_passive()
+            for k in set(summary) | set(p):
+                summary[k] = summary.get(k, 0) + p.get(k, 0)
+            if self._passive_schedule is not None:
+                self._passive_schedule.mark()
+        log.info("crawl summary: %s", summary)
+        return summary
+
+    def run_active(self) -> dict:
+        """Discovery of NEW domains: feeds + site: + harvester. Never crawls a host that
+        is already an active source (published/approved) — passive owns those."""
+        summary = self._empty_summary()
+        if self._harvester is None:
+            return summary
         cats = CategoryIndex(self._api.list_target_categories(),
                              self._api.list_offer_categories())
         sources = self._api.list_sources(is_active=True)
         known = {normalize_ref(s["type"], s["url_or_handle"]) for s in sources}
-        summary = {"sources": 0, "offers": 0, "suggestions": 0, "expired": 0, "errors": 0}
+        try:
+            # Unconditional host-skip: active never fetches a host that is already an active
+            # website source. Guarantees published/approved sources are left to the passive pass.
+            known_hosts = {_host(s["url_or_handle"]) for s in sources if s["type"] == "website"}
+            feeds = []
+            if self._domain_feed is not None:
+                feeds.append(self._domain_feed.candidates(known_hosts))
+            if self._search_pass is not None:
+                feeds.append(self._search_pass.run(known))
+            if self._brand_feed is not None:
+                feeds.append(self._brand_feed.candidates(known))
+            if self._osm_feed is not None:
+                feeds.append(self._osm_feed.candidates(known))
+            if self._aggregator_feed is not None:
+                feeds.append(self._aggregator_feed.candidates(known))
+            # round-robin interleave so no single feed starves the others under fetch_budget
+            candidates = [c for group in zip_longest(*feeds) for c in group if c is not None]
+            # site: only for productive-but-not-yet-approved domains (registry.top excludes
+            # known_hosts). No approved-partner arm — passive re-confirms approved sources.
+            if (self._site_planner is not None and self._site_state is not None
+                    and self._discovery is not None and self._domain_registry is not None):
+                cur = self._site_state.site_cursor
+                reg = self._domain_registry.top(self._site_query_budget, known_hosts)
+                site_queries, new_cur = self._site_planner.next_batch(
+                    reg, self._site_query_budget, cur)
+                if site_queries:
+                    site_cands = self._discovery.run(site_queries, known)
+                    for c in site_cands:
+                        c.bypass_host_skip = True
+                    candidates += site_cands
+                    self._site_state.set_site_cursor(new_cur)
+            if candidates:
+                self._harvester.harvest(candidates, cats, known, summary,
+                                        known_hosts=known_hosts)
+        except Exception as exc:  # noqa: BLE001 — discovery must not crash the pass
+            summary["errors"] += 1
+            log.warning("active discovery / brand-feed harvest failed: %s", exc)
+        finally:
+            if self._domain_registry is not None:
+                try:
+                    self._domain_registry.prune(self._evict_min, self._evict_ttl)
+                    self._domain_registry.save()
+                except Exception as exc:  # noqa: BLE001 — persistence best-effort
+                    log.warning("domain registry persist failed: %s", exc)
+        return summary
 
+    def run_passive(self) -> dict:
+        """Re-confirm approved sources (freshness) + expire stale source-offers. Runs on a
+        rare cadence — sources change slowly and expiry TTL (30d) is far longer."""
+        cats = CategoryIndex(self._api.list_target_categories(),
+                             self._api.list_offer_categories())
+        sources = self._api.list_sources(is_active=True)
+        known = {normalize_ref(s["type"], s["url_or_handle"]) for s in sources}
+        summary = self._empty_summary()
         for source in sources:
             summary["sources"] += 1
             try:
@@ -64,71 +143,12 @@ class Runner:
             except Exception as exc:  # noqa: BLE001 — isolate per source
                 summary["errors"] += 1
                 log.warning("source #%s failed: %s", source.get("id"), exc)
-
-        if self._harvester is not None:
-            try:
-                # host-skip is a domain-rating feature: gate known_hosts on rating being on,
-                # so domain_rating_enabled=False stays byte-equivalent (empty set = no skip).
-                rating_on = self._domain_registry is not None or self._domain_feed is not None
-                known_hosts = ({_host(s["url_or_handle"]) for s in sources
-                                if s["type"] == "website"} if rating_on else set())
-                feeds = []
-                if self._domain_feed is not None:
-                    feeds.append(self._domain_feed.candidates(known_hosts))
-                if self._search_pass is not None:
-                    feeds.append(self._search_pass.run(known))
-                if self._brand_feed is not None:
-                    feeds.append(self._brand_feed.candidates(known))
-                if self._osm_feed is not None:
-                    feeds.append(self._osm_feed.candidates(known))
-                if self._aggregator_feed is not None:
-                    feeds.append(self._aggregator_feed.candidates(known))
-                # round-robin interleave so no single feed starves the others under fetch_budget
-                candidates = [c for group in zip_longest(*feeds) for c in group if c is not None]
-                if (self._site_planner is not None and self._site_state is not None
-                        and self._discovery is not None and self._domain_registry is not None):
-                    cur = self._site_state.site_cursor
-                    reg = self._domain_registry.top(self._site_query_budget, known_hosts)
-                    approved = sorted(known_hosts)
-                    if approved:
-                        # rotate by a dedicated monotonic cursor so a partner set larger than
-                        # len(terms) is still fully swept over passes (term phase != partner phase)
-                        off = self._site_state.approved_cursor % len(approved)
-                        approved = approved[off:] + approved[:off]
-                    pool = [d for pair in zip_longest(reg, approved) for d in pair if d]
-                    site_queries, new_cur = self._site_planner.next_batch(
-                        pool, self._site_query_budget, cur)
-                    if site_queries:
-                        site_cands = self._discovery.run(site_queries, known)
-                        for c in site_cands:
-                            c.bypass_host_skip = True
-                        candidates += site_cands
-                        self._site_state.set_site_cursor(new_cur)
-                        if approved:
-                            self._site_state.set_approved_cursor(
-                                self._site_state.approved_cursor + 1)
-                if candidates:
-                    self._harvester.harvest(candidates, cats, known, summary,
-                                            known_hosts=known_hosts)
-            except Exception as exc:  # noqa: BLE001 — discovery must not crash the pass
-                summary["errors"] += 1
-                log.warning("active discovery / brand-feed harvest failed: %s", exc)
-            finally:
-                if self._domain_registry is not None:
-                    try:
-                        self._domain_registry.prune(self._evict_min, self._evict_ttl)
-                        self._domain_registry.save()
-                    except Exception as exc:  # noqa: BLE001 — persistence best-effort
-                        log.warning("domain registry persist failed: %s", exc)
-
         try:
             result = self._api.expire_stale(self._freshness_ttl_days)
             summary["expired"] = result.get("expired", 0)
         except Exception as exc:  # noqa: BLE001 — sweep must not crash the pass
             summary["errors"] += 1
             log.warning("expire-stale failed: %s", exc)
-
-        log.info("crawl summary: %s", summary)
         return summary
 
     def _crawl_source(self, source, cats, known, summary):

@@ -217,16 +217,17 @@ def test_active_block_prepends_domain_feed_and_builds_known_hosts(tmp_path):
     assert hv.known_hosts == {"silpo.ua"}                          # active source host
 
 
-def test_off_path_passes_empty_known_hosts():
+def test_active_host_skip_is_unconditional():
     src = {"id": 1, "type": "website", "name": "Silpo", "url_or_handle": "https://silpo.ua"}
     api = FakeApi([src])
     hv = _RecordingHarvester()
-    # domain_feed / domain_registry both None → rating OFF
+    # rating OFF (no domain_feed/registry) — host-skip of active-source hosts STILL applies,
+    # so active never crawls a published/approved source.
     runner = Runner(api, {"website": FakeFetcher([])}, get_extractor("heuristic"), _rl(),
                     harvester=hv, brand_feed=_StubFeed([SourceCandidate(
                         name="x.ua", type="website", url_or_handle="https://x.ua")]))
     runner.run()
-    assert hv.known_hosts == set()   # no host-skip when rating off
+    assert hv.known_hosts == {"silpo.ua"}
 
 
 def test_active_block_prunes_and_saves_registry(tmp_path):
@@ -257,7 +258,7 @@ class _MutatingDiscovery:
                                 url_or_handle="https://proven.ua/promo")]
 
 
-def test_site_query_block_generates_flags_and_advances_cursor(tmp_path):
+def test_site_query_block_uses_registry_only_not_approved(tmp_path):
     src = {"id": 1, "type": "website", "name": "Silpo", "url_or_handle": "https://silpo.ua"}
     api = FakeApi([src])
     reg = DomainRegistry(str(tmp_path / "r.json"), clock=lambda: 1.0)
@@ -272,13 +273,13 @@ def test_site_query_block_generates_flags_and_advances_cursor(tmp_path):
     runner.run()
 
     site_qs = disc.calls[-1]
-    assert "site:proven.ua знижка" in site_qs             # productive domain
-    assert "site:silpo.ua акція" in site_qs               # approved partner (interleaved, next term)
+    assert any(q.startswith("site:proven.ua") for q in site_qs)   # productive domain queried
+    assert not any("silpo.ua" in q for q in site_qs)              # approved source NOT site-queried
     assert hv.candidates and all(c.bypass_host_skip for c in hv.candidates)
     assert SearchState.load(str(tmp_path / "s.json")).site_cursor == 1   # advanced & persisted
 
 
-def test_approved_partners_fully_swept_across_passes(tmp_path):
+def test_approved_sources_never_site_queried(tmp_path):
     srcs = [{"id": i, "type": "website", "name": h, "url_or_handle": f"https://{h}"}
             for i, h in enumerate(["a.ua", "b.ua", "c.ua", "d.ua"], start=1)]
     api = FakeApi(srcs)
@@ -292,7 +293,7 @@ def test_approved_partners_fully_swept_across_passes(tmp_path):
     for _ in range(3):
         runner.run()
     hosts = {q.split()[0].removeprefix("site:") for qlist in disc.calls for q in qlist}
-    assert {"a.ua", "b.ua", "c.ua", "d.ua"} <= hosts   # full sweep — impossible if off tied to bounded site_cursor
+    assert hosts.isdisjoint({"a.ua", "b.ua", "c.ua", "d.ua"})   # active never site-queries approved sources
 
 
 def test_site_query_off_is_byte_equivalent(tmp_path):
@@ -354,3 +355,71 @@ def test_runner_unions_aggregator_feed_candidates():
                     harvester=hv, aggregator_feed=_StubAgg([cand]))
     runner.run()
     assert any(c.url_or_handle == "https://biz.ua" for c in hv.candidates)
+
+
+from crawler.schedule import PassiveSchedule
+
+
+def _ubd_item():
+    return RawItem(source_id=1, platform="website", key="k",
+                   text="Знижка 20% для ветеранів", links=[])
+
+
+def test_run_active_does_not_crawl_sources_or_expire():
+    src = {"id": 1, "type": "website", "name": "Shop", "url_or_handle": "https://shop.ua"}
+    api = FakeApi([src])
+    runner = Runner(api, {"website": FakeFetcher([])}, get_extractor("heuristic"), _rl(),
+                    harvester=_RecordingHarvester())
+    runner.run_active()
+    assert api.state == {}            # no source crawled (passive path untouched)
+    assert api.expired_calls == []    # no expiry in the active pass
+
+
+def test_run_passive_crawls_sources_and_expires():
+    src = {"id": 1, "type": "website", "name": "Shop", "url_or_handle": "http://x"}
+    api = FakeApi([src])
+    runner = Runner(api, {"website": FakeFetcher([_ubd_item()])}, get_extractor("heuristic"), _rl())
+    summary = runner.run_passive()
+    assert api.state[1] == "newkey"   # source crawled
+    assert api.expired_calls == [30]  # default TTL swept
+    assert summary["offers"] == 1
+
+
+def test_run_active_first_then_passive_when_due():
+    api = FakeApi([{"id": 1, "type": "website", "name": "S", "url_or_handle": "https://s.ua"}])
+    runner = Runner(api, {"website": FakeFetcher([])}, get_extractor("heuristic"), _rl())
+    order = []
+    runner.run_active = lambda: (order.append("active"), runner._empty_summary())[1]
+    runner.run_passive = lambda: (order.append("passive"), runner._empty_summary())[1]
+    runner.run()
+    assert order == ["active", "passive"]
+
+
+def test_passive_skipped_when_not_due(tmp_path):
+    api = FakeApi([{"id": 1, "type": "website", "name": "S", "url_or_handle": "http://x"}])
+    sched = PassiveSchedule(str(tmp_path / "p.json"), 10_000, now=lambda: 1000.0)
+    sched.mark()   # just marked → not due
+    runner = Runner(api, {"website": FakeFetcher([_ubd_item()])}, get_extractor("heuristic"), _rl(),
+                    passive_schedule=sched)
+    runner.run()
+    assert api.state == {}            # passive did NOT run
+    assert api.expired_calls == []
+
+
+def test_passive_runs_when_due_and_marks(tmp_path):
+    api = FakeApi([{"id": 1, "type": "website", "name": "S", "url_or_handle": "http://x"}])
+    p = str(tmp_path / "p.json")
+    sched = PassiveSchedule(p, 10_000, now=lambda: 1000.0)   # no file → due
+    runner = Runner(api, {"website": FakeFetcher([_ubd_item()])}, get_extractor("heuristic"), _rl(),
+                    passive_schedule=sched)
+    runner.run()
+    assert api.state[1] == "newkey"   # passive ran
+    assert PassiveSchedule(p, 10_000, now=lambda: 1000.0).due() is False   # cadence marked
+
+
+def test_run_without_schedule_runs_both():
+    api = FakeApi([{"id": 1, "type": "website", "name": "S", "url_or_handle": "http://x"}])
+    runner = Runner(api, {"website": FakeFetcher([_ubd_item()])}, get_extractor("heuristic"), _rl())
+    runner.run()
+    assert api.state[1] == "newkey"    # passive ran (backward compat)
+    assert api.expired_calls == [30]
