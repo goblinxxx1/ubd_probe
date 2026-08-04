@@ -22,6 +22,27 @@ INTENT_FORMS = (
     "спеціальна ціна", "пільгова ціна",
 )
 
+# Curated top cities as a TRUE grid multiplier (B3a). ~45 largest / oblast
+# centres, government-controlled — occupied cities excluded (no live merchant
+# offers). Small towns stay in geo.py for EXTRACTION; only query targeting narrows.
+GRID_CITIES = (
+    "Київ", "Харків", "Одеса", "Дніпро", "Львів", "Запоріжжя", "Вінниця",
+    "Полтава", "Чернігів", "Черкаси", "Житомир", "Суми", "Хмельницький",
+    "Чернівці", "Рівне", "Тернопіль", "Івано-Франківськ", "Луцьк", "Ужгород",
+    "Кропивницький", "Миколаїв", "Херсон",
+    "Кривий Ріг", "Кременчук", "Біла Церква", "Кам'янське", "Умань", "Бровари",
+    "Бориспіль", "Ірпінь", "Буча", "Нікополь", "Павлоград", "Олександрія",
+    "Ковель", "Калуш", "Дрогобич", "Червоноград", "Мукачево", "Бердичів",
+    "Ніжин", "Конотоп", "Шостка", "Ізмаїл", "Краматорськ",
+)  # 45
+
+# Curated geo-slice: only these strong intent/audience forms get a city suffix,
+# keeping the materialized space ~1701 (30 geo-base × 45 cities = 1350 + 351).
+GEO_INTENTS = ("знижка", "акція", "безкоштовно", "спеціальна пропозиція",
+               "пільгова ціна")
+GEO_AUDIENCES = ("військові", "ветерани", "УБД", "учасники бойових дій",
+                 "ветеран війни", "мобілізовані")
+
 # Brand names (retail / fuel / pharmacy / tech / clothing / banks / post / telecom).
 BRANDS = (
     "Rozetka", "Comfy", "Фокстрот", "Епіцентр", "Нова Лінія", "JYSK", "EVA", "Prostor",
@@ -35,21 +56,30 @@ BRANDS = (
 )
 
 
-def build_grid() -> list[str]:
-    """All "{intent} {audience}" phrases, deduped, stable order.
+def build_grid(cities: list[str] | None = None) -> list[str]:
+    """Materialized search space: the 351 "{intent} {audience}" base (unchanged
+    order — byte-stable prefix) then a geo block GEO_INTENTS×GEO_AUDIENCES×cities
+    ("{intent} {audience} {city}"), deduped case-insensitively, stable order.
 
-    Brands are NOT a query axis — brand DOMAINS are covered directly by brand_feed
-    (BRAND_SEEDS ≡ BRANDS, resolved to domains and fetched each pass), so brand
-    search queries were redundant. The BRANDS tuple stays for brand_feed's use."""
+    `cities=None` uses GRID_CITIES (~1701 total); `cities=[]` yields the plain 351
+    (rollback / OFF). City is the innermost axis so adjacent entries differ by city."""
+    city_list = list(GRID_CITIES) if cities is None else list(cities)
     seen: set[str] = set()
     out: list[str] = []
-    for head in INTENT_FORMS:
+
+    def _add(q: str) -> None:
+        key = q.casefold()
+        if q and key not in seen:
+            seen.add(key)
+            out.append(q)
+
+    for head in INTENT_FORMS:                # base 351 — order unchanged
         for aud in AUDIENCE_FORMS:
-            q = f"{head} {aud}".strip()
-            key = q.casefold()
-            if q and key not in seen:
-                seen.add(key)
-                out.append(q)
+            _add(f"{head} {aud}".strip())
+    for head in GEO_INTENTS:                 # geo block: intent → audience → city
+        for aud in GEO_AUDIENCES:
+            for city in city_list:
+                _add(f"{head} {aud} {city}".strip())
     return out
 
 

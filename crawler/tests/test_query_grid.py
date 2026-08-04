@@ -1,10 +1,49 @@
 from crawler.discovery.query_grid import (
-    AUDIENCE_FORMS, INTENT_FORMS, build_grid, merge_queries)
+    AUDIENCE_FORMS, INTENT_FORMS, GRID_CITIES, GEO_INTENTS, GEO_AUDIENCES,
+    build_grid, merge_queries)
 
 
-def test_grid_size_matches_intent_axis_only():
+def test_grid_size_is_base_plus_geo_block():
+    base = len(INTENT_FORMS) * len(AUDIENCE_FORMS)          # 351
+    geo = len(GEO_INTENTS) * len(GEO_AUDIENCES) * len(GRID_CITIES)  # 5*6*45 = 1350
     grid = build_grid()
-    assert len(grid) == len(INTENT_FORMS) * len(AUDIENCE_FORMS)
+    assert base == 351 and geo == 1350
+    assert len(grid) == base + geo == 1701
+
+
+def test_base_prefix_is_byte_stable():
+    # first 351 == the plain intent×audience grid, unchanged order
+    grid = build_grid()
+    plain = build_grid(cities=[])
+    assert len(plain) == 351
+    assert grid[:351] == plain
+
+
+def test_geo_block_present_and_ordered():
+    grid = build_grid()
+    assert "знижка військові Київ" in grid                  # {geo_intent} {geo_aud} {city}
+    assert "знижка військові" in grid                       # plain base still present
+    # geo entries carry a curated city suffix
+    assert grid[351].endswith(f" {GRID_CITIES[0]}")
+    assert grid[351] == f"{GEO_INTENTS[0]} {GEO_AUDIENCES[0]} {GRID_CITIES[0]}"
+
+
+def test_grid_cities_curated_and_no_occupied():
+    assert len(GRID_CITIES) == 45
+    assert len(set(GRID_CITIES)) == 45                      # unique
+    for occ in ("Донецьк", "Луганськ", "Сімферополь", "Севастополь",
+                "Маріуполь", "Мелітополь", "Бердянськ"):
+        assert occ not in GRID_CITIES
+
+
+def test_geo_subsets_are_subsets_of_axes():
+    assert set(GEO_INTENTS) <= set(INTENT_FORMS)
+    assert set(GEO_AUDIENCES) <= set(AUDIENCE_FORMS)
+
+
+def test_cities_di_controls_geo_size():
+    grid = build_grid(cities=["Львів", "Одеса"])
+    assert len(grid) == 351 + len(GEO_INTENTS) * len(GEO_AUDIENCES) * 2   # 351 + 60
 
 
 def test_grid_has_intent_templates_not_brands():
