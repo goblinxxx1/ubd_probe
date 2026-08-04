@@ -53,6 +53,17 @@ def test_freshness_ttl_days_default_and_override(monkeypatch):
     assert load_config().freshness_ttl_days == 7
 
 
+def test_passive_schedule_defaults_and_override(monkeypatch, tmp_path):
+    from crawler.config import load_config
+    monkeypatch.chdir(tmp_path)   # no .env -> defaults apply
+    monkeypatch.delenv("PASSIVE_INTERVAL_SECONDS", raising=False)
+    cfg = load_config()
+    assert cfg.passive_interval_seconds == 172800
+    assert cfg.passive_state_path == "/data/passive_state.json"
+    monkeypatch.setenv("PASSIVE_INTERVAL_SECONDS", "345600")
+    assert load_config().passive_interval_seconds == 345600
+
+
 def test_search_queries_per_pass_default(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)      # no .env -> defaults apply
     assert load_config().search_queries_per_pass == 40

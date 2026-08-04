@@ -278,6 +278,24 @@ def test_build_runner_blocked_hosts_fetch_best_effort(monkeypatch):
     w.build_runner(cfg)   # must not raise
 
 
+def test_build_runner_wires_passive_schedule(monkeypatch, tmp_path):
+    import crawler.wiring as w
+    from crawler.schedule import PassiveSchedule
+    monkeypatch.setattr(w.ApiClient, "list_blocked_hosts", lambda self: [], raising=False)
+    cfg = Config(
+        internal_api_url="http://api", crawler_api_key="k", extractor="heuristic",
+        active_discovery=False, request_timeout=5.0, min_delay_seconds=0.0,
+        bot_accounts=[], proxies={},
+        brand_feed_enabled=False, sitemap_depth_enabled=False, domain_rating_enabled=False,
+        osm_feed_enabled=False,
+        passive_interval_seconds=345600,
+        passive_state_path=str(tmp_path / "passive.json"),
+    )
+    runner = w.build_runner(cfg)
+    assert isinstance(runner._passive_schedule, PassiveSchedule)
+    assert runner._passive_schedule._interval == 345600
+
+
 from crawler.discovery.site_query import SiteQueryPlanner
 
 

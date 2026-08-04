@@ -26,6 +26,7 @@ from crawler.fetchers.telegram import TelegramFetcher
 from crawler.fetchers.website import WebsiteFetcher
 from crawler.ratelimit import DomainRateLimiter, RateLimiter
 from crawler.runner import Runner
+from crawler.schedule import PassiveSchedule
 
 log = logging.getLogger(__name__)
 
@@ -194,4 +195,6 @@ def build_runner(config) -> Runner:
                   domain_evict_ttl_seconds=config.domain_evict_ttl_hours * 3600,
                   site_planner=site_planner, site_state=site_state,
                   site_query_budget=config.site_query_budget,
-                  osm_feed=osm_feed, aggregator_feed=aggregator_feed)
+                  osm_feed=osm_feed, aggregator_feed=aggregator_feed,
+                  passive_schedule=PassiveSchedule(config.passive_state_path,
+                                                   config.passive_interval_seconds))

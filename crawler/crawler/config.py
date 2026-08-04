@@ -37,6 +37,8 @@ class _RawSettings(BaseSettings):
     site_query_budget: int = 5
     searxng_url: str = "http://searxng:8080"
     freshness_ttl_days: int = 30
+    passive_interval_seconds: int = 172800   # 48h default; passive source-crawl cadence
+    passive_state_path: str = "/data/passive_state.json"
     brand_feed_enabled: bool = True
     brand_feed_refresh_hours: int = 336
     brand_domains_path: str = "/data/brand_domains.json"
@@ -123,6 +125,8 @@ class Config:
     site_query_budget: int = 5
     searxng_url: str = "http://searxng:8080"
     freshness_ttl_days: int = 30
+    passive_interval_seconds: int = 172800   # 48h default; passive source-crawl cadence
+    passive_state_path: str = "/data/passive_state.json"
     brand_feed_enabled: bool = True
     brand_feed_refresh_hours: int = 336
     brand_domains_path: str = "/data/brand_domains.json"
@@ -232,6 +236,8 @@ def load_config() -> Config:
         site_query_budget=s.site_query_budget,
         searxng_url=s.searxng_url,
         freshness_ttl_days=s.freshness_ttl_days,
+        passive_interval_seconds=s.passive_interval_seconds,
+        passive_state_path=s.passive_state_path,
         brand_feed_enabled=s.brand_feed_enabled,
         brand_feed_refresh_hours=s.brand_feed_refresh_hours,
         brand_domains_path=s.brand_domains_path,
