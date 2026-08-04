@@ -94,3 +94,13 @@ def test_reload_learned_none_is_seed_only():
     blocklist.reload_learned(None)
     assert blocklist.is_blocked_host("nv.ua") is True                 # SEED intact
     assert blocklist.is_blocked_host("randomshop.ua") is False
+
+
+def test_curated_news_hosts_are_blocked():
+    blocklist.reload_learned(None)  # SEED-only
+    for h in ["znaj.ua", "breaking.znaj.ua", "ukrainianwall.com",
+              "week.ukrainianwall.com", "kosht.media", "epravda.com.ua",
+              "protocol.ua", "focus.ua", "glavcom.ua", "thepage.ua",
+              "parlament.ua", "kharakter.media"]:
+        assert blocklist.is_blocked_host(h) is True, h
+    assert blocklist.is_blocked_host("rozetka.com.ua") is False

@@ -12,6 +12,13 @@ _MEDIA = {
     "ukr.net", "dnipro.media", "fakty.com.ua", "blog.ipay.ua",
     # aggregators/portals/NGO write-ups — not the actual provider of the discount
     "veteranam.info", "engage.org.ua", "goncharenkocentre.com.ua",
+    # curated UA news/media that leaked as "productive" providers (Track A)
+    "znaj.ua", "ukrainianwall.com", "kosht.media", "epravda.com.ua",
+    "protocol.ua", "focus.ua", "glavcom.ua", "thepage.ua", "parlament.ua",
+    "kharakter.media",
+    # well-known national news outlets (curated, confident — not businesses)
+    "liga.net", "hromadske.ua", "suspilne.media", "ukrinform.ua",
+    "korrespondent.net", "gordonua.com", "lb.ua", "zaxid.net",
 }
 _STOCK = {"depositphotos.com", "shutterstock.com", "istockphoto.com", "freepik.com"}
 _SOCIAL = {
