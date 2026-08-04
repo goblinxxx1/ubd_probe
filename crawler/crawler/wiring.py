@@ -13,6 +13,7 @@ from crawler.discovery.domain_registry import DomainRegistry
 from crawler.discovery.harvest import ActiveHarvester
 from crawler.discovery.osm_feed import OsmDomainFeed, OsmEnumerator
 from crawler.discovery.providers import build_search_plans
+from crawler.discovery import query_lexicon
 from crawler.discovery.search_pass import SearchPass
 from crawler.discovery.query_grid import QueryGrid, build_grid
 from crawler.discovery.robots import RobotsPolicy
@@ -116,7 +117,14 @@ def build_runner(config) -> Runner:
         state = SearchState.load(config.search_state_path)
         plans = build_search_plans(config, state=state)
         if plans:
-            grid = QueryGrid() if config.grid_cities_enabled else QueryGrid(build_grid(cities=[]))
+            if config.query_lexicon_enabled:
+                query_lexicon.reload_learned(config.query_lexicon_learned_path)
+                services = list(query_lexicon.learned_services())[:config.query_lexicon_max_terms]
+            else:
+                query_lexicon.reload_learned(None)
+                services = []
+            cities = None if config.grid_cities_enabled else []
+            grid = QueryGrid(build_grid(cities=cities, services=services))
             search_pass = SearchPass(plans, state, grid,
                                      config.search_block_size, config.search_keywords)
             discovery = search_pass.provider_for_site_query()   # DDG discovery for site: queries

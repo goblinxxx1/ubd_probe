@@ -427,3 +427,23 @@ def test_build_runner_grid_cities_disabled(tmp_path):
                     grid_cities_enabled=False)
     runner = build_runner(cfg)
     assert len(runner._search_pass._grid) == 351
+
+
+def test_build_runner_grid_includes_learned_services(tmp_path, monkeypatch):
+    import crawler.discovery.query_lexicon as ql
+    monkeypatch.setattr(ql, "reload_learned", lambda *_a, **_k: None)
+    monkeypatch.setattr(ql, "learned_services", lambda: ("стоматологія", "автосервіс"))
+    cfg = _base_cfg(tmp_path, active_discovery=True, search_providers=["duckduckgo"],
+                    grid_cities_enabled=True, query_lexicon_enabled=True)
+    runner = build_runner(cfg)
+    assert len(runner._search_pass._grid) == 1701 + 2 * 6   # two services × 6 audiences
+
+
+def test_build_runner_query_lexicon_disabled_is_1701(tmp_path, monkeypatch):
+    import crawler.discovery.query_lexicon as ql
+    monkeypatch.setattr(ql, "reload_learned", lambda *_a, **_k: None)
+    monkeypatch.setattr(ql, "learned_services", lambda: ("стоматологія",))
+    cfg = _base_cfg(tmp_path, active_discovery=True, search_providers=["duckduckgo"],
+                    grid_cities_enabled=True, query_lexicon_enabled=False)
+    runner = build_runner(cfg)
+    assert len(runner._search_pass._grid) == 1701           # services suppressed by flag

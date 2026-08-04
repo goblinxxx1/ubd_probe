@@ -255,3 +255,12 @@ def test_search_block_size_default_and_override(monkeypatch, tmp_path):
     assert load_config().search_block_size == 15
     monkeypatch.setenv("SEARCH_BLOCK_SIZE", "8")
     assert load_config().search_block_size == 8
+
+
+def test_query_lexicon_defaults():
+    from crawler.config import _RawSettings, Config
+    assert _RawSettings().query_lexicon_enabled is True
+    cfg = Config(internal_api_url="x", crawler_api_key="k", extractor="heuristic",
+                 active_discovery=False, request_timeout=1.0, min_delay_seconds=0.0)
+    assert cfg.query_lexicon_max_terms == 40
+    assert cfg.query_lexicon_resurface_factor == 2.0
