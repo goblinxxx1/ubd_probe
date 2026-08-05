@@ -24,14 +24,14 @@ def test_same_target_merges_into_one_offer_with_two_links(db_session):
 
 
 def test_different_target_stays_separate(db_session):
-    a = _create(db_session, _offer("https://biz.example/one"))
-    b = _create(db_session, _offer("https://biz.example/two"))
+    a = _create(db_session, _offer("https://biz.example/one", article="https://biz.example/one"))
+    b = _create(db_session, _offer("https://biz.example/two", article="https://biz.example/two"))
     assert a.id != b.id
 
 
 def test_no_target_stays_separate(db_session):
-    a = _create(db_session, _offer(None))
-    b = _create(db_session, _offer(None))
+    a = _create(db_session, _offer(None, article="https://biz.example/a"))
+    b = _create(db_session, _offer(None, article="https://biz.example/b"))
     assert a.id != b.id
 
 
@@ -62,8 +62,8 @@ def test_merges_across_utm_www_and_scheme(db_session):
 
 
 def test_different_canonical_stays_separate(db_session):
-    a = _create(db_session, _offer("https://biz.example/one"))
-    b = _create(db_session, _offer("https://biz.example/two"))
+    a = _create(db_session, _offer("https://biz.example/one", article="https://biz.example/one"))
+    b = _create(db_session, _offer("https://biz.example/two", article="https://biz.example/two"))
     assert a.id != b.id
 
 

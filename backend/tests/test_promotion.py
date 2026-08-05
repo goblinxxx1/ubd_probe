@@ -29,7 +29,8 @@ def test_publish_promotes_website_origin(db_session):
 
 def test_promotion_is_idempotent_across_offers_sharing_origin(db_session):
     o1 = _crawler_offer(db_session, content_hash="h1")
-    o2 = _crawler_offer(db_session, title="T2", content_hash="h2")
+    o2 = _crawler_offer(db_session, title="T2", article_url="https://shop.example/deal2",
+                        content_hash="h2")
     promotion.maybe_promote_on_publish(db_session, o1)
     promotion.maybe_promote_on_publish(db_session, o2)
     db_session.refresh(o1); db_session.refresh(o2)
