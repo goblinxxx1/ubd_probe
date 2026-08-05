@@ -189,21 +189,13 @@ def test_approved_cursor_defaults_zero_persists_and_is_independent(tmp_path):
     assert reloaded.site_cursor == 2      # independent cursors
 
 
-def test_searxng_cursor_sentinel_default_and_persist(tmp_path):
-    from crawler.discovery.search_state import SearchState
-    p = str(tmp_path / "s.json")
-    st = SearchState(p)
-    assert st.searxng_cursor == -1            # unseeded sentinel (offset applied at read-time)
-    st.set_searxng_cursor(7)
-    assert SearchState.load(p).searxng_cursor == 7   # persisted round-trip
-
-
-def test_block_cursor_and_cycle_persist(tmp_path):
-    from crawler.discovery.search_state import SearchState
-    p = str(tmp_path / "s.json")
-    st = SearchState(p)
-    assert st.block_cursor == 0 and st.cycle == 0
-    st.set_block_cursor(30)
-    st.set_cycle(2)
-    assert SearchState.load(p).block_cursor == 30
-    assert SearchState.load(p).cycle == 2
+def test_legacy_state_with_removed_cursors_loads(tmp_path):
+    import json as _json
+    path = tmp_path / "legacy.json"
+    path.write_text(_json.dumps({"version": 1, "cursor": 0, "grid_cursor": 80,
+                                 "block_cursor": 240, "cycle": 0, "searxng_cursor": 153,
+                                 "next_allowed_at": 0.0, "backends": {}, "cache": {}}),
+                    encoding="utf-8")
+    st = SearchState.load(str(path), clock=Clock())
+    assert st.grid_cursor == 80          # live rotation position preserved
+    assert not hasattr(st, "block_cursor")   # removed property
