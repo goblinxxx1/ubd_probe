@@ -42,7 +42,6 @@ def test_build_runner_no_build_time_cursor_advance(tmp_path):
         search_providers=[],                 # no providers -> no plans, no SearchPass
         search_keywords=["мій пін"],
         search_state_path=state_path,
-        search_queries_per_pass=3,
         brand_feed_enabled=False, osm_feed_enabled=False,
     )
     runner = build_runner(cfg)

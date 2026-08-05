@@ -64,17 +64,6 @@ def test_passive_schedule_defaults_and_override(monkeypatch, tmp_path):
     assert load_config().passive_interval_seconds == 345600
 
 
-def test_search_queries_per_pass_default(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)      # no .env -> defaults apply
-    assert load_config().search_queries_per_pass == 40
-
-
-def test_search_queries_per_pass_override(monkeypatch, tmp_path):
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("SEARCH_QUERIES_PER_PASS", "12")
-    assert load_config().search_queries_per_pass == 12
-
-
 def test_brand_feed_defaults(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)      # no .env -> defaults apply
     cfg = load_config()

@@ -30,12 +30,10 @@ class _RawSettings(BaseSettings):
     search_global_backoff_hours: float = 6.0
     search_budget: int = 0  # 0 = process all keywords
     active_fetch_budget: int = 80
-    search_queries_per_pass: int = 40
     search_block_size: int = 15
     grid_cities_enabled: bool = True
     site_query_enabled: bool = True
     site_query_budget: int = 5
-    searxng_url: str = "http://searxng:8080"
     freshness_ttl_days: int = 30
     passive_interval_seconds: int = 172800   # 48h default; passive source-crawl cadence
     passive_state_path: str = "/data/passive_state.json"
@@ -128,12 +126,10 @@ class Config:
     search_global_backoff_hours: float = 6.0
     search_budget: int | None = None
     active_fetch_budget: int = 80
-    search_queries_per_pass: int = 40
     search_block_size: int = 15
     grid_cities_enabled: bool = True
     site_query_enabled: bool = True
     site_query_budget: int = 5
-    searxng_url: str = "http://searxng:8080"
     freshness_ttl_days: int = 30
     passive_interval_seconds: int = 172800   # 48h default; passive source-crawl cadence
     passive_state_path: str = "/data/passive_state.json"
@@ -249,12 +245,10 @@ def load_config() -> Config:
         search_global_backoff_hours=s.search_global_backoff_hours,
         search_budget=(s.search_budget or None),
         active_fetch_budget=s.active_fetch_budget,
-        search_queries_per_pass=s.search_queries_per_pass,
         search_block_size=s.search_block_size,
         grid_cities_enabled=s.grid_cities_enabled,
         site_query_enabled=s.site_query_enabled,
         site_query_budget=s.site_query_budget,
-        searxng_url=s.searxng_url,
         freshness_ttl_days=s.freshness_ttl_days,
         passive_interval_seconds=s.passive_interval_seconds,
         passive_state_path=s.passive_state_path,
