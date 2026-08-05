@@ -26,7 +26,7 @@ docker compose up -d --build
 
 - Public: http://localhost:8080 · Admin: http://localhost:8082 (`admin@example.com` / `admin12345`) · API: http://localhost:8000/api/health
 
-Повний довідник запуску (окремо/разом, краулер, пошукові движки, потік у адмінку) —
+Повний довідник запуску (окремо/разом, краулер, активний пошук, потік у адмінку) —
 **[RUN.md](RUN.md)**. Деталі Docker-стеку — **[README-docker.md](README-docker.md)**.
 
 ## Стан

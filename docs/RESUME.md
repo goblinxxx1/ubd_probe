@@ -16,7 +16,7 @@
 5. **Docker-інфра** застосунку (`docker compose up`: db+backend+public:8080+admin:8082; краулер за профілем `crawler`; `README-docker.md`).
 6. **Трек 0** — presentation оффера: `site_url`/`article_url` посилання, лого сайту, заглушка `#4B5320`, шрифт **UAF Memory**.
 7. **Discovery A** — DuckDuckGo (`ddgs`) active search → `suggested_sources`.
-8. **Discovery B** — SearXNG (self-hosted сервіс під профілем crawler) як другий провайдер.
+8. **Discovery B** — SearXNG (self-hosted сервіс) був другим провайдером. **РЕТАЙРНУТО 2026-08-05** (трек #33): наживо віддавав 0 придатних результатів — структурний блок (апстрім-рушії CAPTCHA-ять наш IP; Bing підсовує decoy-мотлох на комерційні кириличні запити). Активний пошук тепер — лише DuckDuckGo.
 9. **Discovery C** — дедуп/merge офферів за `target_url` (нова таблиця `offer_links`, multi-link у public).
 10. **Discovery D** — type-класифікація результатів пошуку (`t.me`→telegram тощо, відсів соц-junk).
 11. **nginx resolver фікс** (502 після ребілду backend усунуто).
@@ -58,13 +58,15 @@
 
 32. **Джерело тайтла офера (бізнес-опис) + OfferCard-фікси** (crawler+public, [[ubd-offer-headline-and-card-fixes]]) — тайтл-біля-бейджа був сміттєвим промо-фрагментом; тепер = **бізнес-опис сайту**. Crawler `WebsiteFetcher._extract_site_tagline` (ланцюг: хедер `.site-description`/`.tagline`/`[class*=slogan]` → футер `.tb-footer-desc`/`[class*=footer-desc]` → `<meta name=description>`, cap 160) → `RawItem.site_tagline`; `HeuristicExtractor` ставить його як `title`, але **`content_hash` рахує з промо-first-sentence** (churn-guard — наявні офери не пере-хешуються). Public `OfferCard`: `card__dtext` завжди (прибрано showTitle-дедуп), усі `offer_categories` чіпсами «Тематика» (було лише `[0]`). OfferDetailView вже коректний. Merge `73ba638`. crawler 439 (433+6), public 62 (60+2). Континуальний режим (без per-task checkpoint на прохання). Фінал opus Ready 0C/0I. Спостереження: наявні published тримають старий promo-title до зміни контенту/протухання. Задеплоєно (crawler+public канонічний ребілд).
 
+33. **Ретайр SearXNG + B3c due-query walking** (crawler, [[ubd-crawler-news-exclusion]]) — SearXNG наживо діагностовано як **структурно непридатний** (усі апстрім-веб-рушії CAPTCHA-ять/throttle-ять наш вихідний IP; Bing відповідає, але на комерційні кириличні запити віддає **decoy-мотлох**; wikipedia марна для оферів). Тому повністю прибрано: `SearxngProvider`, searxng-гілку `build_search_plans`, `searxng_url` + мертвий `search_queries_per_pass` з config, docker-compose сервіс + `depends_on` + env, теку `searxng/`, згадки в RUN/README/.env.example. B2-машинерія двох провайдерів (block-partition/swap: `block_cursor`/`cycle`/`searxng_cursor` у `SearchState`, свап-цикл у `SearchPass`) **згорнута** до одно-провайдерного обходу по `grid_cursor`. DDG-шлях (RotatingDdgProvider/SearchCache/анти-throttle) — байт-ідентичний (з одним провайдером старий свап вже вироджувався). **B3c due-query walking:** `SearchState.is_fresh` + `QueryGrid.at`; `SearchPass` тепер щопрохід сканує від `grid_cursor` і бере лише **прострочені/нешукані (due)** фрази, пропускаючи кеш-свіжі (advance курсора за всі проглянуті), TTL з `search_cache_ttl_hours` → кожен прохід свіжа мережева робота, покриття само-вирівнюється під TTL; `ttl_seconds=0` = старий лінійний обхід (back-compat). Стан завантажується з legacy-ключами без міграції. crawler **543** (TDD, 9 задач: 6 retire+collapse, 3 B3c). Фінал opus READY 0C/1I(RESUME-doc стан)/3 Minor(2 deferred). Задеплоєно: канонічний ребілд crawler, searxng-контейнер зупинено+видалено, жива DDG-верифікація (без крашів; DDG у середовищному global-backoff — не наша регресія), жива due-walking-перевірка на реальному стані (від cursor=80 просканував 53, зібрав 15 due, пропустив 38 свіжих). NB live `crawler/.env` виправлено на `SEARCH_PROVIDERS=duckduckgo`.
+
 **Операційні/UI фікси цієї сесії (2026-07-23, кожен окремий merge):** admin — URL у «Нотатці» запропонованих джерел як лінк + вкладки оферів «Опубліковані/На модерації» (`6703d14`); veteranam salvage-флуд спинено (блоклистнутий агрегатор → drop без salvage, `c5540e4`); ручне додавання хоста в блокліст через адмінку (`POST /admin/host-candidates`→approved, `54dde67`). Живий Docker-стек піднято (active_discovery=ON, 30-хв цикл); наскрізь перевірено — active+passive+feeds виробляють офери, стійкий до мережевих збоїв.
 
 **Свідомо НЕ роблено:** C2 (сегментація тексту в блоці) — реальні дані показали непотрібність; деталі у пам'яті [[ubd-discovery-plan]].
 
 ## ⚠️ Відкриті пункти (для наступних сесій)
 
-- **Пошук деградований (але НЕ мертвий код):** активний пошук глушать rate-limit/CAPTCHA; **Brave API відкинуто користувачем**; SearXNG віддає **0**. АЛЕ DDG active search — легітимний **opt-in** канал (`active_discovery` дефолт OFF, є анти-throttle машинерія): деградований *середовищем*, оборотно. **НЕ ретайрити** (query-grid/site:/DDG-провайдер/SearXNG лишаються opt-in — degraded≠dead, див. [[feedback-preserve-working-structure]]). Тріщину #1 закрив OSM-фід (трек 26) = DDG-незалежний приплив; жодної «другої половини» не треба.
+- **Пошук: SearXNG ретайрнуто (трек #33), DDG лишається opt-in (середовищно деградований):** активний DDG-пошук глушать rate-limit/CAPTCHA; **Brave API відкинуто користувачем**. **SearXNG прибрано повністю** — на відміну від DDG його деградація **структурна, не оборотна** (скрапер тих самих ворожих рушіїв; наш IP отримує CAPTCHA або decoy), тож degraded≠dead тут не діє (докази наживо, трек #33). DDG active search — легітимний **opt-in** канал (`active_discovery` дефолт OFF, анти-throttle машинерія, тепер ще й B3c due-walking): деградований *середовищем*, оборотно — **НЕ ретайрити** (query-grid/site:/DDG лишаються opt-in — degraded≠dead, [[feedback-preserve-working-structure]]). Тріщину #1 закрив OSM-фід (трек 26) = DDG-незалежний приплив.
 - **Атрибуція:** новинні/держ/агрегатор-сайти досі просочуються як фейкові провайдери (дають «шумні» багатокатегорійні офери). Посилення — відкладено.
 - **Відкладене:** target-вісь лишається курованою; IG/FB-харвест; новинні Telegram-канали.
 - **Дані (2026-07-27):** у compose-БД `ubd` — 5 published + 1 rejected оферів; **чергу модерації очищено на запит** (видалено 28 pending offers + 9 pending suggested-sources). Краулер репопулює чергу наступними проходами.
@@ -84,7 +86,7 @@ DDG active search лишається легітимним **opt-in** канал�
 injection-hardened); cold-start атрибуції. Деталі — [[ubd-crawler-discovery-scaling-brainstorm]].
 Альтернативи: посилення атрибуції проти медіа-провайдерів; IG/FB-харвест. Обовʼязкових немає.
 
-**Як запускати:** повний довідник — `RUN.md` (окремо/разом, краулер, пошукові движки,
+**Як запускати:** повний довідник — `RUN.md` (окремо/разом, краулер, активний пошук,
 потік у адмінку); Docker-деталі — `README-docker.md`.
 
 **Тести (перевірено 2026-07-23):** admin **97**, public **60**, crawler **420**, backend **106** —
