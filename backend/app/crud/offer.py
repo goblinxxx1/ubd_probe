@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timedelta
 
 from sqlalchemy.orm import Session
@@ -9,9 +10,18 @@ from app.models import Offer, OfferCategory, OfferDiscount, OfferLocation, Targe
 from app.models.enums import CreatedBy, DiscountType, OfferStatus, OfferType
 from app.schemas.offer import OfferCreate, OfferUpdate
 
+log = logging.getLogger(__name__)
+
 
 def _host_blocked(h: str, approved: set[str]) -> bool:
     return bool(h) and any(h == b or h.endswith("." + b) for b in approved)
+
+
+def _source_host(value) -> str:
+    """bare_host of a value, but only if it looks like a real host (has a dot).
+    Free-text provider names like 'Biz' must NOT be treated as hosts."""
+    h = bare_host(value or "")
+    return h if "." in h else ""
 
 
 def _blocked_source_host(db: Session, data) -> str | None:
@@ -20,7 +30,7 @@ def _blocked_source_host(db: Session, data) -> str | None:
         return None
     for val in (getattr(data, "site_url", None), getattr(data, "article_url", None),
                 getattr(data, "provider", None)):
-        h = bare_host(val or "")
+        h = _source_host(val)
         if _host_blocked(h, approved):
             return h
     return None
@@ -299,8 +309,8 @@ _AUTOBLOCK_MIN_REJECTS = 2
 
 
 def _offer_host_candidates(offer) -> set[str]:
-    return {h for h in (bare_host(offer.site_url or ""), bare_host(offer.article_url or ""),
-                        bare_host(offer.provider or "")) if h}
+    return {h for h in (_source_host(offer.site_url), _source_host(offer.article_url),
+                        _source_host(offer.provider)) if h}
 
 
 def _maybe_autoblock_hosts(db: Session, offer) -> None:
@@ -335,8 +345,8 @@ def set_status(db: Session, offer_id: int, status: OfferStatus, reviewed_by: int
     if status == OfferStatus.rejected:
         try:
             _maybe_autoblock_hosts(db, obj)
-        except Exception:  # noqa: BLE001 — learning is best-effort
-            pass
+        except Exception as exc:  # noqa: BLE001 — learning is best-effort
+            log.warning("auto-block learning failed for offer %s: %s", obj.id, exc)
     if status == OfferStatus.published:
         obj.last_seen_at = datetime.utcnow()
         if obj.supersedes_offer_id is not None:

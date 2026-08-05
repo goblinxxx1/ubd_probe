@@ -70,6 +70,17 @@ def test_learn_blocks_host_after_second_reject_zero_published(db_session):
     o2 = _mk(db_session, OfferStatus.pending_review, article_url="https://ogo.ua/b")
     offer_crud.set_status(db_session, o2.id, OfferStatus.rejected, reviewed_by=admin.id)
     assert "ogo.ua" in bh.list_approved_hosts(db_session)
+    # Both offers carry provider="P" (default from _mk) -> bare_host("P") == "p", a non-host
+    # token. It must never be learned as a blocked host.
+    assert "p" not in bh.list_approved_hosts(db_session)
+
+
+def test_learn_never_blocks_non_host_provider_text(db_session):
+    admin = _admin(db_session)
+    _mk(db_session, OfferStatus.rejected, provider="Some Shop")
+    o2 = _mk(db_session, OfferStatus.pending_review, provider="Some Shop")
+    offer_crud.set_status(db_session, o2.id, OfferStatus.rejected, reviewed_by=admin.id)
+    assert bh.list_approved_hosts(db_session) == []   # no host-shaped candidate exists at all
 
 
 def test_learn_does_not_block_host_with_a_published_offer(db_session):
