@@ -244,6 +244,35 @@ def test_free_rejected_when_audience_only_in_provider_not_text():
     assert ex.extract(it, "Магазин для ветеранів", CATS) is None
 
 
+def test_fixed_with_context_still_emitted():
+    ex = HeuristicExtractor(require_discount=True)
+    res = ex.extract(_item("Знижка 500 грн для ветеранів на послуги"), "Shop", CATS)
+    assert res is not None
+    assert res.discount_type == "fixed" and res.discount_value == "500"
+
+
+def test_fixed_minus_sign_style_emitted():
+    ex = HeuristicExtractor(require_discount=True)
+    res = ex.extract(_item("Розпродаж -500 грн для військових"), "Shop", CATS)
+    assert res is not None
+    assert res.discount_type == "fixed" and res.discount_value == "500"
+
+
+def test_fixed_price_without_context_dropped_when_required():
+    # trigger "тільки сьогодні" (not DISCOUNT_CTX) + price 2000 грн + audience -> a PRICE, not a discount
+    ex = HeuristicExtractor(require_discount=True)
+    res = ex.extract(_item("Тільки сьогодні! Куртка 2000 грн для ветеранів"), "Shop", CATS)
+    assert res is None
+
+
+def test_fixed_price_without_context_permissive_emits_no_discount():
+    # permissive default: offer still emitted, but the bare price is no longer a fixed discount
+    ex = HeuristicExtractor()  # require_discount=False
+    res = ex.extract(_item("Тільки сьогодні! Куртка 2000 грн для ветеранів"), "Shop", CATS)
+    assert res is not None
+    assert res.discount_type is None
+
+
 def test_free_kept_when_audience_in_same_block_text():
     from crawler.extract.base import get_extractor
     ex = get_extractor("heuristic")

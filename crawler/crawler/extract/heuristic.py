@@ -100,7 +100,7 @@ class HeuristicExtractor:
             discount_type = "free"
         elif (m := _PERCENT.search(text)) and pl.DISCOUNT_CTX.search(low):
             discount_type, discount_value = "percent", m.group(1)
-        elif (m := _FIXED.search(text)):
+        elif (m := _FIXED.search(text)) and pl.DISCOUNT_CTX.search(low):
             discount_type, discount_value = "fixed", re.sub(r"\s", "", m.group(1))
 
         if self._require_discount and discount_type is None:
