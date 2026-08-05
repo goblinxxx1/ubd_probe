@@ -32,7 +32,7 @@ docker compose up -d --build
 ## Стан
 
 Усі складові завершені й у `main` (синхронізовано з `origin`): backend, public,
-admin, crawler (+ active discovery: DuckDuckGo та SearXNG, дедуп, type-класифікація),
+admin, crawler (+ active discovery: DuckDuckGo, дедуп, type-класифікація),
 Docker-інфра, і UI-редизайн обох фронтів (світлий бурштиновий стиль, UAF Memory,
 WCAG AA контраст, focus-стани, a11y). Спеки/плани по треках — у `docs/superpowers/`.
 

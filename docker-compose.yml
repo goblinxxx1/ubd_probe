@@ -47,19 +47,6 @@ services:
     volumes:
       - ./docker/fixture:/usr/share/nginx/html:ro
 
-  searxng:
-    image: searxng/searxng:latest
-    profiles: ["crawler"]
-    environment:
-      SEARXNG_SECRET: ${SEARXNG_SECRET:-changeme-searxng-secret-please-rotate}
-    volumes:
-      - ./searxng/settings.yml:/etc/searxng/settings.yml:ro
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]
-      interval: 10s
-      timeout: 5s
-      retries: 12
-
   crawler:
     build: ./crawler
     profiles: ["crawler"]
@@ -75,15 +62,12 @@ services:
         condition: service_started
       fixture:
         condition: service_started
-      searxng:
-        condition: service_healthy
     volumes:
       - ubd-crawler-state:/data
     environment:
       INTERNAL_API_URL: http://backend:8000
       CRAWLER_API_KEY: ${CRAWLER_API_KEY}
       EXTRACTOR: heuristic
-      SEARXNG_URL: http://searxng:8080
       SEARCH_STATE_PATH: /data/search_state.json
       CRAWL_INTERVAL_SECONDS: ${CRAWL_INTERVAL_SECONDS:-0}
 

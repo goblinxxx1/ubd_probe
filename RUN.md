@@ -57,7 +57,7 @@ docker compose up -d public          # публічний сайт
 Краулер — за профілем `crawler` (див. Блоки 2–3), сам по собі окремим сервісом
 не тримається постійно (одноразовий прохід або цикл).
 
-**Усе разом + краулер** (додає `fixture` + `searxng` + `crawler` за профілем):
+**Усе разом + краулер** (додає `fixture` + `crawler` за профілем):
 
 ```bash
 docker compose --profile crawler up -d --build
@@ -68,33 +68,23 @@ docker compose --profile crawler up -d --build
 вимкненим, доки не задаси `ACTIVE_DISCOVERY=true` (див. Блоки 2–3). Джерела для обходу
 мають існувати (демо-фікстура або схвалені джерела) — інакше проходити нема що.
 
-**Усе разом + активний пошук по ключових словах (обери движок):**
+**Усе разом + активний пошук по ключових словах:**
 
-Спершу підніми стек, потім зроби прохід активного пошуку. Движок обираєш через
-`-e SEARCH_PROVIDERS`; ключові слова беруться з `crawler/.env` (`SEARCH_KEYWORDS`),
-який compose підвантажує в контейнер (`env_file`) — тож `crawler/.env` має існувати
-(скопіюй з `.env.example`, там уже заповнений список фраз).
+Спершу підніми стек, потім зроби прохід активного пошуку (движок — DuckDuckGo, єдиний
+підтримуваний). Ключові слова беруться з `crawler/.env` (`SEARCH_KEYWORDS`), який compose
+підвантажує в контейнер (`env_file`) — тож `crawler/.env` має існувати (скопіюй з
+`.env.example`, там уже заповнений список фраз).
 
 ```bash
 docker compose up -d --build                      # db + backend + public + admin
 
-# один движок — DuckDuckGo:
 docker compose --profile crawler run --rm \
   -e ACTIVE_DISCOVERY=true -e SEARCH_PROVIDERS=duckduckgo crawler
-
-# один движок — SearXNG:
-docker compose --profile crawler run --rm \
-  -e ACTIVE_DISCOVERY=true -e SEARCH_PROVIDERS=searxng crawler
-
-# усі движки разом:
-docker compose --profile crawler run --rm \
-  -e ACTIVE_DISCOVERY=true -e SEARCH_PROVIDERS=duckduckgo,searxng crawler
 ```
 
 Знахідки падають у **admin → Запропоновані джерела** (див. Блок 3). Для запуску на
-розкладі задай `ACTIVE_DISCOVERY=true` + потрібний `SEARCH_PROVIDERS` прямо в `crawler/.env`
-і підніми краулер циклом: `docker compose --profile crawler up -d --build`
-(з `CRAWL_INTERVAL_SECONDS>0`).
+розкладі задай `ACTIVE_DISCOVERY=true` прямо в `crawler/.env` і підніми краулер циклом:
+`docker compose --profile crawler up -d --build` (з `CRAWL_INTERVAL_SECONDS>0`).
 
 **Зупинка / скидання:**
 
@@ -142,14 +132,11 @@ npm run dev        # http://localhost:5174, проксі /api → http://localho
 
 ---
 
-## Блок 2. Краулер з одним / кількома пошуковими движками
+## Блок 2. Краулер і активний пошук (DuckDuckGo)
 
-Активний пошук нових джерел вмикається окремо: **`ACTIVE_DISCOVERY=true`**. Движки
-задає **`SEARCH_PROVIDERS`** (у `crawler/.env`, або `-e` в Docker). Доступні:
-`duckduckgo`, `searxng`, або обидва через кому. Знахідки йдуть у чергу
-`suggested_sources` (не одразу в оффери).
-
-**Один движок — DuckDuckGo** (дефолт, нічого зовнішнього не треба):
+Активний пошук нових джерел вмикається окремо: **`ACTIVE_DISCOVERY=true`**. Провайдер
+задає **`SEARCH_PROVIDERS`** (у `crawler/.env`, або `-e` в Docker) — підтримується лише
+`duckduckgo`. Знахідки йдуть у чергу `suggested_sources` (не одразу в оффери).
 
 ```bash
 # crawler/.env:  ACTIVE_DISCOVERY=true   SEARCH_PROVIDERS=duckduckgo
@@ -159,27 +146,12 @@ docker compose --profile crawler run --rm \
   -e ACTIVE_DISCOVERY=true -e SEARCH_PROVIDERS=duckduckgo crawler
 ```
 
-**Один движок — SearXNG** (self-hosted метапошук; сервіс `searxng` під профілем `crawler`):
-
-```bash
-docker compose --profile crawler run --rm \
-  -e ACTIVE_DISCOVERY=true -e SEARCH_PROVIDERS=searxng crawler
-# сервіс searxng підніметься автоматично як залежність (healthcheck).
-```
-
-**Кілька движків — DuckDuckGo + SearXNG** (стійкіше, агрегує більше):
-
-```bash
-docker compose --profile crawler run --rm \
-  -e ACTIVE_DISCOVERY=true -e SEARCH_PROVIDERS=duckduckgo,searxng crawler
-```
-
 Налаштування пошуку (у `crawler/.env`): `SEARCH_KEYWORDS` (фрази через кому),
 `SEARCH_RESULTS_PER_KEYWORD` (7), `SEARCH_MIN_DELAY` (45 c між реальними запитами,
-довгий навмисне), `SEARCH_BUDGET` (0 = всі ключові слова), `SEARXNG_URL` (для
-Docker — `http://searxng:8080`). У Docker `crawler/.env` підвантажується в контейнер
-краулера через `env_file` (compose), тож для пошуку по ключових словах він **має
-існувати**; окремі значення (`ACTIVE_DISCOVERY`, `SEARCH_PROVIDERS`) перекриваються прапорцем `-e`.
+довгий навмисне), `SEARCH_BUDGET` (0 = всі ключові слова). У Docker `crawler/.env`
+підвантажується в контейнер краулера через `env_file` (compose), тож для пошуку по
+ключових словах він **має існувати**; окремі значення (`ACTIVE_DISCOVERY`,
+`SEARCH_PROVIDERS`) перекриваються прапорцем `-e`.
 
 **Анти-throttle (DuckDuckGo):** активний пошук ходить по **одному** бекенду на запит
 із пулу `SEARCH_BACKENDS` (`google,startpage,duckduckgo,yahoo,brave`), round-robin —
@@ -189,10 +161,6 @@ Keyword-результати кешуються (`SEARCH_CACHE_TTL_HOURS`, ти�
 не спить і не ходить у мережу). Увесь стан (cooldown, кеш, курсор ротації, backoff)
 лежить у `SEARCH_STATE_PATH` (`/data/search_state.json`) на томі `ubd-crawler-state`,
 тож переживає рестарти контейнера. Мета — не блокуватись по IP; швидкість вторинна.
-
-> **SearXNG з хостового краулера:** сервіс `searxng` слухає всередині Docker-мережі
-> (`searxng:8080`), з хоста не опублікований. Тому для `searxng` найпростіше гнати
-> краулер теж у Docker (як вище), або вкажи `SEARXNG_URL` на доступний тобі інстанс.
 
 ---
 
