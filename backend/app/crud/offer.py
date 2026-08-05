@@ -194,6 +194,28 @@ def create_offer(db: Session, data: OfferCreate, created_by: CreatedBy,
             db.refresh(pending)
             return pending
 
+    # 3b) Discovered-offer page dedup (active search, source_id=None). Branches 2/3 above are
+    #     gated on `source_id is not None`, so an active-search offer for a page already in the
+    #     queue would fall through and re-INSERT. Short-circuit here on article_url_canonical:
+    #     bump last_seen and return the existing row without touching its content. Mirrors
+    #     branch 1 but keyed on the page URL, so it also catches drifted-content re-crawls that
+    #     branch 1 (exact content_hash) misses. NOT guarded with `and not blocked`: a blocked
+    #     re-crawl with drifted content must collapse onto the existing rejected row, not
+    #     re-INSERT. Excludes shadows (supersedes IS NULL) and expired rows (a revert to an
+    #     expired page must fall through to re-moderation).
+    if crawler and canon_article and source_id is None:
+        existing = (db.query(Offer)
+                    .filter(Offer.source_id.is_(None),
+                            Offer.article_url_canonical == canon_article,
+                            Offer.status != OfferStatus.expired,
+                            Offer.supersedes_offer_id.is_(None))
+                    .order_by(Offer.id).first())
+        if existing is not None:
+            existing.last_seen_at = datetime.utcnow()
+            db.commit()
+            db.refresh(existing)
+            return existing
+
     # 4) Cross-source canonical merge (aggregator / cross-platform) — existing behavior.
     if crawler and canon and not blocked:
         existing = (db.query(Offer).filter(Offer.target_url_canonical == canon)
