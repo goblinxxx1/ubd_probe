@@ -13,55 +13,51 @@ class _Disc:
 
 
 class _Plan:
-    def __init__(self, name, cursor_key, include_pins, ok):
-        self.name = name; self.discovery = _Disc(); self.cursor_key = cursor_key
-        self.include_pins = include_pins; self._ok = ok; self.reset_calls = 0
+    def __init__(self, include_pins, ok):
+        self.discovery = _Disc(); self.include_pins = include_pins; self._ok = ok
     def succeeded(self): return self._ok
-    def reset(self): self.reset_calls += 1
 
 
 def _grid(): return QueryGrid([f"q{i}" for i in range(10)])
 
 
-def test_providers_get_adjacent_blocks_and_pins(tmp_path):
+def test_single_provider_walks_block_from_grid_cursor_with_pins(tmp_path):
     st = SearchState(str(tmp_path / "s.json"))
-    ddg = _Plan("duckduckgo", "grid_cursor", True, ok=True)
-    sx = _Plan("searxng", "searxng_cursor", False, ok=True)
-    sp = SearchPass([ddg, sx], st, _grid(), block_size=3, static_keywords=["пін"])
+    ddg = _Plan(include_pins=True, ok=True)
+    sp = SearchPass([ddg], st, _grid(), block_size=3, static_keywords=["пін"])
     sp.run(set())
-    # cycle 0: DDG block 0 (q0..q2)+pin ; searxng block 1 (q3..q5), no pin
     assert ddg.discovery.calls == [["q0", "q1", "q2", "пін"]]
-    assert sx.discovery.calls == [["q3", "q4", "q5"]]
-    assert st.block_cursor == 6            # advanced N*block_size = 2*3
+    assert st.grid_cursor == 3            # advanced by block_size on success
 
 
-def test_blocks_swap_provider_next_cycle(tmp_path):
+def test_cursor_advances_across_passes_and_wraps(tmp_path):
     st = SearchState(str(tmp_path / "s.json"))
+    ddg = _Plan(include_pins=False, ok=True)
     grid = QueryGrid([f"q{i}" for i in range(6)])
-    ddg = _Plan("duckduckgo", "grid_cursor", True, ok=True)
-    sx = _Plan("searxng", "searxng_cursor", False, ok=True)
-    sp = SearchPass([ddg, sx], st, grid, block_size=3)
-    sp.run(set())                          # cycle 0: DDG q0-2, sx q3-5 ; cursor 6 -> wrap -> cycle 1
-    assert st.cycle == 1 and st.block_cursor == 0
-    sp.run(set())                          # cycle 1: swap -> DDG q3-5, sx q0-2
-    assert ddg.discovery.calls[-1] == ["q3", "q4", "q5"]
-    assert sx.discovery.calls[-1] == ["q0", "q1", "q2"]
+    sp = SearchPass([ddg], st, grid, block_size=3)
+    sp.run(set()); assert st.grid_cursor == 3
+    sp.run(set()); assert st.grid_cursor == 0     # (3+3) % 6 wrap
+    assert ddg.discovery.calls == [["q0", "q1", "q2"], ["q3", "q4", "q5"]]
 
 
-def test_no_advance_when_all_providers_fail(tmp_path):
+def test_no_advance_when_provider_fails(tmp_path):
     st = SearchState(str(tmp_path / "s.json"))
-    ddg = _Plan("duckduckgo", "grid_cursor", True, ok=False)
+    ddg = _Plan(include_pins=True, ok=False)
     sp = SearchPass([ddg], st, _grid(), block_size=3)
     sp.run(set())
-    assert st.block_cursor == 0 and st.cycle == 0
-    assert ddg.reset_calls == 1
+    assert st.grid_cursor == 0            # cursor frozen when the pass did not succeed
 
 
-def test_provider_for_site_query_prefers_ddg(tmp_path):
+def test_provider_for_site_query_returns_single_discovery(tmp_path):
     st = SearchState(str(tmp_path / "s.json"))
-    ddg = _Plan("duckduckgo", "grid_cursor", True, ok=True)
-    sx = _Plan("searxng", "searxng_cursor", False, ok=True)
-    sp = SearchPass([sx, ddg], st, _grid(), block_size=2)
+    ddg = _Plan(include_pins=True, ok=True)
+    sp = SearchPass([ddg], st, _grid(), block_size=2)
     assert sp.provider_for_site_query() is ddg.discovery
 
 
+def test_empty_grid_or_no_plans_is_noop(tmp_path):
+    st = SearchState(str(tmp_path / "s.json"))
+    ddg = _Plan(include_pins=True, ok=True)
+    assert SearchPass([], st, _grid(), block_size=3).run(set()) == []
+    assert SearchPass([ddg], st, QueryGrid([]), block_size=3).run(set()) == []
+    assert SearchPass([], st, _grid(), block_size=2).provider_for_site_query() is None
