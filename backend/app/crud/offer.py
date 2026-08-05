@@ -106,7 +106,12 @@ def create_offer(db: Session, data: OfferCreate, created_by: CreatedBy,
         status = OfferStatus.rejected   # force-reject a blocked-source offer
 
     # 1) Unchanged (or idempotent repeat of an existing shadow): same source + content_hash.
-    if content_hash is not None and crawler and not blocked:
+    # NOTE: intentionally NOT guarded with `and not blocked` — this branch only bumps
+    # last_seen_at / handles supersedes-shadow bookkeeping and returns the existing row; it
+    # never appends a link, so it can't leak a blocked link into a published offer. It MUST run
+    # for blocked offers too, otherwise a re-crawl of an already-rejected (source_id,
+    # content_hash) row falls through and re-INSERTs, violating the unique constraint.
+    if content_hash is not None and crawler:
         # Ignore expired rows here: a revert to an expired offer's content must fall through to
         # branch 2 for re-moderation, not short-circuit onto the dead row. Published/pending/
         # rejected still short-circuit (rejected stays final; unchanged live just bumps).

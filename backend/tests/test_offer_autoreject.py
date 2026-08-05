@@ -1,6 +1,9 @@
+from app.core.urlnorm import canonicalize_target_url
 from app.crud import offer as offer_crud
 from app.crud import blocked_host as bh
+from app.crud import source as source_crud
 from app.schemas.offer import OfferCreate
+from app.schemas.source import SourceCreate
 from app.models.enums import CreatedBy, OfferStatus
 
 
@@ -97,3 +100,40 @@ def test_learn_requires_two_rejections(db_session):
     o = _mk(db_session, OfferStatus.pending_review, article_url="https://izum.ua/a")
     offer_crud.set_status(db_session, o.id, OfferStatus.rejected, reviewed_by=admin.id)
     assert "izum.ua" not in bh.list_approved_hosts(db_session)   # only 1 rejected so far
+
+
+def _source(db):
+    return source_crud.create_source(
+        db, SourceCreate(name="S", type="website", url_or_handle="https://fraza.ua/x", is_active=True),
+        CreatedBy.crawler)
+
+
+def test_gate_blocked_offer_is_idempotent_on_resubmit(db_session):
+    bh.auto_block(db_session, "fraza.ua")
+    src = _source(db_session)
+    data = OfferCreate(type="discount", title="T", provider="uglovoy.com.ua",
+                       site_url="https://fraza.ua/x", article_url="https://fraza.ua/x")
+    o1 = offer_crud.create_offer(db_session, data, CreatedBy.crawler, OfferStatus.pending_review,
+                                 source_id=src.id, content_hash="h1")
+    assert o1.status == OfferStatus.rejected
+    # Re-crawl of the same (source_id, content_hash) must not re-INSERT (would violate the
+    # UniqueConstraint("source_id", "content_hash") -> uncaught IntegrityError -> HTTP 500).
+    o2 = offer_crud.create_offer(db_session, data, CreatedBy.crawler, OfferStatus.pending_review,
+                                 source_id=src.id, content_hash="h1")
+    assert o1.id == o2.id                 # idempotent, no duplicate INSERT / no IntegrityError
+    assert o2.status == OfferStatus.rejected
+
+
+def test_gate_blocked_offer_does_not_merge_into_published(db_session):
+    bh.auto_block(db_session, "fraza.ua")
+    pub = _mk(db_session, OfferStatus.published, site_url="https://reima.ua/x")
+    # give the published offer a target_url so canonical merge WOULD apply if not blocked:
+    pub.target_url = "https://shop.example"
+    pub.target_url_canonical = canonicalize_target_url("https://shop.example")
+    db_session.commit()
+    data = OfferCreate(type="discount", title="X", provider="uglovoy.com.ua",
+                       site_url="https://fraza.ua/y", target_url="https://shop.example")
+    o = offer_crud.create_offer(db_session, data, CreatedBy.crawler, OfferStatus.pending_review)
+    assert o.id != pub.id and o.status == OfferStatus.rejected
+    db_session.refresh(pub)
+    assert pub.status == OfferStatus.published and len(pub.links) == 0  # not merged into
