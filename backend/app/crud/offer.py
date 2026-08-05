@@ -295,10 +295,48 @@ def update_offer(db: Session, offer_id: int, data: OfferUpdate) -> Offer:
     return obj
 
 
+_AUTOBLOCK_MIN_REJECTS = 2
+
+
+def _offer_host_candidates(offer) -> set[str]:
+    return {h for h in (bare_host(offer.site_url or ""), bare_host(offer.article_url or ""),
+                        bare_host(offer.provider or "")) if h}
+
+
+def _maybe_autoblock_hosts(db: Session, offer) -> None:
+    """After an offer is rejected, auto-block any source host with >=2 rejected and 0
+    published offers (guard protects dual-status business hosts)."""
+    from app.crud.blocked_host import auto_block
+    approved = set(list_approved_hosts(db))
+    for h in _offer_host_candidates(offer):
+        if _host_blocked(h, approved):
+            continue
+        like = f"%{h}%"
+        rows = (db.query(Offer)
+                .filter((Offer.site_url.like(like)) | (Offer.article_url.like(like))
+                        | (Offer.provider.like(like)))
+                .all())
+        rejected = published = 0
+        for r in rows:
+            if not any(_host_blocked(fh, {h}) for fh in _offer_host_candidates(r)):
+                continue   # LIKE false-positive; exact/suffix host must match
+            if r.status == OfferStatus.published:
+                published += 1
+            elif r.status == OfferStatus.rejected:
+                rejected += 1
+        if published == 0 and rejected >= _AUTOBLOCK_MIN_REJECTS:
+            auto_block(db, h)
+
+
 def set_status(db: Session, offer_id: int, status: OfferStatus, reviewed_by: int) -> Offer:
     obj = get_offer(db, offer_id)
     obj.status = status
     obj.reviewed_by = reviewed_by
+    if status == OfferStatus.rejected:
+        try:
+            _maybe_autoblock_hosts(db, obj)
+        except Exception:  # noqa: BLE001 — learning is best-effort
+            pass
     if status == OfferStatus.published:
         obj.last_seen_at = datetime.utcnow()
         if obj.supersedes_offer_id is not None:
