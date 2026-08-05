@@ -75,6 +75,12 @@ def _discount_label(text: str, target_ids, categories) -> str | None:
     return names[0] if names else None
 
 
+def _has_audience_in_text(text: str) -> bool:
+    """True iff a TARGET (audience) term appears in the block prose itself —
+    not merely in provider/site_name metadata. Gates the loose FREE trigger."""
+    return bool(classify(text or "", TARGET_LEXICON))
+
+
 class HeuristicExtractor:
     def __init__(self, require_discount: bool = False):
         self._require_discount = require_discount
@@ -90,7 +96,7 @@ class HeuristicExtractor:
 
         discount_type = None
         discount_value = None
-        if pl.FREE.search(low):
+        if pl.FREE.search(low) and _has_audience_in_text(text):
             discount_type = "free"
         elif (m := _PERCENT.search(text)) and pl.DISCOUNT_CTX.search(low):
             discount_type, discount_value = "percent", m.group(1)

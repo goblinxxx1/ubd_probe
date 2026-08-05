@@ -231,6 +231,38 @@ def test_title_falls_back_to_promo_when_no_tagline():
     assert res.title == "Знижка 15% для ветеранів у нашому магазині"
 
 
+def test_free_rejected_when_audience_only_in_provider_not_text():
+    from crawler.extract.heuristic import HeuristicExtractor
+    from crawler.models import RawItem
+    ex = HeuristicExtractor(require_discount=True)
+    # free word in the block text, but the audience token is only in provider/site_name,
+    # not in the block prose -> free must NOT count -> no discount -> None (require_discount).
+    it = RawItem(source_id=1, platform="website", key="k",
+                 text="Безкоштовна доставка по всій Україні. Умови доставки та оплати.",
+                 site_name="Магазин для ветеранів")
+    # free word in text, NO audience/percent/fixed in text; audience only in site_name/provider
+    assert ex.extract(it, "Магазин для ветеранів", CATS) is None
+
+
+def test_free_kept_when_audience_in_same_block_text():
+    from crawler.extract.base import get_extractor
+    ex = get_extractor("heuristic")
+    cand = ex.extract(_item("Безкоштовні протези ветеранам у нашій клініці"), "Клініка", CATS)
+    assert cand is not None and cand.discount_type == "free"
+
+
+def test_free_fails_but_percent_with_context_still_extracts():
+    from crawler.extract.base import get_extractor
+    ex = get_extractor("heuristic")
+    # generic free (no audience token in the block text) + a real percent discount; audience
+    # comes from the provider (offer-level gate over blob) -> free fails, falls through to percent.
+    from crawler.models import RawItem
+    it = RawItem(source_id=1, platform="website", key="k",
+                 text="Безкоштовна доставка. Знижка 20% на все у нашому магазині.")
+    cand = ex.extract(it, "Магазин для військових", CATS)
+    assert cand is not None and cand.discount_type == "percent" and cand.discount_value == "20"
+
+
 def test_content_hash_ignores_site_tagline():
     ex = HeuristicExtractor()
     cats = CategoryIndex(target=[{"id": 10, "slug": "veteran"}], offer=[])
