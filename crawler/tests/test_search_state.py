@@ -199,3 +199,17 @@ def test_legacy_state_with_removed_cursors_loads(tmp_path):
     st = SearchState.load(str(path), clock=Clock())
     assert st.grid_cursor == 80          # live rotation position preserved
     assert not hasattr(st, "block_cursor")   # removed property
+
+
+def test_is_fresh_true_within_ttl_false_after(tmp_path):
+    clk = Clock(1000.0)
+    st = _state(tmp_path, clk)
+    st.cache_put("Знижки УБД", [])
+    assert st.is_fresh("  знижки убд  ", ttl_seconds=100.0) is True   # normalized, within ttl
+    clk.t = 1101.0
+    assert st.is_fresh("знижки убд", ttl_seconds=100.0) is False       # aged past ttl
+
+
+def test_is_fresh_false_for_unseen_keyword(tmp_path):
+    st = _state(tmp_path, Clock())
+    assert st.is_fresh("never searched", ttl_seconds=1e9) is False

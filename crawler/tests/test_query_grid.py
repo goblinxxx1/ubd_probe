@@ -122,3 +122,14 @@ def test_services_block_appended_after_geo():
 def test_services_none_or_empty_is_byte_eq():
     assert build_grid(services=None) == build_grid()
     assert build_grid(services=[]) == build_grid()
+
+
+def test_at_wraps_modulo_length():
+    g = QueryGrid([f"q{i}" for i in range(3)])
+    assert g.at(0) == "q0"
+    assert g.at(3) == "q0"      # wraps
+    assert g.at(4) == "q1"
+
+
+def test_at_empty_grid_returns_empty_string():
+    assert QueryGrid([]).at(0) == ""

@@ -117,3 +117,9 @@ class QueryGrid:
             cursor = 0
         batch = [self._grid[(cursor + i) % size] for i in range(n)]
         return batch, (cursor + n) % size
+
+    def at(self, index: int) -> str:
+        size = len(self._grid)
+        if size == 0:
+            return ""
+        return self._grid[index % size]

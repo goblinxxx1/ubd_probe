@@ -113,6 +113,13 @@ class SearchState:
         return self._degraded
 
     # --- keyword cache ---
+    def is_fresh(self, keyword: str, ttl_seconds: float) -> bool:
+        """True iff a non-expired cache entry exists for `keyword` (mirrors cache_get)."""
+        entry = self._data["cache"].get(self._key(keyword))
+        if not entry:
+            return False
+        return self._clock() - entry.get("ts", 0.0) < ttl_seconds
+
     def cache_get(self, keyword: str, ttl_seconds: float) -> list[SourceCandidate] | None:
         entry = self._data["cache"].get(self._key(keyword))
         if not entry or self._clock() - entry.get("ts", 0.0) >= ttl_seconds:
