@@ -273,3 +273,31 @@ def test_content_hash_ignores_site_tagline():
                            site_tagline="Опис Б"), "P", cats)
     assert a.content_hash == b.content_hash          # hash decoupled from tagline (no churn)
     assert a.title == "Опис А" and b.title == "Опис Б"
+
+
+def test_provider_uses_site_name_when_present():
+    from crawler.extract.base import get_extractor
+    from crawler.models import RawItem
+    ex = get_extractor("heuristic")
+    it = RawItem(source_id=1, platform="website", key="k",
+                 text="Знижка 20% для ветеранів", site_name="Гастро-бар Угловой")
+    cand = ex.extract(it, "uglovoy.com.ua", CATS)   # host passed as provider param
+    assert cand is not None and cand.provider == "Гастро-бар Угловой"
+
+
+def test_provider_falls_back_to_host_without_site_name():
+    from crawler.extract.base import get_extractor
+    ex = get_extractor("heuristic")
+    cand = ex.extract(_item("Знижка 20% для ветеранів"), "uglovoy.com.ua", CATS)  # no site_name
+    assert cand is not None and cand.provider == "uglovoy.com.ua"
+
+
+def test_content_hash_unchanged_when_only_display_provider_differs():
+    from crawler.extract.base import get_extractor
+    from crawler.models import RawItem
+    ex = get_extractor("heuristic")
+    text = "Знижка 20% для ветеранів"
+    with_name = ex.extract(RawItem(source_id=1, platform="website", key="k",
+                                   text=text, site_name="Гастро-бар Угловой"), "uglovoy.com.ua", CATS)
+    no_name = ex.extract(_item(text), "uglovoy.com.ua", CATS)
+    assert with_name.content_hash == no_name.content_hash   # hash on host, not display name
