@@ -4,9 +4,26 @@ from sqlalchemy.orm import Session
 
 from app.core.errors import not_found, validation_error
 from app.core.urlnorm import canonicalize_target_url
+from app.crud.blocked_host import bare_host, list_approved_hosts
 from app.models import Offer, OfferCategory, OfferDiscount, OfferLocation, TargetCategory
 from app.models.enums import CreatedBy, DiscountType, OfferStatus, OfferType
 from app.schemas.offer import OfferCreate, OfferUpdate
+
+
+def _host_blocked(h: str, approved: set[str]) -> bool:
+    return bool(h) and any(h == b or h.endswith("." + b) for b in approved)
+
+
+def _blocked_source_host(db: Session, data) -> str | None:
+    approved = set(list_approved_hosts(db))
+    if not approved:
+        return None
+    for val in (getattr(data, "site_url", None), getattr(data, "article_url", None),
+                getattr(data, "provider", None)):
+        h = bare_host(val or "")
+        if _host_blocked(h, approved):
+            return h
+    return None
 
 
 def _norm_locations(names):
@@ -74,9 +91,12 @@ def create_offer(db: Session, data: OfferCreate, created_by: CreatedBy,
     canon = canonicalize_target_url(data.target_url) if data.target_url else None
     canon_article = canonicalize_target_url(data.article_url) if data.article_url else None
     crawler = created_by == CreatedBy.crawler
+    blocked = crawler and _blocked_source_host(db, data) is not None
+    if blocked:
+        status = OfferStatus.rejected   # force-reject a blocked-source offer
 
     # 1) Unchanged (or idempotent repeat of an existing shadow): same source + content_hash.
-    if content_hash is not None and crawler:
+    if content_hash is not None and crawler and not blocked:
         # Ignore expired rows here: a revert to an expired offer's content must fall through to
         # branch 2 for re-moderation, not short-circuit onto the dead row. Published/pending/
         # rejected still short-circuit (rejected stays final; unchanged live just bumps).
@@ -105,7 +125,7 @@ def create_offer(db: Session, data: OfferCreate, created_by: CreatedBy,
             return existing
 
     # Same-source change detection needs a canonical key and a source.
-    if crawler and canon_article and source_id is not None:
+    if crawler and canon_article and source_id is not None and not blocked:
         # 2) Change of a live (published) offer from this same source+page -> shadow.
         parent = (db.query(Offer)
                   .filter(Offer.source_id == source_id,
@@ -160,7 +180,7 @@ def create_offer(db: Session, data: OfferCreate, created_by: CreatedBy,
             return pending
 
     # 4) Cross-source canonical merge (aggregator / cross-platform) — existing behavior.
-    if crawler and canon:
+    if crawler and canon and not blocked:
         existing = (db.query(Offer).filter(Offer.target_url_canonical == canon)
                     .order_by(Offer.id).first())
         if existing is not None:
