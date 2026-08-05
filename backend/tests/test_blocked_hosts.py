@@ -41,3 +41,27 @@ def test_reject_excludes_from_approved(db_session):
     # re-submitting a rejected host does not resurrect it to pending
     bh_crud.upsert_candidate(db_session, _cand("ok.example"))
     assert bh_crud.get(db_session, c.id).status.value == "rejected"
+
+
+def test_auto_block_creates_approved_system_row(db_session):
+    from app.crud import blocked_host as bh
+    from app.models.enums import BlockedHostStatus
+    obj = bh.auto_block(db_session, "Fraza.UA")
+    assert obj.host == "fraza.ua"
+    assert obj.status == BlockedHostStatus.approved
+    assert obj.reviewed_by is None
+    assert "fraza.ua" in bh.list_approved_hosts(db_session)
+
+
+def test_auto_block_is_idempotent(db_session):
+    from app.crud import blocked_host as bh
+    bh.auto_block(db_session, "znaj.ua")
+    bh.auto_block(db_session, "znaj.ua")
+    approved = bh.list_approved_hosts(db_session)
+    assert approved.count("znaj.ua") == 1
+
+
+def test_bare_host_is_public(db_session):
+    from app.crud.blocked_host import bare_host
+    assert bare_host("https://www.Focus.ua/x?y=1") == "focus.ua"
+    assert bare_host("") == ""

@@ -9,7 +9,7 @@ from app.models.enums import BlockedHostStatus
 from app.schemas.blocked_host import HostCandidateCreate
 
 
-def _bare_host(value: str) -> str:
+def bare_host(value: str) -> str:
     """Bare registrable host from a host or full URL: no scheme/path/port/www., lowercased."""
     raw = (value or "").strip()
     if not raw:
@@ -74,7 +74,7 @@ def reject(db: Session, host_id: int, reviewed_by: int) -> BlockedHost:
 def add_manual(db: Session, host: str, reviewed_by: int) -> BlockedHost:
     """Human directly blocks a host via admin: upsert to `approved` (the crawler's
     LEARNED list). No miner evidence, so ratios/support stay 0."""
-    h = _bare_host(host)
+    h = bare_host(host)
     if not h:
         raise validation_error("host is required")
     now = datetime.now(timezone.utc)
@@ -87,6 +87,24 @@ def add_manual(db: Session, host: str, reviewed_by: int) -> BlockedHost:
         obj.status = BlockedHostStatus.approved
         obj.reviewed_by = reviewed_by
         obj.reviewed_at = now
+    db.commit()
+    db.refresh(obj)
+    return obj
+
+
+def auto_block(db: Session, host: str) -> BlockedHost:
+    """System (non-human) block: upsert host to approved with reviewed_by=None.
+    Idempotent — an existing row is promoted to approved."""
+    h = bare_host(host)
+    if not h:
+        raise validation_error("host is required")
+    obj = db.query(BlockedHost).filter(BlockedHost.host == h).first()
+    if obj is None:
+        obj = BlockedHost(host=h, status=BlockedHostStatus.approved, reviewed_by=None,
+                          reviewed_at=datetime.now(timezone.utc))
+        db.add(obj)
+    else:
+        obj.status = BlockedHostStatus.approved
     db.commit()
     db.refresh(obj)
     return obj
