@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from typing import Callable
 from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
 
-import httpx
 from ddgs import DDGS
 
 from crawler.discovery.active import ActiveDiscovery
@@ -153,60 +152,14 @@ class SearchCache:
         return results
 
 
-class SearxngProvider:
-    """Callable (keyword) -> list[SourceCandidate]; best-effort, via SearXNG JSON API."""
-
-    def __init__(self, base_url: str, results_per_keyword: int = 7, min_delay: float = 4.0,
-                 client_factory=None, sleep=time.sleep):
-        self._base = base_url.rstrip("/")
-        self._n = results_per_keyword
-        self._delay = min_delay
-        self._client_factory = client_factory or (lambda: httpx.Client(timeout=20))
-        self._sleep = sleep
-        self._slice_ok = False
-
-    def reset_slice(self) -> None:
-        self._slice_ok = False
-
-    def slice_ok(self) -> bool:
-        return self._slice_ok
-
-    def __call__(self, keyword: str) -> list[SourceCandidate]:
-        if self._delay:
-            self._sleep(self._delay)
-        try:
-            with self._client_factory() as client:
-                resp = client.get(f"{self._base}/search",
-                                  params={"q": keyword, "format": "json"})
-                resp.raise_for_status()
-                data = resp.json()
-        except Exception as exc:  # noqa: BLE001 — search is best-effort
-            log.warning("searxng search failed for %r: %s", keyword, exc)
-            return []
-        self._slice_ok = True
-        out: list[SourceCandidate] = []
-        for r in (data.get("results") or [])[:self._n]:
-            classified = classify_candidate(r.get("url", ""))
-            if classified is None:
-                continue
-            type_, url_or_handle = classified
-            out.append(SourceCandidate(
-                name=r.get("title") or url_or_handle, type=type_, url_or_handle=url_or_handle,
-                discovered_from_source_id=None, discovery_note=f"searxng: {keyword}"))
-        return out
-
-
 @dataclass
 class SearchProviderPlan:
-    """One search provider bound to its own ActiveDiscovery, grid cursor, and
-    per-slice success check. Consumed by SearchPass to run providers sequentially
-    over distinct grid slices with advance-on-success."""
+    """One search provider bound to its own ActiveDiscovery and per-pass success
+    check. Consumed by SearchPass."""
     name: str
     discovery: ActiveDiscovery
-    cursor_key: str
     include_pins: bool
     succeeded: Callable[[], bool]
-    reset: Callable[[], None]
 
 
 def build_search_plans(config, state=None) -> list[SearchProviderPlan]:
@@ -228,19 +181,8 @@ def build_search_plans(config, state=None) -> list[SearchProviderPlan]:
             plans.append(SearchProviderPlan(
                 name="duckduckgo",
                 discovery=ActiveDiscovery(budget=budget, search_provider=provider),
-                cursor_key="grid_cursor", include_pins=True,
-                succeeded=(lambda st=state: not st.in_global_backoff()),
-                reset=(lambda: None)))
-        elif name == "searxng":
-            sx = SearxngProvider(
-                base_url=config.searxng_url,
-                results_per_keyword=config.search_results_per_keyword,
-                min_delay=config.search_min_delay)
-            plans.append(SearchProviderPlan(
-                name="searxng",
-                discovery=ActiveDiscovery(budget=budget, search_provider=sx),
-                cursor_key="searxng_cursor", include_pins=False,
-                succeeded=sx.slice_ok, reset=sx.reset_slice))
+                include_pins=True,
+                succeeded=(lambda st=state: not st.in_global_backoff())))
         else:
             log.warning("unknown search provider %r, ignoring", name)
     return plans

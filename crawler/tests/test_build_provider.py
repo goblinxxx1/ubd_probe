@@ -9,7 +9,7 @@ def _cfg(tmp_path, **over):
         search_backends=["google", "brave"], search_state_path=str(tmp_path / "state.json"),
         search_cache_ttl_hours=168, search_jitter=0.5,
         search_backend_cooldown_base_seconds=300.0, search_backend_cooldown_cap_seconds=21600.0,
-        search_global_backoff_hours=6.0, searxng_url="http://searxng:8080", search_budget=0,
+        search_global_backoff_hours=6.0, search_budget=0,
     )
     base.update(over)
     return SimpleNamespace(**base)
