@@ -61,3 +61,43 @@ def test_empty_grid_or_no_plans_is_noop(tmp_path):
     assert SearchPass([], st, _grid(), block_size=3).run(set()) == []
     assert SearchPass([ddg], st, QueryGrid([]), block_size=3).run(set()) == []
     assert SearchPass([], st, _grid(), block_size=2).provider_for_site_query() is None
+
+
+class _FreshState(SearchState):
+    """SearchState with a preset fresh-phrase set for due-walking tests."""
+    def __init__(self, path, fresh):
+        super().__init__(path)
+        self._fresh = set(fresh)
+    def is_fresh(self, keyword, ttl_seconds):
+        return keyword in self._fresh
+
+
+def test_due_walking_skips_fresh_and_collects_due(tmp_path):
+    st = _FreshState(str(tmp_path / "s.json"), fresh={"q0", "q1", "q3"})
+    ddg = _Plan(include_pins=False, ok=True)
+    grid = QueryGrid([f"q{i}" for i in range(6)])
+    sp = SearchPass([ddg], st, grid, block_size=2, ttl_seconds=1000.0)
+    sp.run(set())
+    # q0,q1 fresh -> skip; q2 due -> take; q3 fresh -> skip; q4 due -> take (block_size=2)
+    assert ddg.discovery.calls == [["q2", "q4"]]
+    assert st.grid_cursor == 5              # advanced past all 5 scanned (q0..q4)
+
+
+def test_due_walking_all_fresh_is_quiet_pass(tmp_path):
+    st = _FreshState(str(tmp_path / "s.json"), fresh={f"q{i}" for i in range(4)})
+    ddg = _Plan(include_pins=False, ok=True)
+    grid = QueryGrid([f"q{i}" for i in range(4)])
+    sp = SearchPass([ddg], st, grid, block_size=3, ttl_seconds=1000.0)
+    sp.run(set())
+    assert ddg.discovery.calls == [[]]      # nothing due -> empty keyword list
+    assert st.grid_cursor == 0              # scanned whole grid, wrapped back to start
+
+
+def test_ttl_zero_keeps_plain_walk(tmp_path):
+    st = SearchState(str(tmp_path / "s.json"))
+    ddg = _Plan(include_pins=False, ok=True)
+    grid = QueryGrid([f"q{i}" for i in range(6)])
+    sp = SearchPass([ddg], st, grid, block_size=3, ttl_seconds=0.0)
+    sp.run(set())
+    assert ddg.discovery.calls == [["q0", "q1", "q2"]]
+    assert st.grid_cursor == 3

@@ -126,7 +126,8 @@ def build_runner(config) -> Runner:
             cities = None if config.grid_cities_enabled else []
             grid = QueryGrid(build_grid(cities=cities, services=services))
             search_pass = SearchPass(plans, state, grid,
-                                     config.search_block_size, config.search_keywords)
+                                     config.search_block_size, config.search_keywords,
+                                     ttl_seconds=config.search_cache_ttl_hours * 3600)
             discovery = search_pass.provider_for_site_query()   # DDG discovery for site: queries
     if config.brand_feed_enabled:
         brand_feed = _build_brand_feed(config)
