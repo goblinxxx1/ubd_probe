@@ -9,3 +9,4 @@ export const reject = (id) => client.post(`/admin/offers/${id}/reject`).then((r)
 export const remove = (id) => client.delete(`/admin/offers/${id}`).then((r) => r.data);
 export const restore = (id) => client.post(`/admin/offers/${id}/restore`).then((r) => r.data);
 export const blockHost = (id) => client.post(`/admin/offers/${id}/block-host`).then((r) => r.data);
+export const bulkReject = (ids) => client.post("/admin/offers/bulk-reject", { ids }).then((r) => r.data);

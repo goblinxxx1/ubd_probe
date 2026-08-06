@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { ElMessage } from "element-plus";
 import { useApiList } from "@/composables/useApiList";
@@ -48,6 +48,42 @@ function preview(row) {
 
 function canPreview(row) {
   return isHttpUrl(row.article_url) || isHttpUrl(row.site_url);
+}
+
+// --- confidence-assisted client-side sort (within the loaded page) ---
+const sortByConfidence = ref(false);
+const TIER_RANK = { low: 0, medium: 1, high: 2 };   // problems first when sorting
+const displayItems = computed(() => {
+  if (!sortByConfidence.value) return items.value;
+  return [...items.value].sort((a, b) => {
+    const ra = TIER_RANK[a.confidence?.tier] ?? 1;
+    const rb = TIER_RANK[b.confidence?.tier] ?? 1;
+    return ra - rb;
+  });
+});
+
+// --- bulk reject (queue only; reversible soft-trash, #12). No bulk publish. ---
+const selected = ref([]);
+async function onBulkReject() {
+  if (!selected.value.length) return;
+  try {
+    await confirmAction(`Відхилити вибрані оффери (${selected.value.length})? Їх можна відновити зі вкладки «Відхилені».`);
+  } catch {
+    return;
+  }
+  try {
+    const res = await offers.bulkReject(selected.value.map((r) => r.id));
+    if (res.failed?.length) {
+      ElMessage.warning(`Відхилено ${res.rejected.length}, не вдалося ${res.failed.length}`);
+    } else {
+      ElMessage.success(`Відхилено: ${res.rejected.length}`);
+    }
+    selected.value = [];
+    await load();
+    moderation.refresh();
+  } catch (e) {
+    ElMessage.error(extractError(e));
+  }
 }
 
 function loader(params) {
@@ -142,7 +178,8 @@ function pluralZnyzhka(n) {
   return "знижок";
 }
 
-defineExpose({ onPublish, onReject, onRestore, onDelete, onBlockHost, preview, edit, load, applyFilters, items, tab });
+defineExpose({ onPublish, onReject, onRestore, onDelete, onBlockHost, preview, edit, load, applyFilters,
+               items, tab, selected, onBulkReject, sortByConfidence, displayItems });
 </script>
 
 <template>
@@ -171,8 +208,17 @@ defineExpose({ onPublish, onReject, onRestore, onDelete, onBlockHost, preview, e
         >
           <el-option v-for="t in OFFER_TYPES" :key="t.value" :label="t.label" :value="t.value" />
         </el-select>
+        <el-checkbox v-if="isQueue" v-model="sortByConfidence" style="margin-left: 8px">
+          Спершу низька довіра
+        </el-checkbox>
       </template>
     </DataTableToolbar>
+
+    <div v-if="isQueue" class="bulkbar">
+      <el-button type="warning" plain :disabled="!selected.length" @click="onBulkReject">
+        Відхилити вибрані ({{ selected.length }})
+      </el-button>
+    </div>
 
     <el-pagination
       layout="prev, pager, next"
@@ -182,7 +228,8 @@ defineExpose({ onPublish, onReject, onRestore, onDelete, onBlockHost, preview, e
       @current-change="setPage"
     />
 
-    <ResponsiveTable :columns="columns" :rows="items" :loading="loading" :actions-width="280">
+    <ResponsiveTable :columns="columns" :rows="displayItems" :loading="loading" :actions-width="340"
+                     :selectable="isQueue" @selection-change="selected = $event">
       <template #col-title="{ row }">
         <div>{{ row.title }}</div>
         <el-tag v-if="row.status === 'pending_review' && supersedeSummary(row)" size="small" type="warning" style="margin-top: 4px">
@@ -254,4 +301,5 @@ defineExpose({ onPublish, onReject, onRestore, onDelete, onBlockHost, preview, e
 .details .more, .hostrep, .more { color: var(--el-text-color-secondary); font-size: 12px; }
 .hostrep { margin-left: 6px; }
 .signals { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.bulkbar { margin: 8px 0; }
 </style>

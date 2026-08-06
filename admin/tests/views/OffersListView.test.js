@@ -15,6 +15,7 @@ vi.mock("@/api/offers", () => ({
   remove: vi.fn(() => Promise.resolve({})),
   restore: vi.fn(() => Promise.resolve({})),
   blockHost: vi.fn(() => Promise.resolve({ host: "h", status: "approved" })),
+  bulkReject: vi.fn(() => Promise.resolve({ rejected: [1, 2], failed: [] })),
 }));
 vi.mock("element-plus", async (importOriginal) => {
   const actual = await importOriginal();
@@ -266,5 +267,60 @@ describe("OffersListView", () => {
     expect(txt).toContain("Київ");            // inline city
     expect(txt).toContain("Медицина");        // inline category
     expect(txt).toContain("−20%");            // inline discount
+  });
+
+  it("bulk-reject rejects the selected rows after confirm and reloads", async () => {
+    const router = makeRouter();
+    router.push("/");
+    await router.isReady();
+    const wrapper = mount(OffersListView, {
+      props: { fixedStatus: "pending_review" },
+      global: { plugins: [router, ElementPlus] },
+    });
+    await flushPromises();
+    wrapper.vm.selected = [{ id: 1 }, { id: 2 }];
+    await wrapper.vm.onBulkReject();
+    await flushPromises();
+    expect(offers.bulkReject).toHaveBeenCalledWith([1, 2]);
+    expect(offers.list).toHaveBeenCalledTimes(3);   // mount + reload after bulk + moderation badge refresh
+  });
+
+  it("bulk-reject does nothing when confirm is cancelled", async () => {
+    const { ElMessageBox } = await import("element-plus");
+    ElMessageBox.confirm.mockRejectedValueOnce("cancel");
+    const router = makeRouter();
+    router.push("/");
+    await router.isReady();
+    const wrapper = mount(OffersListView, {
+      props: { fixedStatus: "pending_review" },
+      global: { plugins: [router, ElementPlus] },
+    });
+    await flushPromises();
+    wrapper.vm.selected = [{ id: 1 }];
+    await wrapper.vm.onBulkReject();
+    await flushPromises();
+    expect(offers.bulkReject).not.toHaveBeenCalled();
+  });
+
+  it("confidence sort orders loaded items low-tier first", async () => {
+    offers.list.mockResolvedValueOnce({
+      items: [
+        { id: 1, title: "A", provider: "P", type: "discount", status: "pending_review", valid_until: null, confidence: { tier: "high", signals: [] } },
+        { id: 2, title: "B", provider: "P", type: "discount", status: "pending_review", valid_until: null, confidence: { tier: "low", signals: [] } },
+        { id: 3, title: "C", provider: "P", type: "discount", status: "pending_review", valid_until: null, confidence: { tier: "medium", signals: [] } },
+      ],
+      total: 3,
+    });
+    const router = makeRouter();
+    router.push("/");
+    await router.isReady();
+    const wrapper = mount(OffersListView, {
+      props: { fixedStatus: "pending_review" },
+      global: { plugins: [router, ElementPlus] },
+    });
+    await flushPromises();
+    wrapper.vm.sortByConfidence = true;
+    await wrapper.vm.$nextTick();
+    expect(wrapper.vm.displayItems.map((r) => r.id)).toEqual([2, 3, 1]);   // low, medium, high
   });
 });
