@@ -30,11 +30,10 @@ function onTabChange() {
 }
 
 const isQueue = !!props.fixedStatus;   // moderation-queue variant gets preview/confidence extras
-// "Заголовок" + "Деталі" are left auto (no width) so they absorb the remaining space
-// and expand; the secondary columns get fixed widths — the table then fits its container
-// (no horizontal scroll) while the content-heavy columns stay wide.
+// Only "Заголовок" gets a 170px desktop minimum (it held the long promo text and was the
+// one being crushed); the rest keep fixed widths and "Деталі" stays auto to fill.
 const columns = [
-  { label: "Заголовок", slot: "title" },
+  { label: "Заголовок", slot: "title", minWidth: 170 },
   { prop: "provider", label: "Провайдер", width: 130 },
   { label: "Деталі", slot: "details" },
   ...(isQueue ? [{ label: "Довіра", slot: "confidence", width: 200 }] : []),
