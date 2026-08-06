@@ -37,6 +37,7 @@ watch(() => props.rows, () => { picked.value = new Set(); });
       :prop="col.prop"
       :label="col.label"
       :width="col.width"
+      :min-width="col.minWidth"
     >
       <template v-if="col.slot" #default="{ row }">
         <slot :name="'col-' + col.slot" :row="row" />

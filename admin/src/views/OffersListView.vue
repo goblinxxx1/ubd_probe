@@ -31,14 +31,14 @@ function onTabChange() {
 
 const isQueue = !!props.fixedStatus;   // moderation-queue variant gets preview/confidence extras
 const columns = [
-  { label: "Заголовок", slot: "title" },
-  { prop: "provider", label: "Провайдер" },
-  { label: "Деталі", slot: "details" },
-  ...(isQueue ? [{ label: "Довіра", slot: "confidence", width: 200 }] : []),
-  { label: "Тип", slot: "type" },
-  { label: "Статус", slot: "status" },
-  { label: "Дійсний до", slot: "validUntil" },
-  { label: "Джерело", slot: "source", width: 170 },
+  { label: "Заголовок", slot: "title", minWidth: 260 },
+  { prop: "provider", label: "Провайдер", minWidth: 140 },
+  { label: "Деталі", slot: "details", minWidth: 220 },
+  ...(isQueue ? [{ label: "Довіра", slot: "confidence", minWidth: 220 }] : []),
+  { label: "Тип", slot: "type", minWidth: 110 },
+  { label: "Статус", slot: "status", minWidth: 130 },
+  { label: "Дійсний до", slot: "validUntil", minWidth: 130 },
+  { label: "Джерело", slot: "source", minWidth: 170 },
 ];
 
 function preview(row) {
