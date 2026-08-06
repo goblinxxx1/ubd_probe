@@ -218,27 +218,16 @@ describe("OffersListView", () => {
     });
   });
 
-  it("preview opens the article_url in a new window", async () => {
+  it("preview opens the public site page in preview mode", async () => {
     const spy = vi.spyOn(window, "open").mockImplementation(() => {});
     const router = makeRouter();
     router.push("/");
     await router.isReady();
     const wrapper = mount(OffersListView, { global: { plugins: [router, ElementPlus] } });
     await flushPromises();
-    wrapper.vm.preview({ article_url: "https://promo.example/x", site_url: "https://site.example" });
-    expect(spy).toHaveBeenCalledWith("https://promo.example/x", "_blank", "noopener");
-    spy.mockRestore();
-  });
-
-  it("preview falls back to site_url when no article_url", async () => {
-    const spy = vi.spyOn(window, "open").mockImplementation(() => {});
-    const router = makeRouter();
-    router.push("/");
-    await router.isReady();
-    const wrapper = mount(OffersListView, { global: { plugins: [router, ElementPlus] } });
-    await flushPromises();
-    wrapper.vm.preview({ article_url: null, site_url: "https://site.example" });
-    expect(spy).toHaveBeenCalledWith("https://site.example", "_blank", "noopener");
+    wrapper.vm.preview({ id: 42 });
+    expect(spy).toHaveBeenCalledWith(
+      expect.stringMatching(/\/offers\/42\?preview=1$/), "_blank", "noopener");
     spy.mockRestore();
   });
 

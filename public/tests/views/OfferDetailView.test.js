@@ -37,7 +37,7 @@ describe("OfferDetailView", () => {
       image_url: null, target_categories: [{ id: 1, name: "УБД" }], offer_categories: [{ id: 2, name: "Кафе" }],
     });
     const w = await mountAt(5);
-    expect(offers.get).toHaveBeenCalledWith("5");
+    expect(offers.get).toHaveBeenCalledWith("5", false);
     expect(w.text()).toContain("Знижка 30%");
     expect(w.text()).toContain("Кафе");
     const hrefs = w.findAll("a").map((a) => a.attributes("href"));

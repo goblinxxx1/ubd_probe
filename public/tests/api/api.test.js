@@ -19,7 +19,7 @@ describe("offers api", () => {
   });
   it("get fetches by id", async () => {
     await offers.get(7);
-    expect(client.get).toHaveBeenCalledWith("/offers/7");
+    expect(client.get).toHaveBeenCalledWith("/offers/7", { params: {} });
   });
   it("locations() fetches the facet list", async () => {
     client.get.mockResolvedValueOnce({ data: ["Київ", "Львів"] });

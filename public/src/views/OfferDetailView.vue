@@ -9,6 +9,7 @@ const route = useRoute();
 const offer = ref(null);
 const loading = ref(true);
 const notFound = ref(false);
+const isPreview = !!route.query.preview;
 
 const discounts = computed(() => offer.value?.discounts || []);
 const showList = computed(() => discounts.value.length > 1);
@@ -23,7 +24,7 @@ const period = computed(() => {
 
 onMounted(async () => {
   try {
-    offer.value = await offersApi.get(route.params.id);
+    offer.value = await offersApi.get(route.params.id, isPreview);
   } catch {
     notFound.value = true;
   } finally {
@@ -40,11 +41,12 @@ const sourceLinks = computed(() => {
     : [];
 });
 
-defineExpose({ offer, loading, notFound });
+defineExpose({ offer, loading, notFound, isPreview });
 </script>
 
 <template>
   <div class="container detail">
+    <p v-if="isPreview" class="preview-banner" role="status">Режим попереднього перегляду (модерація)</p>
     <p v-if="loading" class="state">Завантаження…</p>
 
     <div v-else-if="notFound" class="state">
@@ -120,4 +122,9 @@ defineExpose({ offer, loading, notFound });
 .detail__row { margin: 8px 0; }
 .detail__label { color: @meta-muted; margin-right: 6px; text-transform: uppercase; font-size: 11px; letter-spacing: .5px; }
 .state { text-align: center; padding: 48px 0; color: @meta-muted; }
+.preview-banner {
+  background: @whom-bg; border: 1px solid @whom-border; border-radius: 8px;
+  padding: 8px 12px; margin-bottom: 14px; font-weight: 700; color: @meta-muted;
+  text-align: center;
+}
 </style>

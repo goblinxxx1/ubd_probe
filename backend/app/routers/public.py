@@ -42,5 +42,7 @@ def list_offers(type: OfferType | None = None, target_category: int | None = Non
 
 
 @router.get("/offers/{offer_id}", response_model=OfferOut)
-def get_offer(offer_id: int, db: Session = Depends(get_db)):
-    return offer_crud.get_offer(db, offer_id, published_only=True)
+def get_offer(offer_id: int, preview: bool = False, db: Session = Depends(get_db)):
+    # preview=true lets the admin moderation queue render an as-yet-unpublished offer on
+    # the real public page. Offers are non-sensitive discount listings.
+    return offer_crud.get_offer(db, offer_id, published_only=not preview)

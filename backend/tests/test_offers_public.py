@@ -86,3 +86,16 @@ def test_locations_facet_endpoint_lists_published_only(client, db_session):
         db_session, OfferCreate(type=OfferType.discount, title="P", provider="P", locations=["Суми"]),
         created_by=CreatedBy.crawler, status=OfferStatus.pending_review)
     assert client.get("/api/locations").json() == ["Київ", "Львів"]
+
+
+def test_offer_detail_preview_serves_unpublished(client, db_session):
+    from app.models import Offer
+    from app.models.enums import CreatedBy, OfferStatus, OfferType
+    o = Offer(type=OfferType.discount, title="Pending preview", description="d", provider="P",
+              status=OfferStatus.pending_review, created_by=CreatedBy.crawler)
+    db_session.add(o); db_session.commit(); db_session.refresh(o)
+    # without preview -> hidden (404); with preview -> served
+    assert client.get(f"/api/offers/{o.id}").status_code == 404
+    r = client.get(f"/api/offers/{o.id}", params={"preview": "true"})
+    assert r.status_code == 200
+    assert r.json()["title"] == "Pending preview"

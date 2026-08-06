@@ -42,13 +42,13 @@ const columns = [
   { label: "Джерело", slot: "source", width: 160 },
 ];
 
-function preview(row) {
-  const url = row.article_url || row.site_url;
-  if (isHttpUrl(url)) window.open(url, "_blank", "noopener");
-}
+// Preview renders the offer on the REAL public site (in preview mode, so unpublished
+// queue offers show too) — how it will look to end users, with the admin's data.
+const PUBLIC_BASE = import.meta.env.VITE_PUBLIC_BASE
+  || `${window.location.protocol}//${window.location.hostname}:8080`;
 
-function canPreview(row) {
-  return isHttpUrl(row.article_url) || isHttpUrl(row.site_url);
+function preview(row) {
+  window.open(`${PUBLIC_BASE}/offers/${row.id}?preview=1`, "_blank", "noopener");
 }
 
 // --- confidence-assisted client-side sort (within the loaded page) ---
@@ -272,7 +272,7 @@ defineExpose({ onPublish, onReject, onRestore, onDelete, onBlockHost, preview, e
         <span v-if="!isHttpUrl(row.site_url) && !isHttpUrl(row.article_url)" style="color: var(--el-text-color-placeholder)">—</span>
       </template>
       <template #actions="{ row }">
-        <el-button size="small" type="primary" plain :disabled="!canPreview(row)" @click="preview(row)">Превʼю ↗</el-button>
+        <el-button size="small" type="primary" plain @click="preview(row)">Превʼю ↗</el-button>
         <el-button size="small" @click="edit(row.id)">Редагувати</el-button>
         <el-button v-if="row.status !== 'published'" size="small" type="success" @click="onPublish(row.id)">Опублікувати</el-button>
         <el-button v-if="row.status === 'pending_review'" size="small" type="warning" @click="onReject(row.id)">Відхилити</el-button>
