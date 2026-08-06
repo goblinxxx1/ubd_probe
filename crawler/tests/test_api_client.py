@@ -52,3 +52,17 @@ def test_create_offer_category_posts_name_and_slug():
     assert captured[-1].headers["X-API-Key"] == "secret"
     body = json.loads(captured[-1].content)
     assert body == {"name": "Автосервіс", "slug": "auto"}
+
+
+def test_list_rejected_offers_calls_endpoint():
+    seen = {}
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        seen["url"] = str(request.url)
+        return httpx.Response(200, json=[{"host": "news.ua", "rejected_at": None}])
+
+    client = ApiClient("http://api", "secret", 10.0, transport=httpx.MockTransport(handle))
+    rows = client.list_rejected_offers("2026-08-01T00:00:00")
+    assert rows == [{"host": "news.ua", "rejected_at": None}]
+    assert "/api/internal/rejected-offers" in seen["url"]
+    assert "since=2026-08-01" in seen["url"]
