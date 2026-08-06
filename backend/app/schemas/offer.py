@@ -150,3 +150,15 @@ class OfferOut(BaseModel):
     target_categories: list[CategoryOut]
     offer_categories: list[CategoryOut]
     discounts: list[DiscountOut] = []
+
+
+class ConfidenceOut(BaseModel):
+    tier: str
+    host: str = ""
+    host_published: int = 0
+    host_rejected: int = 0
+    signals: list[str] = []
+
+
+class OfferAdminOut(OfferOut):
+    confidence: ConfidenceOut | None = None

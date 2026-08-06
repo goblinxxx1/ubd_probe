@@ -340,6 +340,29 @@ def _offer_host_candidates(offer) -> set[str]:
                         _source_host(offer.provider)) if h}
 
 
+def host_reputation(db: Session, host: str, memo: dict) -> tuple[int, int]:
+    """(published, rejected) count of offers whose bare source host matches `host`
+    (exact-or-suffix on site_url/article_url/provider). Memoized per call-batch so a
+    repeated host on the same page is counted once."""
+    if host in memo:
+        return memo[host]
+    pub = rej = 0
+    if host:
+        like = f"%{host}%"
+        rows = (db.query(Offer)
+                .filter((Offer.site_url.like(like)) | (Offer.article_url.like(like))
+                        | (Offer.provider.like(like))).all())
+        for r in rows:
+            if not any(_host_blocked(fh, {host}) for fh in _offer_host_candidates(r)):
+                continue   # LIKE false-positive; exact/suffix host must match
+            if r.status == OfferStatus.published:
+                pub += 1
+            elif r.status == OfferStatus.rejected:
+                rej += 1
+    memo[host] = (pub, rej)
+    return memo[host]
+
+
 def _maybe_autoblock_hosts(db: Session, offer) -> None:
     """After an offer is rejected, auto-block any source host with >=2 rejected and 0
     published offers (guard protects dual-status business hosts)."""
