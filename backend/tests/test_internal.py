@@ -181,3 +181,62 @@ def test_submit_host_candidate_and_list_approved(client, db_session):
 def test_host_candidates_requires_api_key(client):
     r = client.post("/api/internal/host-candidates", json={"host": "x.example"})
     assert r.status_code == 401
+
+
+def test_rejected_offers_returns_crawler_rejected(client, db_session):
+    from app.models import Offer
+    from app.models.enums import CreatedBy, OfferStatus, OfferType
+    db_session.add_all([
+        Offer(type=OfferType.discount, title="R1", provider="P",
+              site_url="https://news.ua/a", article_url="https://news.ua/a",
+              status=OfferStatus.rejected, created_by=CreatedBy.crawler),
+        Offer(type=OfferType.discount, title="P1", provider="P",
+              site_url="https://shop.ua/x", status=OfferStatus.published,
+              created_by=CreatedBy.crawler),
+        Offer(type=OfferType.discount, title="Pend", provider="P",
+              site_url="https://pend.ua/x", status=OfferStatus.pending_review,
+              created_by=CreatedBy.crawler),
+        Offer(type=OfferType.discount, title="AdminR", provider="P",
+              site_url="https://man.ua/x", status=OfferStatus.rejected,
+              created_by=CreatedBy.admin),
+    ])
+    db_session.commit()
+    r = client.get("/api/internal/rejected-offers",
+                   headers={"X-API-Key": settings.crawler_api_key})
+    assert r.status_code == 200
+    hosts = [row["host"] for row in r.json()]
+    assert "news.ua" in hosts              # crawler+rejected
+    assert "shop.ua" not in hosts          # published excluded
+    assert "pend.ua" not in hosts          # pending excluded
+    assert "man.ua" not in hosts           # admin-rejected excluded
+
+
+def test_rejected_offers_host_falls_back_to_article_url(client, db_session):
+    from app.models import Offer
+    from app.models.enums import CreatedBy, OfferStatus, OfferType
+    db_session.add(Offer(type=OfferType.discount, title="R", provider="P",
+                         site_url=None, article_url="https://blog.ua/p",
+                         status=OfferStatus.rejected, created_by=CreatedBy.crawler))
+    db_session.commit()
+    r = client.get("/api/internal/rejected-offers",
+                   headers={"X-API-Key": settings.crawler_api_key})
+    assert any(row["host"] == "blog.ua" for row in r.json())
+
+
+def test_rejected_offers_respects_since(client, db_session):
+    from datetime import datetime, timedelta
+    from app.models import Offer
+    from app.models.enums import CreatedBy, OfferStatus, OfferType
+    old = Offer(type=OfferType.discount, title="old", provider="P",
+                site_url="https://old.ua/x", status=OfferStatus.rejected,
+                created_by=CreatedBy.crawler)
+    db_session.add(old); db_session.commit()
+    cutoff = datetime.utcnow() + timedelta(seconds=1)
+    r = client.get("/api/internal/rejected-offers", params={"since": cutoff.isoformat()},
+                   headers={"X-API-Key": settings.crawler_api_key})
+    assert r.status_code == 200
+    assert all(row["host"] != "old.ua" for row in r.json())
+
+
+def test_rejected_offers_requires_api_key(client):
+    assert client.get("/api/internal/rejected-offers").status_code == 401

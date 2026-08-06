@@ -124,6 +124,21 @@ def list_approved_offers(since: datetime | None = None, db: Session = Depends(ge
     ]
 
 
+class RejectedOfferOut(BaseModel):
+    host: str
+    rejected_at: datetime | None = None
+
+
+@router.get("/rejected-offers", response_model=list[RejectedOfferOut])
+def list_rejected_offers(since: datetime | None = None, db: Session = Depends(get_db)):
+    out = []
+    for o in offer_crud.list_rejected_since(db, since):
+        host = _host(o.site_url or o.article_url)
+        if host:
+            out.append(RejectedOfferOut(host=host, rejected_at=o.updated_at))
+    return out
+
+
 @router.post("/host-candidates", response_model=BlockedHostOut)
 def submit_host_candidate(data: HostCandidateCreate, db: Session = Depends(get_db)):
     return blocked_host_crud.upsert_candidate(db, data)
