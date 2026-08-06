@@ -446,3 +446,27 @@ def test_build_runner_query_lexicon_disabled_is_1701(tmp_path, monkeypatch):
                     grid_cities_enabled=True, query_lexicon_enabled=False)
     runner = build_runner(cfg)
     assert len(runner._search_pass._grid) == 1701           # services suppressed by flag
+
+
+def test_reject_ingestor_built_and_reuses_registry(tmp_path):
+    cfg = _harvest_config(tmp_path, brand_feed_enabled=False, sitemap_depth_enabled=False,
+                          domain_rating_enabled=True,
+                          domain_registry_path=str(tmp_path / "reg.json"),
+                          rejection_feedback_enabled=True)
+    runner = build_runner(cfg)
+    assert runner._reject_ingestor is not None
+    assert runner._reject_ingestor._reg is runner._domain_registry   # same registry object
+
+
+def test_reject_ingestor_absent_when_feedback_disabled(tmp_path):
+    cfg = _harvest_config(tmp_path, brand_feed_enabled=False, sitemap_depth_enabled=False,
+                          domain_rating_enabled=True,
+                          domain_registry_path=str(tmp_path / "reg.json"),
+                          rejection_feedback_enabled=False)
+    assert build_runner(cfg)._reject_ingestor is None
+
+
+def test_reject_ingestor_absent_when_rating_disabled(tmp_path):
+    cfg = _harvest_config(tmp_path, brand_feed_enabled=False, sitemap_depth_enabled=False,
+                          domain_rating_enabled=False, rejection_feedback_enabled=True)
+    assert build_runner(cfg)._reject_ingestor is None

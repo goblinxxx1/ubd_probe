@@ -23,7 +23,8 @@ class Runner:
                  domain_evict_min_score=0.1, domain_evict_ttl_seconds=2_592_000.0,
                  site_planner=None, site_state=None, site_query_budget=5,
                  osm_feed=None, aggregator_feed=None,
-                 passive_schedule=None, now=time.time, revisit_cooldown_seconds=0):
+                 passive_schedule=None, now=time.time, revisit_cooldown_seconds=0,
+                 reject_ingestor=None):
         self._api = api_client
         self._fetchers = fetchers
         self._extractor = extractor
@@ -48,6 +49,7 @@ class Runner:
         self._passive_schedule = passive_schedule
         self._now = now
         self._revisit_cooldown = revisit_cooldown_seconds
+        self._reject_ingestor = reject_ingestor
 
     def _fetch_for(self, source: dict, last_seen_key):
         fetcher = self._fetchers.get(source["type"])
@@ -80,6 +82,14 @@ class Runner:
         summary = self._empty_summary()
         if self._harvester is None:
             return summary
+        # Apply moderator-rejection feedback BEFORE feeds read the registry this pass, so a
+        # down-ranked domain is already excluded from domain_feed.top() / site: targeting.
+        if self._reject_ingestor is not None:
+            try:
+                self._reject_ingestor.ingest()
+            except Exception as exc:  # noqa: BLE001 — feedback must not crash the pass
+                summary["errors"] += 1
+                log.warning("reject feedback ingest failed: %s", exc)
         cats = CategoryIndex(self._api.list_target_categories(),
                              self._api.list_offer_categories())
         sources = self._api.list_sources(is_active=True)

@@ -154,11 +154,18 @@ def build_runner(config) -> Runner:
             decay=config.domain_score_decay,
             offer_weight=config.domain_offer_weight,
             error_weight=config.domain_error_weight,
-            promote_min_score=config.domain_promote_min_score)
+            promote_min_score=config.domain_promote_min_score,
+            reject_weight=config.domain_reject_weight)
         domain_feed = DomainFeed(domain_registry, per_pass=config.domain_feed_per_pass,
                                  cooldown_seconds=revisit_cooldown)
         if walker is None:
             walker, domain_rl = _build_walker(config, web_client)   # passive deep-walk needs it
+
+    reject_ingestor = None
+    if config.domain_rating_enabled and config.rejection_feedback_enabled:
+        from crawler.learn.reject_feedback import RejectionIngestor
+        reject_ingestor = RejectionIngestor(api, domain_registry,
+                                            config.reject_since_state_path)
 
     site_planner = None
     site_state = None
@@ -207,4 +214,5 @@ def build_runner(config) -> Runner:
                   osm_feed=osm_feed, aggregator_feed=aggregator_feed,
                   passive_schedule=PassiveSchedule(config.passive_state_path,
                                                    config.passive_interval_seconds),
-                  revisit_cooldown_seconds=revisit_cooldown)
+                  revisit_cooldown_seconds=revisit_cooldown,
+                  reject_ingestor=reject_ingestor)

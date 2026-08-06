@@ -300,11 +300,22 @@ DOMAIN_ERROR_WEIGHT=0.5
 DOMAIN_PROMOTE_MIN_SCORE=0.5         # поріг для повторної подачі через DomainFeed
 DOMAIN_EVICT_MIN_SCORE=0.1           # нижче цього + TTL — видаляється з реєстру
 DOMAIN_EVICT_TTL_HOURS=720
+REJECTION_FEEDBACK_ENABLED=true      # reject модератора → soft down-rank домену
+DOMAIN_REJECT_WEIGHT=1.0             # на скільки reject знижує score (=скасовує OFFER_WEIGHT)
+REJECT_SINCE_STATE_PATH=/data/reject_since.json
 ```
 
 **`DOMAIN_RATING_ENABLED=false`** повністю вимикає реєстр/feed (нічого не будується,
 нічого не читається/пишеться на диск) і повертає поведінку до стану без цього
 треку — байт-в-байт, якщо `SITEMAP_DEPTH_ENABLED` теж вимкнено.
+
+**Reject-зворотний зв'язок** (беклог #9): щопрохід `run_active` тягне з бекенду
+`GET /api/internal/rejected-offers?since=` (курсор у `REJECT_SINCE_STATE_PATH`) і **знижує**
+score відхилених модератором доменів у `DomainRegistry` (soft down-rank на `DOMAIN_REJECT_WEIGHT`
+за кожен reject). Домен зі стійко відхиленими оферами тоне під `DOMAIN_PROMOTE_MIN_SCORE` і
+випадає з `DomainFeed`/`site:`. Хост поза реєстром — **skip** (пошуково-транзитний; повторний шум
+ловлять backend-дедуп сторінки + hard-block ≥2 rejected/0 published). `REJECTION_FEEDBACK_ENABLED=false`
+(або rating off) → канал не будується, `run_active` байт-ідентичний.
 
 ---
 

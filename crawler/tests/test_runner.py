@@ -462,3 +462,46 @@ def test_site_query_pool_respects_revisit_cooldown(tmp_path):
     runner.run_active()
     qs = " ".join(q for call in disc.calls for q in call)
     assert "proven.ua" not in qs
+
+
+class _OrderFeed:
+    def __init__(self, log): self._log = log
+    def candidates(self, known_hosts):
+        self._log.append("feed"); return []
+
+
+class _OrderIngestor:
+    def __init__(self, log): self._log = log; self.calls = 0
+    def ingest(self): self._log.append("ingest"); self.calls += 1; return 0
+
+
+class _BoomIngestor:
+    def ingest(self): raise RuntimeError("reject boom")
+
+
+def test_run_active_ingests_rejections_before_feeds():
+    api = FakeApi([])
+    order = []
+    ing = _OrderIngestor(order)
+    runner = Runner(api, {"website": FakeFetcher([])}, get_extractor("heuristic"), _rl(),
+                    harvester=_RecordingHarvester(), domain_feed=_OrderFeed(order),
+                    reject_ingestor=ing)
+    runner.run()
+    assert ing.calls == 1
+    assert order[0] == "ingest" and "feed" in order   # ingest ran before the feed
+
+
+def test_run_active_survives_reject_ingest_error():
+    api = FakeApi([])
+    runner = Runner(api, {"website": FakeFetcher([])}, get_extractor("heuristic"), _rl(),
+                    harvester=_RecordingHarvester(), domain_feed=_StubFeed([]),
+                    reject_ingestor=_BoomIngestor())
+    summary = runner.run()                      # must not raise
+    assert summary["errors"] >= 1               # error counted, pass completed
+
+
+def test_run_active_no_ingestor_is_fine():
+    api = FakeApi([])
+    runner = Runner(api, {"website": FakeFetcher([])}, get_extractor("heuristic"), _rl(),
+                    harvester=_RecordingHarvester(), domain_feed=_StubFeed([]))
+    runner.run()                                # no reject_ingestor → no crash

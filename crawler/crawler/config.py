@@ -93,6 +93,9 @@ class _RawSettings(BaseSettings):
     domain_promote_min_score: float = 0.5
     domain_evict_min_score: float = 0.1
     domain_evict_ttl_hours: int = 720
+    rejection_feedback_enabled: bool = True
+    domain_reject_weight: float = 1.0
+    reject_since_state_path: str = "/data/reject_since.json"
     attribution_hardening_enabled: bool = True
     blocked_hosts_fetch_enabled: bool = True
     aggregator_min_outbound: int = 3
@@ -189,6 +192,9 @@ class Config:
     domain_promote_min_score: float = 0.5
     domain_evict_min_score: float = 0.1
     domain_evict_ttl_hours: int = 720
+    rejection_feedback_enabled: bool = True
+    domain_reject_weight: float = 1.0
+    reject_since_state_path: str = "/data/reject_since.json"
     attribution_hardening_enabled: bool = True
     blocked_hosts_fetch_enabled: bool = True
     aggregator_min_outbound: int = 3
@@ -308,6 +314,9 @@ def load_config() -> Config:
         domain_promote_min_score=s.domain_promote_min_score,
         domain_evict_min_score=s.domain_evict_min_score,
         domain_evict_ttl_hours=s.domain_evict_ttl_hours,
+        rejection_feedback_enabled=s.rejection_feedback_enabled,
+        domain_reject_weight=s.domain_reject_weight,
+        reject_since_state_path=s.reject_since_state_path,
         attribution_hardening_enabled=s.attribution_hardening_enabled,
         blocked_hosts_fetch_enabled=s.blocked_hosts_fetch_enabled,
         aggregator_min_outbound=s.aggregator_min_outbound,

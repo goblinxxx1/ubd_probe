@@ -253,3 +253,15 @@ def test_query_lexicon_defaults():
                  active_discovery=False, request_timeout=1.0, min_delay_seconds=0.0)
     assert cfg.query_lexicon_max_terms == 40
     assert cfg.query_lexicon_resurface_factor == 2.0
+
+
+def test_reject_feedback_defaults_and_override(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)      # no .env -> defaults apply
+    cfg = load_config()
+    assert cfg.rejection_feedback_enabled is True
+    assert cfg.domain_reject_weight == 1.0
+    assert cfg.reject_since_state_path == "/data/reject_since.json"
+    monkeypatch.setenv("REJECTION_FEEDBACK_ENABLED", "false")
+    monkeypatch.setenv("DOMAIN_REJECT_WEIGHT", "1.5")
+    assert load_config().rejection_feedback_enabled is False
+    assert load_config().domain_reject_weight == 1.5
