@@ -30,15 +30,17 @@ function onTabChange() {
 }
 
 const isQueue = !!props.fixedStatus;   // moderation-queue variant gets preview/confidence extras
+// "Заголовок" + "Деталі" are left auto (no width) so they absorb the remaining space
+// and expand; the secondary columns get fixed widths — the table then fits its container
+// (no horizontal scroll) while the content-heavy columns stay wide.
 const columns = [
-  { label: "Заголовок", slot: "title", minWidth: 260 },
-  { prop: "provider", label: "Провайдер", minWidth: 140 },
-  { label: "Деталі", slot: "details", minWidth: 220 },
-  ...(isQueue ? [{ label: "Довіра", slot: "confidence", minWidth: 220 }] : []),
-  { label: "Тип", slot: "type", minWidth: 110 },
-  { label: "Статус", slot: "status", minWidth: 130 },
-  { label: "Дійсний до", slot: "validUntil", minWidth: 130 },
-  { label: "Джерело", slot: "source", minWidth: 170 },
+  { label: "Заголовок", slot: "title" },
+  { prop: "provider", label: "Провайдер", width: 130 },
+  { label: "Деталі", slot: "details" },
+  ...(isQueue ? [{ label: "Довіра", slot: "confidence", width: 200 }] : []),
+  { label: "Статус", slot: "status", width: 120 },
+  { label: "Дійсний до", slot: "validUntil", width: 120 },
+  { label: "Джерело", slot: "source", width: 160 },
 ];
 
 function preview(row) {
@@ -228,7 +230,7 @@ defineExpose({ onPublish, onReject, onRestore, onDelete, onBlockHost, preview, e
       @current-change="setPage"
     />
 
-    <ResponsiveTable :columns="columns" :rows="displayItems" :loading="loading" :actions-width="340"
+    <ResponsiveTable :columns="columns" :rows="displayItems" :loading="loading" :actions-width="300"
                      :selectable="isQueue" @selection-change="selected = $event">
       <template #col-title="{ row }">
         <div>{{ row.title }}</div>
@@ -261,7 +263,6 @@ defineExpose({ onPublish, onReject, onRestore, onDelete, onBlockHost, preview, e
         </template>
         <span v-else class="more">—</span>
       </template>
-      <template #col-type="{ row }">{{ enumLabel(OFFER_TYPES, row.type) }}</template>
       <template #col-status="{ row }">
         <el-tag :type="statusTagType(row.status)">{{ enumLabel(OFFER_STATUSES, row.status) }}</el-tag>
       </template>
