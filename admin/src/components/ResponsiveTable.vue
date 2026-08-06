@@ -1,19 +1,36 @@
 <script setup>
+import { ref, watch } from "vue";
 import { useBreakpoint } from "@/composables/useBreakpoint";
 
-defineProps({
+const props = defineProps({
   columns: { type: Array, required: true },
   rows: { type: Array, default: () => [] },
   rowKey: { type: String, default: "id" },
   loading: { type: Boolean, default: false },
   actionsWidth: { type: [String, Number], default: undefined },
+  selectable: { type: Boolean, default: false },
 });
+const emit = defineEmits(["selection-change"]);
 const { isMobile } = useBreakpoint();
+
+// Mobile selection is tracked locally (el-table owns it on desktop); emit the same
+// contract — an array of the selected row objects — from both paths.
+const picked = ref(new Set());
+function toggle(row, checked) {
+  const key = row[props.rowKey];
+  if (checked) picked.value.add(key);
+  else picked.value.delete(key);
+  emit("selection-change", props.rows.filter((r) => picked.value.has(r[props.rowKey])));
+}
+// Rows reloaded (e.g. after a bulk action) → drop stale selection.
+watch(() => props.rows, () => { picked.value = new Set(); });
 </script>
 
 <template>
   <el-table v-if="!isMobile" :data="rows" :row-key="rowKey" v-loading="loading"
-            empty-text="Немає даних" style="width: 100%">
+            empty-text="Немає даних" style="width: 100%"
+            @selection-change="emit('selection-change', $event)">
+    <el-table-column v-if="selectable" type="selection" width="46" reserve-selection />
     <el-table-column
       v-for="col in columns"
       :key="col.prop || col.slot || col.label"
@@ -33,6 +50,8 @@ const { isMobile } = useBreakpoint();
   <div v-else class="rt-cards" v-loading="loading">
     <p v-if="!rows.length" class="rt-empty">Немає даних</p>
     <div v-for="row in rows" :key="row[rowKey]" class="rt-card">
+      <el-checkbox v-if="selectable" class="rt-select"
+                   @change="(v) => toggle(row, v)">Вибрати</el-checkbox>
       <div v-for="col in columns" :key="col.prop || col.slot || col.label" class="rt-cell">
         <span class="rt-label">{{ col.label }}</span>
         <span class="rt-value">

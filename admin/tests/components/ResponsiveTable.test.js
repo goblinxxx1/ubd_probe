@@ -46,3 +46,44 @@ describe("ResponsiveTable", () => {
     expect(w.find(".rt-empty").exists()).toBe(true);
   });
 });
+
+describe("ResponsiveTable selection", () => {
+  const cols = [{ prop: "name", label: "Назва" }];
+  const data = [{ id: 1, name: "Alpha" }, { id: 2, name: "Beta" }];
+
+  it("renders a selection column on desktop when selectable", async () => {
+    window.matchMedia = vi.fn(() => ({ matches: false, addEventListener() {}, removeEventListener() {} }));
+    const w = mount(ResponsiveTable, {
+      props: { columns: cols, rows: data, selectable: true },
+      global: { plugins: [ElementPlus] },
+    });
+    await flushPromises();
+    await w.vm.$nextTick();
+    expect(w.find(".el-table-column--selection").exists()).toBe(true);
+  });
+
+  it("has no selection column when not selectable", async () => {
+    window.matchMedia = vi.fn(() => ({ matches: false, addEventListener() {}, removeEventListener() {} }));
+    const w = mount(ResponsiveTable, {
+      props: { columns: cols, rows: data },
+      global: { plugins: [ElementPlus] },
+    });
+    await flushPromises();
+    await w.vm.$nextTick();
+    expect(w.find(".el-table-column--selection").exists()).toBe(false);
+  });
+
+  it("emits selection-change with picked rows on mobile", async () => {
+    window.matchMedia = vi.fn(() => ({ matches: true, addEventListener() {}, removeEventListener() {} }));
+    const w = mount(ResponsiveTable, {
+      props: { columns: cols, rows: data, selectable: true },
+      global: { plugins: [ElementPlus] },
+    });
+    const boxes = w.findAll(".rt-select input[type=checkbox]");
+    expect(boxes.length).toBe(2);
+    await boxes[1].setValue(true);
+    const ev = w.emitted("selection-change");
+    expect(ev).toBeTruthy();
+    expect(ev.at(-1)[0]).toEqual([{ id: 2, name: "Beta" }]);
+  });
+});
