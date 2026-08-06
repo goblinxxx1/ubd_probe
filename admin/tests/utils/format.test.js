@@ -7,6 +7,10 @@ import {
   noteSegments,
   discountLabel,
   supersedeSummary,
+  discountSummary,
+  confidenceTagType,
+  confidenceLabel,
+  signalLabel,
 } from "@/utils/format";
 import { OFFER_STATUSES } from "@/constants/enums";
 
@@ -96,5 +100,32 @@ describe("supersedeSummary", () => {
   });
   it("returns empty for a plain offer", () => {
     expect(supersedeSummary({ supersedes: null })).toBe("");
+  });
+});
+
+describe("discountSummary", () => {
+  it("labels a single discount", () => {
+    expect(discountSummary({ discount_type: "percent", discount_value: 20 })).toBe("−20%");
+  });
+  it("counts multiple discounts", () => {
+    expect(discountSummary({ discounts: [{}, {}, {}] })).toBe("3 знижок");
+  });
+  it("returns a dash when there is no discount", () => {
+    expect(discountSummary({})).toBe("—");
+  });
+});
+
+describe("confidence helpers", () => {
+  it("maps tier to tag type", () => {
+    expect(confidenceTagType("high")).toBe("success");
+    expect(confidenceTagType("low")).toBe("danger");
+    expect(confidenceTagType(undefined)).toBe("info");
+  });
+  it("labels a tier in Ukrainian", () => {
+    expect(confidenceLabel("medium")).toBe("Середня");
+  });
+  it("labels known signal slugs and passes unknown through", () => {
+    expect(signalLabel("noisy_host")).toBe("шумний хост");
+    expect(signalLabel("weird")).toBe("weird");
   });
 });

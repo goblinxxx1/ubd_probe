@@ -6,7 +6,8 @@ import { useApiList } from "@/composables/useApiList";
 import { useModerationStore } from "@/stores/moderation";
 import * as offers from "@/api/offers";
 import { OFFER_STATUSES, OFFER_TYPES } from "@/constants/enums";
-import { enumLabel, formatDate, statusTagType, isHttpUrl, supersedeSummary } from "@/utils/format";
+import { enumLabel, formatDate, statusTagType, isHttpUrl, supersedeSummary,
+         discountSummary, confidenceTagType, confidenceLabel, signalLabel } from "@/utils/format";
 import { confirmDelete, confirmAction } from "@/utils/confirm";
 import { extractError } from "@/utils/errors";
 import DataTableToolbar from "@/components/DataTableToolbar.vue";
@@ -28,14 +29,26 @@ function onTabChange() {
   applyFilters({});
 }
 
+const isQueue = !!props.fixedStatus;   // moderation-queue variant gets preview/confidence extras
 const columns = [
   { label: "Заголовок", slot: "title" },
   { prop: "provider", label: "Провайдер" },
+  { label: "Деталі", slot: "details" },
+  ...(isQueue ? [{ label: "Довіра", slot: "confidence", width: 200 }] : []),
   { label: "Тип", slot: "type" },
   { label: "Статус", slot: "status" },
   { label: "Дійсний до", slot: "validUntil" },
   { label: "Джерело", slot: "source", width: 170 },
 ];
+
+function preview(row) {
+  const url = row.article_url || row.site_url;
+  if (isHttpUrl(url)) window.open(url, "_blank", "noopener");
+}
+
+function canPreview(row) {
+  return isHttpUrl(row.article_url) || isHttpUrl(row.site_url);
+}
 
 function loader(params) {
   const p = { ...params };
@@ -129,7 +142,7 @@ function pluralZnyzhka(n) {
   return "знижок";
 }
 
-defineExpose({ onPublish, onReject, onRestore, onDelete, onBlockHost, edit, load, applyFilters, items, tab });
+defineExpose({ onPublish, onReject, onRestore, onDelete, onBlockHost, preview, edit, load, applyFilters, items, tab });
 </script>
 
 <template>
@@ -179,6 +192,28 @@ defineExpose({ onPublish, onReject, onRestore, onDelete, onBlockHost, edit, load
           {{ `${row.discounts.length} ${pluralZnyzhka(row.discounts.length)}` }}
         </el-tag>
       </template>
+      <template #col-details="{ row }">
+        <div class="details">
+          <el-tag size="small" type="info" effect="plain">{{ discountSummary(row) }}</el-tag>
+          <el-tag v-for="loc in (row.locations || []).slice(0, 3)" :key="loc" size="small" class="chip">{{ loc }}</el-tag>
+          <span v-if="(row.locations || []).length > 3" class="more">+{{ row.locations.length - 3 }}</span>
+          <el-tag v-for="c in (row.offer_categories || [])" :key="c.id" size="small" type="success" effect="plain" class="chip">{{ c.name }}</el-tag>
+        </div>
+      </template>
+      <template v-if="isQueue" #col-confidence="{ row }">
+        <template v-if="row.confidence">
+          <el-tag :type="confidenceTagType(row.confidence.tier)" size="small">
+            {{ confidenceLabel(row.confidence.tier) }}
+          </el-tag>
+          <span class="hostrep" :title="row.confidence.host">
+            ✓{{ row.confidence.host_published }} ✕{{ row.confidence.host_rejected }}
+          </span>
+          <div class="signals">
+            <el-tag v-for="s in row.confidence.signals" :key="s" size="small" effect="plain" class="chip">{{ signalLabel(s) }}</el-tag>
+          </div>
+        </template>
+        <span v-else class="more">—</span>
+      </template>
       <template #col-type="{ row }">{{ enumLabel(OFFER_TYPES, row.type) }}</template>
       <template #col-status="{ row }">
         <el-tag :type="statusTagType(row.status)">{{ enumLabel(OFFER_STATUSES, row.status) }}</el-tag>
@@ -190,6 +225,7 @@ defineExpose({ onPublish, onReject, onRestore, onDelete, onBlockHost, edit, load
         <span v-if="!isHttpUrl(row.site_url) && !isHttpUrl(row.article_url)" style="color: var(--el-text-color-placeholder)">—</span>
       </template>
       <template #actions="{ row }">
+        <el-button size="small" type="primary" plain :disabled="!canPreview(row)" @click="preview(row)">Превʼю ↗</el-button>
         <el-button size="small" @click="edit(row.id)">Редагувати</el-button>
         <el-button v-if="row.status !== 'published'" size="small" type="success" @click="onPublish(row.id)">Опублікувати</el-button>
         <el-button v-if="row.status === 'pending_review'" size="small" type="warning" @click="onReject(row.id)">Відхилити</el-button>
@@ -213,4 +249,9 @@ defineExpose({ onPublish, onReject, onRestore, onDelete, onBlockHost, edit, load
 
 <style scoped lang="less">
 .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.details { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.details .chip, .signals .chip { margin: 0; }
+.details .more, .hostrep, .more { color: var(--el-text-color-secondary); font-size: 12px; }
+.hostrep { margin-left: 6px; }
+.signals { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
 </style>

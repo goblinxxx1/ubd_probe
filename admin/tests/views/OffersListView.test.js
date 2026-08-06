@@ -216,4 +216,55 @@ describe("OffersListView", () => {
       query: { from: "offers", tab: "pending_review" },
     });
   });
+
+  it("preview opens the article_url in a new window", async () => {
+    const spy = vi.spyOn(window, "open").mockImplementation(() => {});
+    const router = makeRouter();
+    router.push("/");
+    await router.isReady();
+    const wrapper = mount(OffersListView, { global: { plugins: [router, ElementPlus] } });
+    await flushPromises();
+    wrapper.vm.preview({ article_url: "https://promo.example/x", site_url: "https://site.example" });
+    expect(spy).toHaveBeenCalledWith("https://promo.example/x", "_blank", "noopener");
+    spy.mockRestore();
+  });
+
+  it("preview falls back to site_url when no article_url", async () => {
+    const spy = vi.spyOn(window, "open").mockImplementation(() => {});
+    const router = makeRouter();
+    router.push("/");
+    await router.isReady();
+    const wrapper = mount(OffersListView, { global: { plugins: [router, ElementPlus] } });
+    await flushPromises();
+    wrapper.vm.preview({ article_url: null, site_url: "https://site.example" });
+    expect(spy).toHaveBeenCalledWith("https://site.example", "_blank", "noopener");
+    spy.mockRestore();
+  });
+
+  it("renders confidence tag + signal chips + inline city/category tags for a pending row", async () => {
+    offers.list.mockResolvedValueOnce({
+      items: [{
+        id: 1, title: "T", provider: "P", type: "discount", status: "pending_review",
+        valid_until: null, discount_type: "percent", discount_value: 20,
+        locations: ["Київ", "Львів"], offer_categories: [{ id: 3, name: "Медицина" }],
+        confidence: { tier: "low", host: "noisy.ua", host_published: 0, host_rejected: 2,
+                      signals: ["noisy_host", "no_category"] },
+      }],
+      total: 1,
+    });
+    const router = makeRouter();
+    router.push("/");
+    await router.isReady();
+    const wrapper = mount(OffersListView, {
+      props: { fixedStatus: "pending_review" },
+      global: { plugins: [router, ElementPlus] },
+    });
+    await flushPromises();
+    const txt = wrapper.text();
+    expect(txt).toContain("Низька");          // confidence tier label
+    expect(txt).toContain("шумний хост");     // signal chip
+    expect(txt).toContain("Київ");            // inline city
+    expect(txt).toContain("Медицина");        // inline category
+    expect(txt).toContain("−20%");            // inline discount
+  });
 });

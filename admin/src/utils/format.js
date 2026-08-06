@@ -55,6 +55,40 @@ export function discountLabel(type, value) {
   return "";
 }
 
+// One-glance discount summary for the queue row: single-discount label, or a count
+// when an offer carries several, or "—" when it has none.
+export function discountSummary(offer) {
+  if (!offer) return "—";
+  if (Array.isArray(offer.discounts) && offer.discounts.length > 1) {
+    return `${offer.discounts.length} знижок`;
+  }
+  const label = discountLabel(offer.discount_type, offer.discount_value);
+  return label || "—";
+}
+
+const CONFIDENCE_TAG = { high: "success", medium: "warning", low: "danger" };
+const CONFIDENCE_LABEL = { high: "Висока", medium: "Середня", low: "Низька" };
+const SIGNAL_LABEL = {
+  proven_host: "надійний хост",
+  noisy_host: "шумний хост",
+  new_host: "новий хост",
+  no_discount: "без знижки",
+  no_location: "без міста",
+  no_category: "без тематики",
+};
+
+export function confidenceTagType(tier) {
+  return CONFIDENCE_TAG[tier] || "info";
+}
+
+export function confidenceLabel(tier) {
+  return CONFIDENCE_LABEL[tier] || tier || "";
+}
+
+export function signalLabel(slug) {
+  return SIGNAL_LABEL[slug] || slug;
+}
+
 export function supersedeSummary(offer) {
   const p = offer && offer.supersedes;
   if (!p) return "";
