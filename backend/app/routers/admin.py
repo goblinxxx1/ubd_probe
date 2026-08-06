@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.crud import admin_user as admin_user_crud
@@ -15,7 +16,7 @@ from app.schemas.admin_user import AdminUserCreate, AdminUserOut
 from app.schemas.blocked_host import BlockedHostCreate, BlockedHostOut
 from app.schemas.category import CategoryCreate, CategoryOut, CategoryUpdate
 from app.schemas.common import Page
-from app.schemas.offer import OfferCreate, OfferOut, OfferUpdate
+from app.schemas.offer import OfferAdminOut, OfferCreate, OfferOut, OfferUpdate
 from app.schemas.source import SourceCreate, SourceOut, SourceUpdate
 from app.schemas.suggested_source import SuggestedSourceOut
 from app.services import promotion
@@ -75,13 +76,44 @@ def create_offer(data: OfferCreate, db: Session = Depends(get_db),
     return offer_crud.create_offer(db, data, CreatedBy.admin, OfferStatus.published)
 
 
-@router.get("/offers", response_model=Page[OfferOut])
+@router.get("/offers", response_model=Page[OfferAdminOut])
 def list_offers(status: OfferStatus | None = None, type: OfferType | None = None,
                 q: str | None = None,
                 page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100),
                 db: Session = Depends(get_db), _=Depends(get_current_admin)):
     items, total = offer_crud.list_offers(db, status=status, type=type, search=q, page=page, size=size)
+    if status == OfferStatus.pending_review:
+        from app.services.confidence import enrich_pending
+        enrich_pending(db, items)   # moderation-queue assist (advisory only)
     return Page(items=items, total=total, page=page, size=size)
+
+
+class BulkRejectIn(BaseModel):
+    ids: list[int] = Field(min_length=1)
+
+
+class BulkRejectFail(BaseModel):
+    id: int
+    error: str
+
+
+class BulkRejectOut(BaseModel):
+    rejected: list[int] = []
+    failed: list[BulkRejectFail] = []
+
+
+@router.post("/offers/bulk-reject", response_model=BulkRejectOut)
+def bulk_reject_offers(data: BulkRejectIn, db: Session = Depends(get_db),
+                       admin=Depends(get_current_admin)):
+    """Bulk soft-reject (reversible, #12). No bulk publish — that stays single + confirmed."""
+    rejected, failed = [], []
+    for oid in data.ids:
+        try:
+            offer_crud.set_status(db, oid, OfferStatus.rejected, admin.id)
+            rejected.append(oid)
+        except Exception as exc:  # noqa: BLE001 — isolate per id, report the rest
+            failed.append(BulkRejectFail(id=oid, error=str(getattr(exc, "detail", exc))))
+    return BulkRejectOut(rejected=rejected, failed=failed)
 
 
 @router.get("/offers/{offer_id}", response_model=OfferOut)

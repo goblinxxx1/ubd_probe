@@ -154,3 +154,68 @@ def test_block_host_without_host_is_422(client, db_session):
     resp = client.post(f"/api/admin/offers/{offer.id}/block-host", headers=h)
     assert resp.status_code == 422
     assert resp.json()["code"] == "validation_error"
+
+
+def _mk_offer(db, status, **kw):
+    from app.models import Offer
+    o = Offer(type=OfferType.discount, title=kw.pop("title", "T"), description="",
+              provider=kw.pop("provider", "P"), status=status, created_by=CreatedBy.crawler, **kw)
+    db.add(o); db.commit(); db.refresh(o)
+    return o
+
+
+def test_pending_list_has_confidence(client, db_session):
+    token = _admin_token(db_session); h = {"Authorization": f"Bearer {token}"}
+    _mk_offer(db_session, OfferStatus.published, site_url="https://good.ua/a")
+    _mk_offer(db_session, OfferStatus.pending_review, site_url="https://good.ua/b",
+              discount_type="percent", discount_value=20)
+    data = client.get("/api/admin/offers?status=pending_review", headers=h).json()
+    assert data["items"][0]["confidence"]["tier"] == "high"
+    assert "proven_host" in data["items"][0]["confidence"]["signals"]
+
+
+def test_published_list_confidence_is_null(client, db_session):
+    token = _admin_token(db_session); h = {"Authorization": f"Bearer {token}"}
+    _mk_offer(db_session, OfferStatus.published, site_url="https://good.ua/a")
+    data = client.get("/api/admin/offers?status=published", headers=h).json()
+    assert data["items"][0]["confidence"] is None
+
+
+def test_public_offers_have_no_confidence_field(client, db_session):
+    offer_crud.create_offer(
+        db_session, OfferCreate(type=OfferType.discount, title="Pub", provider="P"),
+        created_by=CreatedBy.admin, status=OfferStatus.published)
+    data = client.get("/api/offers").json()
+    assert data["total"] == 1
+    assert "confidence" not in data["items"][0]
+
+
+def test_bulk_reject_rejects_all_given(client, db_session):
+    token = _admin_token(db_session); h = {"Authorization": f"Bearer {token}"}
+    ids = [_mk_offer(db_session, OfferStatus.pending_review,
+                     site_url=f"https://x{i}.ua/a").id for i in range(3)]
+    r = client.post("/api/admin/offers/bulk-reject", json={"ids": ids}, headers=h)
+    assert r.status_code == 200
+    assert sorted(r.json()["rejected"]) == sorted(ids)
+    assert r.json()["failed"] == []
+    for oid in ids:
+        db_session.expire_all()
+        assert offer_crud.get_offer(db_session, oid).status == OfferStatus.rejected
+
+
+def test_bulk_reject_reports_missing_id_in_failed(client, db_session):
+    token = _admin_token(db_session); h = {"Authorization": f"Bearer {token}"}
+    real = _mk_offer(db_session, OfferStatus.pending_review, site_url="https://r.ua/a").id
+    r = client.post("/api/admin/offers/bulk-reject", json={"ids": [real, 99999]}, headers=h)
+    assert r.status_code == 200
+    assert r.json()["rejected"] == [real]
+    assert [f["id"] for f in r.json()["failed"]] == [99999]
+
+
+def test_bulk_reject_empty_ids_422(client, db_session):
+    token = _admin_token(db_session); h = {"Authorization": f"Bearer {token}"}
+    assert client.post("/api/admin/offers/bulk-reject", json={"ids": []}, headers=h).status_code == 422
+
+
+def test_bulk_reject_requires_admin(client):
+    assert client.post("/api/admin/offers/bulk-reject", json={"ids": [1]}).status_code == 401
