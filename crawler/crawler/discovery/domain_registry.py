@@ -17,7 +17,8 @@ _EMPTY = {"version": 1, "domains": {}}
 
 class DomainRegistry:
     def __init__(self, path, data=None, clock=time.time, *,
-                 decay=0.9, offer_weight=1.0, error_weight=0.5, promote_min_score=0.5):
+                 decay=0.9, offer_weight=1.0, error_weight=0.5, promote_min_score=0.5,
+                 reject_weight=1.0):
         self._path = path
         self._clock = clock
         self._data = data if data is not None else json.loads(json.dumps(_EMPTY))
@@ -25,6 +26,7 @@ class DomainRegistry:
         self._offer_w = offer_weight
         self._error_w = error_weight
         self._promote = promote_min_score
+        self._reject_w = reject_weight
 
     @classmethod
     def load(cls, path, clock=time.time, **score_kw):
@@ -47,7 +49,7 @@ class DomainRegistry:
         now = self._clock()
         e = self._data["domains"].get(host)
         if e is None:
-            e = {"score": 0.0, "offers": 0, "errors": 0, "passes": 0,
+            e = {"score": 0.0, "offers": 0, "errors": 0, "rejects": 0, "passes": 0,
                  "empty_passes": 0, "first_seen": now, "last_seen": now, "last_offer": 0.0}
             self._data["domains"][host] = e
         e["score"] = max(0.0, e["score"] * self._decay
@@ -60,6 +62,17 @@ class DomainRegistry:
         else:
             e["last_offer"] = now
         e["last_seen"] = now
+
+    def record_rejections(self, host, n):
+        """Soft down-rank an EXISTING domain by n rejections (score -= n*reject_weight,
+        clamped >=0). No-op for an unknown/empty host — nothing to re-feed. Does not touch
+        offers/errors/passes/last_seen (a rejection is not a crawl pass)."""
+        host = _host(host)
+        e = self._data["domains"].get(host)
+        if not host or e is None or n <= 0:
+            return
+        e["score"] = max(0.0, e["score"] - n * self._reject_w)
+        e["rejects"] = e.get("rejects", 0) + int(n)
 
     def score(self, host):
         e = self._data["domains"].get(_host(host))

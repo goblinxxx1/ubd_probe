@@ -116,3 +116,52 @@ def test_top_excludes_recently_seen_when_cooldown_set(tmp_path):
     assert r.top(10, set(), cooldown_seconds=0) == ["hi.ua", "lo.ua"]
     t["v"] = 1000.0 + 150
     assert r.top(10, set(), cooldown_seconds=100) == ["hi.ua", "lo.ua"]
+
+
+def test_record_rejections_downranks_existing_host():
+    from crawler.discovery.domain_registry import DomainRegistry
+    reg = DomainRegistry("x.json", data={"version": 1, "domains": {}},
+                         clock=lambda: 1000.0, reject_weight=1.0)
+    reg.record("shop.ua", offers=3, errors=0)   # score 3.0
+    reg.record_rejections("shop.ua", 2)          # -2.0 -> 1.0
+    assert reg.score("shop.ua") == 1.0
+    e = reg._data["domains"]["shop.ua"]
+    assert e["rejects"] == 2
+    assert e["offers"] == 3 and e["errors"] == 0 and e["passes"] == 1  # untouched
+
+
+def test_record_rejections_clamps_at_zero():
+    from crawler.discovery.domain_registry import DomainRegistry
+    reg = DomainRegistry("x.json", data={"version": 1, "domains": {}},
+                         clock=lambda: 1.0, reject_weight=1.0)
+    reg.record("noisy.ua", offers=1, errors=0)   # 1.0
+    reg.record_rejections("noisy.ua", 5)         # would be -4 -> clamp 0
+    assert reg.score("noisy.ua") == 0.0
+
+
+def test_record_rejections_skips_unknown_host():
+    from crawler.discovery.domain_registry import DomainRegistry
+    reg = DomainRegistry("x.json", data={"version": 1, "domains": {}},
+                         clock=lambda: 1.0, reject_weight=1.0)
+    reg.record_rejections("ghost.ua", 3)
+    assert "ghost.ua" not in reg._data["domains"]
+    assert reg.score("ghost.ua") == 0.0
+
+
+def test_record_rejections_ignores_empty_host():
+    from crawler.discovery.domain_registry import DomainRegistry
+    reg = DomainRegistry("x.json", data={"version": 1, "domains": {}}, clock=lambda: 1.0)
+    reg.record_rejections("", 2)   # no crash, no entry
+    assert reg._data["domains"] == {}
+
+
+def test_record_rejections_does_not_move_last_seen():
+    from crawler.discovery.domain_registry import DomainRegistry
+    clk = [100.0]
+    reg = DomainRegistry("x.json", data={"version": 1, "domains": {}},
+                         clock=lambda: clk[0], reject_weight=1.0)
+    reg.record("a.ua", offers=2, errors=0)
+    seen_before = reg._data["domains"]["a.ua"]["last_seen"]
+    clk[0] = 900.0
+    reg.record_rejections("a.ua", 1)
+    assert reg._data["domains"]["a.ua"]["last_seen"] == seen_before   # cooldown/prune unaffected
