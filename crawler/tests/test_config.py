@@ -26,6 +26,14 @@ def test_active_fetch_budget_default(monkeypatch, tmp_path):
     assert load_config().active_fetch_budget == 80
 
 
+def test_scheduler_config_defaults(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)      # no .env -> defaults apply
+    c = load_config()
+    assert c.active_loop_delay_seconds == 60.0
+    assert c.backoff_max_sleep_seconds == 1800.0
+    assert c.passive_hard_overdue_factor == 3.0
+
+
 def test_search_antithrottle_defaults(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)      # no .env -> defaults apply
     cfg = load_config()
