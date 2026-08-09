@@ -84,6 +84,29 @@ Get-NetIPConfiguration | Where-Object { $_.IPv4DefaultGateway }
 Destination domains the crawler contacts during search (for reference):
 `duckduckgo.com`, `links.duckduckgo.com`, `html.duckduckgo.com`, plus any site it discovers.
 
+## Database backups (scheduled)
+
+A `db-backup` sidecar runs with the default stack (no profile) and dumps the `ubd`
+database to **`./backups/`** on the host every **48 h** — one backup immediately on
+start, then on the interval. `./backups/` is a host bind-mount **on purpose**: it
+survives `docker compose down -v` and any DB-volume wipe, so a lost volume never
+takes the backups with it. The newest **7** dumps are kept; older ones are pruned.
+`backups/` is gitignored. Change the cadence with `BACKUP_INTERVAL_SECONDS` in `.env`.
+
+```bash
+docker compose up -d db-backup     # starts with the stack; first dump appears within seconds
+ls -1 backups/                     # ubd_YYYYmmdd_HHMMSS.sql
+docker compose exec db-backup sh /usr/local/bin/backup.sh once   # extra backup on demand
+```
+
+**Restore** (replaces the live `ubd` — schema + data; the dump carries `CREATE DATABASE`):
+
+```bash
+sh docker/backup/restore.sh backups/ubd_YYYYmmdd_HHMMSS.sql
+# equivalently, by hand:
+docker exec -i -e MYSQL_PWD=<MYSQL_ROOT_PASSWORD> ubd_probe-db-1 mysql -uroot < backups/ubd_YYYYmmdd_HHMMSS.sql
+```
+
 ## Reset
 
 ```bash

@@ -15,3 +15,6 @@ venv/
 
 # SQLite (not used, just in case)
 *.db
+
+# Scheduled DB backups (host bind-mount for the db-backup sidecar)
+/backups/

@@ -12,6 +12,19 @@ services:
       timeout: 5s
       retries: 20
     # NOTE: 3306 intentionally NOT published (clashes with external mysql-container)
+  db-backup:
+    image: mysql:8.0
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-172800}
+    entrypoint: ["sh", "/usr/local/bin/backup.sh"]
+    volumes:
+      - ./docker/backup/backup.sh:/usr/local/bin/backup.sh:ro
+      - ./backups:/backups          # HOST dir on purpose: survives `down -v` / volume wipe
+    restart: unless-stopped
   adminer:
     image: adminer
     ports:
