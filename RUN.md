@@ -126,6 +126,17 @@ npm run dev        # http://localhost:5174, проксі /api → http://localho
 
 > **Важливо:** усі команди краулера — саме з теки `crawler/`; конфіг читає `.env`
 > відносно робочої теки, інакше мовчки візьме дефолти-заглушки.
+>
+> **`INTERNAL_API_URL` (де краулер дістає backend) — залежить від режиму запуску:**
+> - **Docker Compose** — значення в `crawler/.env` НЕ діє: compose завжди перекриває
+>   його на `http://backend:8000` (`docker-compose.yml` → `crawler.environment`). У
+>   контейнері нічого міняти не треба.
+> - **Хостовий процес** (цей Варіант B, `python -m crawler run`) — backend опубліковано
+>   на хості, тож у `crawler/.env` має бути `INTERNAL_API_URL=http://localhost:8000`
+>   (або `:<BACKEND_PORT>`). Це і є дефолт у `.env.example`.
+> - **Standalone-контейнер** (`docker run`, поза compose-мережею) — `localhost` вкаже на
+>   сам контейнер і зламається; задай `-e INTERNAL_API_URL=http://host.docker.internal:8000`
+>   (або реальну адресу backend).
 
 **Все разом (хост):** підніми MySQL, тоді 3 постійні термінали (backend, admin, public)
 + краулер за потреби. Для «все разом» простіше Docker (Варіант A).
