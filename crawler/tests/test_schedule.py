@@ -27,3 +27,15 @@ def test_corrupt_file_is_due(tmp_path):
     p = tmp_path / "p.json"
     p.write_text("{bad", encoding="utf-8")
     assert PassiveSchedule(str(p), 100, now=lambda: 1.0).due() is True
+
+
+def test_overdue_hard_factor(tmp_path):
+    p = tmp_path / "passive.json"
+    clk = [1000.0]
+    sched = PassiveSchedule(str(p), interval_seconds=100, now=lambda: clk[0])
+    assert sched.overdue(3.0) is False      # never marked -> not hard-overdue
+    sched.mark()                            # last_passive_at = 1000
+    clk[0] = 1000 + 299                     # 299 < 3*100
+    assert sched.overdue(3.0) is False
+    clk[0] = 1000 + 300                     # 300 == 3*100
+    assert sched.overdue(3.0) is True

@@ -16,6 +16,10 @@ class PassiveSchedule:
         last = self._load()
         return last is None or (self._now() - last) >= self._interval
 
+    def overdue(self, hard_factor: float) -> bool:
+        last = self._load()
+        return last is not None and (self._now() - last) >= self._interval * hard_factor
+
     def mark(self) -> None:
         try:
             with open(self._path, "w", encoding="utf-8") as fh:
