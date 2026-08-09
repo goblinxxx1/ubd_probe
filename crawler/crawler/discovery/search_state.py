@@ -96,6 +96,9 @@ class SearchState:
     def in_global_backoff(self) -> bool:
         return self._clock() < self._data.get("next_allowed_at", 0.0)
 
+    def seconds_until_allowed(self) -> float:
+        return max(0.0, self._data.get("next_allowed_at", 0.0) - self._clock())
+
     def set_global_backoff(self, seconds: float) -> None:
         self._data["next_allowed_at"] = self._clock() + seconds
         self._save()

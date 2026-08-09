@@ -97,6 +97,14 @@ def test_persistence_roundtrip_and_atomic_file(tmp_path):
         assert "cache" in json.load(f)
 
 
+def test_seconds_until_allowed_future_then_past():
+    clk = [1000.0]
+    st = SearchState("x", data={"next_allowed_at": 1300.0}, clock=lambda: clk[0])
+    assert st.seconds_until_allowed() == 300.0
+    clk[0] = 1400.0
+    assert st.seconds_until_allowed() == 0.0   # clamped, never negative
+
+
 def test_load_missing_or_corrupt_starts_clean(tmp_path):
     missing = SearchState.load(str(tmp_path / "nope.json"), clock=Clock())
     assert missing.cursor == 0
