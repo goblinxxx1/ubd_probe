@@ -242,13 +242,19 @@ docker compose --profile crawler run --rm -e ACTIVE_DISCOVERY=true crawler     #
 ### На розкладі (щоб ходив сам)
 
 ```bash
-# Docker: цикл кожні N секунд
-#   .env:  CRAWL_INTERVAL_SECONDS=3600
-docker compose --profile crawler up -d crawler       # крутиться щогодини
+# Docker: адаптивний цикл (CRAWL_INTERVAL_SECONDS>0 у .env вмикає loop-режим)
+#   .env:  CRAWL_INTERVAL_SECONDS=7200
+docker compose --profile crawler up -d crawler
 
 # Windows-хост: планувальник задач
 cd crawler && .\register-task.ps1 -IntervalMinutes 60
 ```
+
+Loop-режим (`crawler loop`) сам керує ритмом: поки DDG доступний — активний пошук
+майже безперервно (пауза `ACTIVE_LOOP_DELAY_SECONDS`, темп тримає внутрішній
+анти-throttle); під глобальним DDG-бекофом — спить рівно до `next_allowed_at`
+(кап `BACKOFF_MAX_SLEEP_SECONDS`) і в цей час робить лише DDG-незалежний пасив.
+`CRAWL_INTERVAL_SECONDS>0` лише вмикає цикл; тривалості задають три змінні вище.
 
 ---
 
