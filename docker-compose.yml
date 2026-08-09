@@ -12,7 +12,12 @@ services:
       timeout: 5s
       retries: 20
     # NOTE: 3306 intentionally NOT published (clashes with external mysql-container)
-
+  adminer:
+    image: adminer
+    ports:
+      - "8888:8080"
+    depends_on:
+      - db
   backend:
     build: ./backend
     depends_on:
