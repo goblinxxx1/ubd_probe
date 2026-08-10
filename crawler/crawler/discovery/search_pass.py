@@ -31,6 +31,11 @@ class SearchPass:
         if size == 0 or not self._plans:
             return out
         plan = self._plans[0]
+        # 1) DRAIN: re-surface cached-but-unharvested candidates (no DDG re-search).
+        if self._ttl > 0:
+            for _kw, cands in self._state.unharvested(self._ttl):
+                out.extend(cands)
+        # 2) SEARCH new due phrases (fresh phrases are skipped by _collect_due / cache).
         cursor = self._state.grid_cursor
         if self._ttl > 0:
             batch, new_cursor = self._collect_due(cursor, size)
@@ -38,7 +43,11 @@ class SearchPass:
             batch, new_cursor = self._grid.next_batch(self._bs, cursor)
         pins = self._pins if plan.include_pins else []
         keywords = merge_queries(batch, pins)
-        out.extend(plan.discovery.run(keywords, known))
+        searched = plan.discovery.run(keywords, known)
+        for c in searched:
+            if c.origin_key is None and c.discovery_note and ": " in c.discovery_note:
+                c.origin_key = c.discovery_note.split(": ", 1)[1]
+        out.extend(searched)
         if plan.succeeded():
             self._state.set_grid_cursor(new_cursor)
         return out
