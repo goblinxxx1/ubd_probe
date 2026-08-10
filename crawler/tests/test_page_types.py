@@ -9,6 +9,24 @@ def test_veteran_slugs_are_target():
         assert pl.page_is_target(u) is True, u
 
 
+def test_security_forces_slugs_are_target():
+    # ТрО, поліція, ДСНС, Нацгвардія (НГУ), УБД, учасники бойових дій
+    for u in ("https://s.ua/teroborona", "https://s.ua/dlya-policiyi",
+              "https://s.ua/police", "https://s.ua/dsns",
+              "https://s.ua/nacgvardiya", "https://s.ua/national-guard",
+              "https://s.ua/pilhy-ubd",
+              "https://s.ua/тероборона", "https://s.ua/поліція",
+              "https://s.ua/дснс", "https://s.ua/нацгвардія",
+              "https://s.ua/пільги-убд", "https://s.ua/учасникам-бойових-дій"):
+        assert pl.page_is_target(u) is True, u
+
+
+def test_security_forces_anchor_text_is_target():
+    assert pl.page_is_target("https://s.ua/p9", "Національна гвардія України") is True
+    assert pl.page_is_target("https://s.ua/p10", "Пільги учасникам бойових дій") is True
+    assert pl.page_is_target("https://s.ua/p11", "Знижки для ДСНС") is True
+
+
 def test_info_slugs_are_target():
     for u in ("https://s.ua/kontakty", "https://s.ua/contact",
               "https://s.ua/dostavka-i-oplata", "https://s.ua/delivery",

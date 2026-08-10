@@ -71,6 +71,10 @@ _PAGE_TYPE_TOKENS: tuple[str, ...] = (
     # для військових / ветеранів
     "viysk", "viyskov", "viyskovosluzhb", "military", "army", "zsu",
     "veteran", "zahisnik", "zakhisnik", "defender",
+    # інші сили безпеки/оборони: ТрО, поліція, ДСНС, Нацгвардія (НГУ), УБД
+    "teroboron", "police", "policiy", "dsns", "nacgvard", "natsgvard",
+    "national-guard", "nationalguard", "ubd",
+    "теробор", "поліці", "поліц", "дснс", "нацгвард", "гвард", "убд", "бойов",
     # контакти
     "kontakt", "contact",
     # доставка й оплата
@@ -100,6 +104,8 @@ EXCLUDE_TOKENS: tuple[str, ...] = (
 # Link-anchor-text signals (lowercased substrings) for opaque URLs.
 INCLUDE_ANCHORS: tuple[str, ...] = (
     "військов", "ветеран", "зсу", "захисник", "убд",
+    "територіальна оборона", "поліці", "дснс", "національна гвардія",
+    "нацгвардія", "бойових дій",
     "знижка для військовослужбовц", "контакт", "доставка", "оплата",
     "про нас", "про компанію", "лояльн", "бонусна програма", "клуб",
     "корисна інформація", "питання", "акці", "знижк",
