@@ -221,3 +221,58 @@ def test_is_fresh_true_within_ttl_false_after(tmp_path):
 def test_is_fresh_false_for_unseen_keyword(tmp_path):
     st = _state(tmp_path, Clock())
     assert st.is_fresh("never searched", ttl_seconds=1e9) is False
+
+
+def _cand(u):
+    return SourceCandidate(name=u, type="website", url_or_handle=u)
+
+
+def test_cache_put_marks_unharvested_and_unharvested_returns_it(tmp_path):
+    from crawler.discovery.search_state import SearchState
+    clk = [1000.0]
+    st = SearchState(str(tmp_path / "s.json"), clock=lambda: clk[0])
+    st.cache_put("стоматологія убд", [_cand("https://a.ua"), _cand("https://b.ua")])
+    out = st.unharvested(ttl_seconds=10_000)
+    assert [k for k, _ in out] == ["стоматологія убд"]
+    cands = out[0][1]
+    assert [c.url_or_handle for c in cands] == ["https://a.ua", "https://b.ua"]
+    assert all(c.origin_key == "стоматологія убд" for c in cands)
+
+
+def test_mark_harvested_removes_from_unharvested(tmp_path):
+    from crawler.discovery.search_state import SearchState
+    st = SearchState(str(tmp_path / "s.json"), clock=lambda: 1000.0)
+    st.cache_put("шиномонтаж військовим", [_cand("https://a.ua")])
+    st.mark_harvested(["шиномонтаж військовим"])
+    assert st.unharvested(ttl_seconds=10_000) == []
+
+
+def test_unharvested_skips_stale_by_ttl(tmp_path):
+    from crawler.discovery.search_state import SearchState
+    clk = [1000.0]
+    st = SearchState(str(tmp_path / "s.json"), clock=lambda: clk[0])
+    st.cache_put("окуляри зсу", [_cand("https://a.ua")])
+    clk[0] = 1000.0 + 20_000
+    assert st.unharvested(ttl_seconds=10_000) == []
+
+
+def test_legacy_entry_without_harvested_key_counts_as_done(tmp_path):
+    import json
+    from crawler.discovery.search_state import SearchState
+    p = tmp_path / "s.json"
+    p.write_text(json.dumps({"version": 1, "cache": {
+        "legacy phrase": {"ts": 1000.0, "candidates": [{"name": "x", "type": "website",
+                                                          "url_or_handle": "https://x.ua"}]}}}),
+                 encoding="utf-8")
+    st = SearchState(str(p), clock=lambda: 1001.0)
+    assert st.unharvested(ttl_seconds=10_000) == []
+
+
+def test_unharvested_oldest_first(tmp_path):
+    from crawler.discovery.search_state import SearchState
+    clk = [1000.0]
+    st = SearchState(str(tmp_path / "s.json"), clock=lambda: clk[0])
+    st.cache_put("phrase-old", [_cand("https://old.ua")])
+    clk[0] = 2000.0
+    st.cache_put("phrase-new", [_cand("https://new.ua")])
+    assert [k for k, _ in st.unharvested(ttl_seconds=10_000)] == ["phrase-old", "phrase-new"]
