@@ -29,12 +29,27 @@ def step(runner, state, passive_schedule, *, active_delay, backoff_max_sleep, ha
 
 
 def run_loop(runner, state_loader, passive_schedule, *, active_delay, backoff_max_sleep,
-             hard_factor, sleep=time.sleep, iterations=None):
+             hard_factor, sleep=time.sleep, iterations=None,
+             learn=None, learn_interval_seconds=0, now=time.monotonic):
     """Drive step() forever (or `iterations` times in tests), reloading search state each
     pass so a freshly-persisted next_allowed_at is always seen. A failing pass is logged
-    and skipped — it must never kill the loop."""
+    and skipped — it must never kill the loop.
+
+    If `learn` is given and `learn_interval_seconds` > 0, it is invoked on the first
+    iteration and then every interval — a self-learning tick that re-mines the query
+    lexicon and rebuilds the live grid. It is best-effort: a failure is logged and
+    never kills the loop nor blocks the crawl pass."""
     n = 0
+    last_learn = None
     while iterations is None or n < iterations:
+        if learn is not None and learn_interval_seconds > 0:
+            t = now()
+            if last_learn is None or (t - last_learn) >= learn_interval_seconds:
+                last_learn = t
+                try:
+                    learn()
+                except Exception as exc:  # noqa: BLE001 — learning must not kill the loop
+                    log.warning("scheduler learn tick failed: %s", exc)
         try:
             state = state_loader()
             secs = step(runner, state, passive_schedule, active_delay=active_delay,

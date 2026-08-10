@@ -33,11 +33,15 @@ def main(argv=None) -> int:
         def _load_state():
             return SearchState.load(config.search_state_path) if config.active_discovery else None
 
+        def _learn():
+            runner.learn_and_reload_grid(config)   # mine → rebuild live grid, in-process
+
         log.info("scheduler: adaptive loop — active while DDG free, passive in backoff windows")
         run_loop(runner, _load_state, passive,
                  active_delay=config.active_loop_delay_seconds,
                  backoff_max_sleep=config.backoff_max_sleep_seconds,
-                 hard_factor=config.passive_hard_overdue_factor)
+                 hard_factor=config.passive_hard_overdue_factor,
+                 learn=_learn, learn_interval_seconds=config.learn_interval_seconds)
         return 0
 
     return 1

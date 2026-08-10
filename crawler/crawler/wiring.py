@@ -13,7 +13,7 @@ from crawler.discovery.domain_registry import DomainRegistry
 from crawler.discovery.harvest import ActiveHarvester
 from crawler.discovery.osm_feed import OsmDomainFeed, OsmEnumerator
 from crawler.discovery.providers import build_search_plans
-from crawler.discovery import query_lexicon
+from crawler.discovery import query_grid, query_lexicon
 from crawler.discovery.search_pass import SearchPass
 from crawler.discovery.query_grid import QueryGrid, build_grid
 from crawler.discovery.robots import RobotsPolicy
@@ -82,6 +82,24 @@ def _build_walker(config, web_client):
     return walker, domain_rl
 
 
+def build_query_grid(config) -> QueryGrid:
+    """Materialize the DDG query grid from the CURRENT lexicon file. Called at
+    build_runner time AND on each in-loop learn tick, so freshly learned service
+    terms go live without a process restart. Kill-switch (`query_lexicon_enabled`
+    off) suppresses seed + learned alike, leaving the byte-stable base+geo grid."""
+    if config.query_lexicon_enabled:
+        query_lexicon.reload_learned(config.query_lexicon_learned_path)
+        # curated seed always in; miner uncapped by default (cap<=0), so
+        # self-learning never hits a ceiling — cap>0 trims the mined tail only.
+        services = query_lexicon.compose_service_terms(
+            query_grid.SEED_SERVICES, config.query_lexicon_max_terms)
+    else:
+        query_lexicon.reload_learned(None)
+        services = []   # kill-switch suppresses seed + learned alike
+    cities = None if config.grid_cities_enabled else []
+    return QueryGrid(build_grid(cities=cities, services=services))
+
+
 def build_runner(config) -> Runner:
     api = ApiClient(config.internal_api_url, config.crawler_api_key, config.request_timeout)
 
@@ -117,14 +135,7 @@ def build_runner(config) -> Runner:
         state = SearchState.load(config.search_state_path)
         plans = build_search_plans(config, state=state)
         if plans:
-            if config.query_lexicon_enabled:
-                query_lexicon.reload_learned(config.query_lexicon_learned_path)
-                services = list(query_lexicon.learned_services())[:config.query_lexicon_max_terms]
-            else:
-                query_lexicon.reload_learned(None)
-                services = []
-            cities = None if config.grid_cities_enabled else []
-            grid = QueryGrid(build_grid(cities=cities, services=services))
+            grid = build_query_grid(config)
             search_pass = SearchPass(plans, state, grid,
                                      config.search_block_size, config.search_keywords,
                                      ttl_seconds=config.search_cache_ttl_hours * 3600)

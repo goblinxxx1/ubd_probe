@@ -110,18 +110,42 @@ def test_empty_grid_is_safe():
 
 
 def test_services_block_appended_after_geo():
+    from crawler.discovery.query_grid import SERVICE_MODIFIERS, SERVICE_AUDIENCES
     base = build_grid()                       # 1701, no services
     g = build_grid(services=["стоматологія", "автосервіс"])
     assert g[:len(base)] == base              # byte-stable: services appended after
     added = len(g) - len(base)
-    assert added == 2 * len(GEO_AUDIENCES)    # 6 per service
-    assert "стоматологія ветерани" in g
-    assert "автосервіс військові" in g
+    # A: service × modifier × audience — grid-neutral (2×3 = 6/service, same count)
+    assert added == 2 * len(SERVICE_MODIFIERS) * len(SERVICE_AUDIENCES)
+    # each service query now carries a discount modifier (search-stage precision)
+    assert "стоматологія знижка військовим" in g
+    assert "автосервіс безкоштовно ветеранам" in g
+
+
+def test_service_block_is_grid_neutral_vs_old_two_token():
+    # A folds the modifier into the existing per-service budget: 2 modifiers × 3
+    # audiences = 6/service, exactly the old 6-audience 2-token count. No growth.
+    from crawler.discovery.query_grid import SERVICE_MODIFIERS, SERVICE_AUDIENCES
+    assert len(SERVICE_MODIFIERS) * len(SERVICE_AUDIENCES) == 6
 
 
 def test_services_none_or_empty_is_byte_eq():
     assert build_grid(services=None) == build_grid()
     assert build_grid(services=[]) == build_grid()
+
+
+def test_seed_services_curated_no_brands_no_gov_noise():
+    from crawler.discovery.query_grid import SEED_SERVICES, BRANDS
+    assert 30 <= len(SEED_SERVICES) <= 60
+    assert len(SEED_SERVICES) == len(set(s.casefold() for s in SEED_SERVICES))  # deduped
+    brands = {b.casefold() for b in BRANDS}
+    assert not (brands & {s.casefold() for s in SEED_SERVICES})   # brands live on BRANDS axis
+    # gov/NGO-program noise must not leak into the service seed
+    noise = {"кредитні канікули", "іпотека єоселя 3%", "комунальні послуги",
+             "скасування штрафів", "адвокат", "нотаріус"}
+    assert not (noise & {s.casefold() for s in SEED_SERVICES})
+    # concrete cold-start services are present
+    assert "протезування зубів" in SEED_SERVICES and "шиномонтаж" in SEED_SERVICES
 
 
 def test_at_wraps_modulo_length():

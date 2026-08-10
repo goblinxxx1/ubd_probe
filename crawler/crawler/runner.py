@@ -62,6 +62,20 @@ class Runner:
     def _empty_summary() -> dict:
         return {"sources": 0, "offers": 0, "suggestions": 0, "expired": 0, "errors": 0}
 
+    def learn_and_reload_grid(self, config) -> None:
+        """Periodic self-learning tick (driven by the scheduler): mine approved
+        offers + corpus into the query lexicon, then rebuild the live search grid so
+        newly learned service terms take effect WITHOUT a process restart. No-op when
+        there's no active search pass. Never raises — learning is best-effort."""
+        from crawler.learn.bootstrap_query_lexicon import bootstrap
+        from crawler.learn.corpus import CorpusRecorder
+        from crawler.wiring import build_query_grid
+        if self._search_pass is None:
+            return
+        recorder = self._corpus or CorpusRecorder(config.corpus_path, config.corpus_max_mb)
+        bootstrap(config, self._api, recorder)          # mine → lexicon file + candidates
+        self._search_pass.set_grid(build_query_grid(config))   # rebuild → go live
+
     def run(self) -> dict:
         """Active-first orchestration: active discovery runs every loop; the passive
         source-crawl runs only when its (rare) cadence is due. With no passive_schedule
