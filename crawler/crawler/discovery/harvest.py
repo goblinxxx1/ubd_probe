@@ -2,6 +2,7 @@ import logging
 
 from crawler.discovery.attribution import attribute, build_page_ctx, _outbound_hosts
 from crawler.discovery.blocklist import is_blocked_host
+from crawler.discovery.host_quality import is_low_value_host
 from crawler.discovery.brand_feed import _host
 from crawler.discovery.passive import normalize_ref
 from crawler.discovery.promo_lexicon import seed_is_target
@@ -48,6 +49,10 @@ class ActiveHarvester:
             # витрати бюджету й до запису в domain_registry, тож іноземний хост не
             # осідає й не ре-фідиться.
             if cand.type == "website" and is_foreign_host(cand.url_or_handle):
+                continue
+            # Low-value: інституційні (gov/edu/mil/int) та глобальні платформи ніколи не
+            # джерело офера — гейт ДО обходу, щоб не палити бюджет на 88% сміття з видачі.
+            if cand.type == "website" and is_low_value_host(cand.url_or_handle):
                 continue
             # Блокліст = не краулити взагалі: заблокований хост ніколи не фетчиться/
             # не обходиться (не лише «не приписувати як провайдера»).

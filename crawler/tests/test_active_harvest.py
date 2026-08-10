@@ -129,6 +129,21 @@ def test_blocklisted_website_candidate_skipped():
     assert fetched == ["https://shop.ua"]  # blocklisted host skipped, other fetched
 
 
+def test_low_value_host_candidate_skipped():
+    # institutional / global-platform hosts must never be fetched/walked (pre-walk gate)
+    api = FakeApi()
+    fetched = []
+    class CountingFetcher:
+        def fetch(self, source, k): fetched.append(source["url_or_handle"]); return [], None
+    h = ActiveHarvester(api, {"website": CountingFetcher()}, GateExtractor(),
+                        rate_limiter=None, fetch_budget=1)
+    # low-value first: must be skipped without eating the single budget slot
+    cands = [_cand(url="https://www.va.gov"), _cand(url="https://reddit.com/r/x"),
+             _cand(url="https://shop.ua")]
+    h.harvest(cands, cats=None, known=set(), summary=_summary())
+    assert fetched == ["https://shop.ua"]  # va.gov + reddit skipped, .ua fetched
+
+
 def test_foreign_and_blocklisted_hosts_never_crawled():
     """Guarantee: RU/BY/other foreign-ccTLD hosts AND every blocklisted host
     (SEED media, gov.ua, social, plus LEARNED) are gated out of the crawl at the

@@ -18,6 +18,18 @@ def test_ukrainian_hosts_are_not_foreign():
     assert is_foreign_host("sub.kyiv.ua") is False
 
 
+def test_idn_foreign_cctlds_are_foreign():
+    # the .рф leak: punycode ccTLD longer than 2 chars slipped the len==2 check
+    assert is_foreign_host("https://xn--90aivcdt6dxbc.xn--p1ai/") is True  # .рф
+    assert is_foreign_host("shop.xn--90ae") is True                        # .бг
+    assert is_foreign_host("x.xn--90a3ac") is True                         # .срб
+
+
+def test_ukrainian_idn_cctld_is_not_foreign():
+    # .укр (xn--j1amh) is Ukraine's own IDN ccTLD — must stay allowed
+    assert is_foreign_host("https://shop.xn--j1amh/") is False
+
+
 def test_generic_gtlds_are_not_foreign():
     # legit UA businesses commonly sit on gTLDs, not .ua
     assert is_foreign_host("someshop.com") is False
