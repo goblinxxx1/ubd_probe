@@ -32,6 +32,9 @@ describe("offerBadge", () => {
   it("discount with no type → Знижка", () => {
     expect(offerBadge({ type: "discount", discount_type: null })).toEqual({ text: "Знижка", kind: "discount" });
   });
+  it("special_price → Ціна N ₴", () => {
+    expect(offerBadge({ type: "discount", discount_type: "special_price", discount_value: 499 })).toEqual({ text: "Ціна 499 ₴", kind: "discount" });
+  });
 });
 
 describe("discountText", () => {
@@ -43,6 +46,9 @@ describe("discountText", () => {
   });
   it("fixed → −N ₴", () => {
     expect(discountText({ discount_type: "fixed", discount_value: 200 })).toBe("−200 ₴");
+  });
+  it("special_price → Ціна N ₴", () => {
+    expect(discountText({ discount_type: "special_price", discount_value: 499 })).toBe("Ціна 499 ₴");
   });
   it("no type → Знижка", () => {
     expect(discountText({ discount_type: null })).toBe("Знижка");

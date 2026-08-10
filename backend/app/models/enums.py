@@ -17,6 +17,12 @@ class DiscountType(str, enum.Enum):
     percent = "percent"
     fixed = "fixed"
     free = "free"
+    special_price = "special_price"
+
+
+# Discount types whose discount_value is REQUIRED (and must be empty for the rest):
+# percent = N%, fixed = N грн off, special_price = the final price is N грн.
+VALUE_DISCOUNT_TYPES = (DiscountType.percent, DiscountType.fixed, DiscountType.special_price)
 
 
 class OfferStatus(str, enum.Enum):

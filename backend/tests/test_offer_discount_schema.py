@@ -20,3 +20,21 @@ def test_offer_create_accepts_discounts_list():
 def test_discount_in_rejects_value_without_percent_fixed():
     with pytest.raises(ValidationError):
         DiscountIn(label="x", discount_type=DiscountType.free, discount_value=Decimal("5"))
+
+
+def test_special_price_requires_value():
+    # special_price carries the final price in discount_value — it is required
+    ok = OfferCreate(type=OfferType.discount, title="T", provider="P",
+                     discount_type=DiscountType.special_price, discount_value=Decimal("499"))
+    assert ok.discount_type == DiscountType.special_price
+    assert ok.discount_value == Decimal("499")
+    with pytest.raises(ValidationError):
+        OfferCreate(type=OfferType.discount, title="T", provider="P",
+                    discount_type=DiscountType.special_price, discount_value=None)
+
+
+def test_special_price_discount_row_requires_value():
+    ok = DiscountIn(label="УБД", discount_type=DiscountType.special_price, discount_value=Decimal("499"))
+    assert ok.discount_value == Decimal("499")
+    with pytest.raises(ValidationError):
+        DiscountIn(label="УБД", discount_type=DiscountType.special_price, discount_value=None)

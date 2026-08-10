@@ -3,7 +3,7 @@ import { reactive, computed, watch } from "vue";
 import { ElMessage } from "element-plus";
 import { OFFER_TYPES, DISCOUNT_TYPES } from "@/constants/enums";
 import { GAZETTEER } from "@/constants/gazetteer";
-import { validateOffer, buildOfferPayload } from "@/utils/offerForm";
+import { validateOffer, buildOfferPayload, VALUE_DISCOUNT_TYPES } from "@/utils/offerForm";
 import ImagePreview from "@/components/ImagePreview.vue";
 import CategoryMultiSelect from "@/components/CategoryMultiSelect.vue";
 
@@ -39,7 +39,10 @@ watch(() => props.initial, (o) => Object.assign(form, fromInitial(o)));
 
 const isDiscount = computed(() => form.type === "discount");
 const showValue = computed(
-  () => isDiscount.value && (form.discount_type === "percent" || form.discount_type === "fixed")
+  () => isDiscount.value && VALUE_DISCOUNT_TYPES.includes(form.discount_type)
+);
+const valueLabel = computed(() =>
+  form.discount_type === "special_price" ? "Спеціальна ціна, грн" : "Величина знижки"
 );
 
 watch(
@@ -120,7 +123,7 @@ defineExpose({ form, submit, submitPublish, canPublish, addDiscount, removeDisco
           <el-option v-for="d in DISCOUNT_TYPES" :key="d.value" :label="d.label" :value="d.value" />
         </el-select>
       </el-form-item>
-      <el-form-item v-if="showValue" label="Величина знижки">
+      <el-form-item v-if="showValue" :label="valueLabel">
         <el-input-number v-model="form.discount_value" :min="0" />
       </el-form-item>
       <el-form-item label="Знижки на сторінці (кому — скільки)">
@@ -130,7 +133,7 @@ defineExpose({ form, submit, submitPublish, canPublish, addDiscount, removeDisco
             <el-select v-model="d.discount_type" style="width: 130px">
               <el-option v-for="opt in DISCOUNT_TYPES" :key="opt.value" :label="opt.label" :value="opt.value" />
             </el-select>
-            <el-input-number v-if="d.discount_type === 'percent' || d.discount_type === 'fixed'"
+            <el-input-number v-if="VALUE_DISCOUNT_TYPES.includes(d.discount_type)"
                              v-model="d.discount_value" :min="0" />
             <el-button text type="danger" @click="removeDiscount(i)">✕</el-button>
           </div>

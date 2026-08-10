@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
-from app.models.enums import DiscountType, OfferStatus, OfferType, CreatedBy
+from app.models.enums import DiscountType, OfferStatus, OfferType, CreatedBy, VALUE_DISCOUNT_TYPES
 from app.schemas.category import CategoryOut
 
 
@@ -14,11 +14,11 @@ class DiscountIn(BaseModel):
 
     @model_validator(mode="after")
     def _check(self):
-        if self.discount_type in (DiscountType.percent, DiscountType.fixed):
+        if self.discount_type in VALUE_DISCOUNT_TYPES:
             if self.discount_value is None:
-                raise ValueError("discount_value required for percent/fixed discounts")
+                raise ValueError("discount_value required for percent/fixed/special_price discounts")
         elif self.discount_value is not None:
-            raise ValueError("discount_value must be empty unless discount_type is percent/fixed")
+            raise ValueError("discount_value must be empty unless discount_type is percent/fixed/special_price")
         return self
 
 
@@ -60,12 +60,12 @@ class OfferBase(BaseModel):
     def _check(self):
         if self.valid_from and self.valid_until and self.valid_until < self.valid_from:
             raise ValueError("valid_until must be on or after valid_from")
-        if self.discount_type in (DiscountType.percent, DiscountType.fixed):
+        if self.discount_type in VALUE_DISCOUNT_TYPES:
             if self.discount_value is None:
-                raise ValueError("discount_value required for percent/fixed discounts")
+                raise ValueError("discount_value required for percent/fixed/special_price discounts")
         else:
             if self.discount_value is not None:
-                raise ValueError("discount_value must be empty unless discount_type is percent/fixed")
+                raise ValueError("discount_value must be empty unless discount_type is percent/fixed/special_price")
         return self
 
 

@@ -7,4 +7,5 @@ export const DISCOUNT_TYPES = [
   { value: "percent", label: "Відсоток" },
   { value: "fixed", label: "Фіксована" },
   { value: "free", label: "Безкоштовно" },
+  { value: "special_price", label: "Спеціальна ціна" },
 ];
