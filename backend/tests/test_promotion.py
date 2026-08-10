@@ -21,7 +21,7 @@ def test_publish_promotes_website_origin(db_session):
     src = db_session.get(Source, o.source_id)
     assert src is not None
     assert src.type == SourceType.website
-    assert src.url_or_handle == "https://shop.example/deal"
+    assert src.url_or_handle == "https://shop.example"   # SITE ORIGIN, not the offer page
     assert src.name == "Shop"           # name == provider -> stable content_hash on re-crawl
     assert src.is_active is True
     assert o.last_seen_at is not None
@@ -112,10 +112,22 @@ def test_publish_endpoint_promotes(client, db_session):
     assert db_session.get(Source, pending.source_id).name == "Shop"
 
 
-def test_promotes_from_article_url_not_homepage(db_session):
+def test_promotes_at_site_origin_not_offer_page(db_session):
+    # The promoted source is the SITE ORIGIN so the passive walker can discover NEW
+    # offers across the whole business, not just re-confirm the one offer page.
     o = _crawler_offer(db_session, site_url="https://shop.example",
                        article_url="https://shop.example/promo/veterans")
     promotion.maybe_promote_on_publish(db_session, o)
     db_session.refresh(o)
     src = db_session.get(Source, o.source_id)
-    assert src.url_or_handle == "https://shop.example/promo/veterans"   # the offer page, not homepage
+    assert src.url_or_handle == "https://shop.example"   # origin, not /promo/veterans
+
+
+def test_promotes_origin_from_article_when_site_url_missing(db_session):
+    # site_url absent -> derive the origin from article_url (not its full path).
+    o = _crawler_offer(db_session, site_url=None,
+                       article_url="https://biz.example/blog/2026/veteran-deal?utm=x")
+    promotion.maybe_promote_on_publish(db_session, o)
+    db_session.refresh(o)
+    src = db_session.get(Source, o.source_id)
+    assert src.url_or_handle == "https://biz.example"

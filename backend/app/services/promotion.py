@@ -1,4 +1,5 @@
 from datetime import datetime
+from urllib.parse import urlsplit
 
 from sqlalchemy.orm import Session
 
@@ -8,14 +9,24 @@ from app.models import Offer
 from app.models.enums import CreatedBy, SourceType
 
 
+def _origin(url: str | None) -> str | None:
+    """scheme://host of an http(s) URL — drops path/query so a promoted source is the
+    SITE, not the single offer page. The page-targeted walker then discovers NEW offers
+    across the business (bounded by domain_page_cap), instead of re-checking one page."""
+    p = urlsplit(url or "")
+    if p.scheme in ("http", "https") and p.netloc:
+        return f"{p.scheme}://{p.netloc}"
+    return None
+
+
 def maybe_promote_on_publish(db: Session, offer: Offer) -> None:
-    """On publish, promote a crawler offer's article page to an active passive-crawl
-    source and link the offer to it, so the passive crawler re-confirms it (freshness).
+    """On publish, promote a crawler offer's SITE ORIGIN to an active passive-crawl
+    source and link the offer to it, so the walker re-crawls the business for offers.
     No-op unless the offer is a crawler offer, not already sourced, with a valid http(s)
-    article_url (falls back to site_url). Idempotent by (type, url_or_handle)."""
+    site_url/article_url. Idempotent by host (one active website source per host)."""
     if offer.created_by != CreatedBy.crawler or offer.source_id is not None:
         return
-    ref = normalize_source_ref(offer.article_url or offer.site_url or "")
+    ref = normalize_source_ref(_origin(offer.site_url) or _origin(offer.article_url) or "")
     if ref is None:
         return
     source = source_crud.get_or_create_source_by_ref(
