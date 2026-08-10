@@ -142,8 +142,9 @@ class Runner:
                     candidates += site_cands
                     self._site_state.set_site_cursor(new_cur)
             if candidates:
-                self._harvester.harvest(candidates, cats, known, summary,
-                                        known_hosts=known_hosts)
+                stop = self._harvester.harvest(candidates, cats, known, summary,
+                                               known_hosts=known_hosts)
+                self._mark_consumed_search_phrases(candidates, stop)
         except Exception as exc:  # noqa: BLE001 — discovery must not crash the pass
             summary["errors"] += 1
             log.warning("active discovery / brand-feed harvest failed: %s", exc)
@@ -155,6 +156,24 @@ class Runner:
                 except Exception as exc:  # noqa: BLE001 — persistence best-effort
                     log.warning("domain registry persist failed: %s", exc)
         return summary
+
+    def _mark_consumed_search_phrases(self, candidates, stop_index) -> None:
+        """Mark a search phrase harvested only when ALL its candidates were examined
+        (position < stop_index). Phrases straddling the fetch-budget stay unharvested so
+        the next pass drains their remainder — no candidate is orphaned."""
+        if stop_index is None:
+            return
+        state = getattr(self._search_pass, "_state", None)
+        if state is None or not hasattr(state, "mark_harvested"):
+            return
+        last_pos: dict[str, int] = {}
+        for i, c in enumerate(candidates):
+            key = getattr(c, "origin_key", None)
+            if key is not None:
+                last_pos[key] = i
+        done = [k for k, pos in last_pos.items() if pos < stop_index]
+        if done:
+            state.mark_harvested(done)
 
     def run_passive(self) -> dict:
         """Re-confirm approved sources (freshness) + expire stale source-offers. Runs on a
