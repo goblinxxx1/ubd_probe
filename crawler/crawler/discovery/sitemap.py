@@ -6,6 +6,8 @@ import gzip
 import logging
 from xml.etree import ElementTree as ET
 
+from crawler.discovery.promo_lexicon import is_excluded
+
 log = logging.getLogger(__name__)
 
 # Product-catalog child sitemaps (WooCommerce `sitemap-pt-product-*`, `product-sitemap`, …)
@@ -65,6 +67,8 @@ def collect_sitemap_urls(sitemap_urls, client, rate_limiter, domain, crawl_delay
                 low = value.lower()
                 if any(s in low for s in skip_substrings):
                     continue     # product-catalog sitemap: no promo pages, skip the giant download
+                if is_excluded(value):
+                    continue     # news/blog/tag child sitemap: its pages are all excluded anyway
                 queue.append(value)
             elif value not in seen_pages:
                 seen_pages.add(value)

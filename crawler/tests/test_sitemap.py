@@ -112,6 +112,29 @@ def test_product_child_sitemap_is_skipped():
     assert urls == ["https://shop.ua/veterans"]
 
 
+_INDEX_NEWS = (
+    '<?xml version="1.0"?>'
+    '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+    '<sitemap><loc>https://mrpl.city/sitemap_news_mariupol.xml</loc></sitemap>'
+    '<sitemap><loc>https://mrpl.city/sitemap-page.xml</loc></sitemap>'
+    '</sitemapindex>'
+)
+
+
+def test_excluded_child_sitemap_is_skipped():
+    # news/blog/tag child sitemaps list only excluded pages — never download them
+    client = MapClient({
+        "https://mrpl.city/root.xml": _INDEX_NEWS,
+        "https://mrpl.city/sitemap_news_mariupol.xml": URLSET,
+        "https://mrpl.city/sitemap-page.xml": _PAGE_URLSET,
+    })
+    urls = collect_sitemap_urls(["https://mrpl.city/root.xml"], client, NoWait(),
+                                "mrpl.city", None, max_docs=10)
+    assert "https://mrpl.city/sitemap_news_mariupol.xml" not in client.calls  # news skipped
+    assert "https://mrpl.city/sitemap-page.xml" in client.calls               # page fetched
+    assert urls == ["https://shop.ua/veterans"]     # only the non-news child's page (from _PAGE_URLSET)
+
+
 def test_early_stop_once_enough_promo_pages():
     big = ('<?xml version="1.0"?>'
            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
