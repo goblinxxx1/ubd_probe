@@ -535,3 +535,24 @@ def test_learn_and_reload_grid_noop_without_search_pass(monkeypatch):
     runner = Runner(FakeApi([]), {}, get_extractor("heuristic"), _rl(), search_pass=None)
     runner.learn_and_reload_grid(SimpleNamespace(corpus_path="x", corpus_max_mb=1))
     assert boot == []   # no active search pass → nothing to learn or reload
+
+
+def test_run_active_marks_only_fully_consumed_search_phrases():
+    from crawler.models import SourceCandidate
+    marked = {}
+    class _State:
+        def mark_harvested(self, ks): marked["ks"] = list(ks)
+    class _SP:
+        _state = _State()
+        def run(self, known):
+            return [SourceCandidate(name="a1", type="website", url_or_handle="https://a1.ua", origin_key="phraseA"),
+                    SourceCandidate(name="a2", type="website", url_or_handle="https://a2.ua", origin_key="phraseA"),
+                    SourceCandidate(name="b1", type="website", url_or_handle="https://b1.ua", origin_key="phraseB")]
+    class _Harv:
+        def harvest(self, candidates, cats, known, summary, known_hosts=None):
+            return 2                      # examined first 2 (both phraseA); stopped before phraseB
+    api = FakeApi([])
+    runner = Runner(api, {"website": FakeFetcher([])}, get_extractor("heuristic"), _rl(),
+                    harvester=_Harv(), search_pass=_SP())
+    runner.run_active()
+    assert marked["ks"] == ["phraseA"]    # phraseB straddles the budget -> NOT marked

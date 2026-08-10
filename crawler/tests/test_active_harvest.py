@@ -479,3 +479,24 @@ def test_recently_seen_website_candidate_skipped(tmp_path):
     h.harvest([_cand(url="https://seen.example"), _cand(url="https://fresh.example")],
               cats=None, known=set(), summary=_summary())
     assert fetched == ["https://fresh.example"]
+
+
+def test_harvest_returns_stop_index_at_budget():
+    api = FakeApi()
+    class _Counting:
+        def fetch(self, source, k): return [], None
+    h = ActiveHarvester(api, {"website": _Counting()}, GateExtractor(),
+                        rate_limiter=None, fetch_budget=2)
+    cands = [_cand(url=f"https://biz{i}.example") for i in range(5)]
+    stop = h.harvest(cands, cats=None, known=set(), summary=_summary())
+    assert stop == 2            # examined 2 fetches, then budget break before the 3rd
+
+
+def test_harvest_returns_len_when_all_processed():
+    api = FakeApi()
+    class _Counting:
+        def fetch(self, source, k): return [], None
+    h = ActiveHarvester(api, {"website": _Counting()}, GateExtractor(),
+                        rate_limiter=None, fetch_budget=10)
+    cands = [_cand(url="https://biz.example")]
+    assert h.harvest(cands, cats=None, known=set(), summary=_summary()) == 1

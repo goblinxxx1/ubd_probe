@@ -37,12 +37,14 @@ class ActiveHarvester:
         self._aggregator_max_domains = aggregator_max_domains
         self._revisit_cooldown = revisit_cooldown_seconds
 
-    def harvest(self, candidates, cats, known, summary, known_hosts=None) -> None:
+    def harvest(self, candidates, cats, known, summary, known_hosts=None) -> int:
         known_hosts = known_hosts or set()
         used = 0
-        for cand in candidates:
+        stop = 0
+        for idx, cand in enumerate(candidates):
             if used >= self._budget:
-                break
+                return idx                    # budget break: idx..end untouched
+            stop = idx + 1
             if cand.type not in _FETCHABLE:
                 continue
             # UA-only: never fetch/walk a foreign-ccTLD site (напр. .by). Гейт до
@@ -82,6 +84,7 @@ class ActiveHarvester:
                 self._registry.record(_host(cand.url_or_handle),
                                       summary["offers"] - before_o,
                                       summary["errors"] - before_e)
+        return stop
 
     def _plan(self, cand):
         """(urls, domain, delay) for a candidate. Website candidates expand via the walker;

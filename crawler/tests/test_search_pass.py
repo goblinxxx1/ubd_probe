@@ -101,3 +101,20 @@ def test_ttl_zero_keeps_plain_walk(tmp_path):
     sp.run(set())
     assert ddg.discovery.calls == [["q0", "q1", "q2"]]
     assert st.grid_cursor == 3
+
+
+def test_run_drains_unharvested_before_searching(tmp_path):
+    st = SearchState(str(tmp_path / "s.json"), clock=lambda: 1000.0)
+    st.cache_put("імплантація знижка військовим",
+                 [SourceCandidate(name="giorno", type="website",
+                                  url_or_handle="https://giorno-dentale.com")])
+    ddg = _Plan(include_pins=False, ok=True)
+    grid = QueryGrid([f"q{i}" for i in range(3)])
+    sp = SearchPass([ddg], st, grid, block_size=2, ttl_seconds=10_000.0)
+    out = sp.run(set())
+    urls = [c.url_or_handle for c in out]
+    assert urls[0] == "https://giorno-dentale.com"            # drained candidate comes FIRST
+    assert out[0].origin_key == "імплантація знижка військовим"
+    searched = [k for call in ddg.discovery.calls for k in call]
+    assert "імплантація знижка військовим" not in searched    # its phrase was NOT re-searched
+    assert ddg.discovery.calls == [["q0", "q1"]]              # new due phrases still searched

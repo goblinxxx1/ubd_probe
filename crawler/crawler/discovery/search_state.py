@@ -135,10 +135,42 @@ class SearchState:
     def cache_put(self, keyword: str, candidates: list[SourceCandidate]) -> None:
         self._data["cache"][self._key(keyword)] = {
             "ts": self._clock(),
+            "harvested": False,
             "candidates": [{"name": c.name, "type": c.type, "url_or_handle": c.url_or_handle}
                            for c in candidates],
         }
         self._save()
+
+    def mark_harvested(self, keywords: list[str]) -> None:
+        cache = self._data["cache"]
+        touched = False
+        for kw in keywords:
+            entry = cache.get(self._key(kw))
+            if entry is not None and not entry.get("harvested", True):
+                entry["harvested"] = True
+                touched = True
+        if touched:
+            self._save()
+
+    def unharvested(self, ttl_seconds: float) -> list[tuple[str, list["SourceCandidate"]]]:
+        now = self._clock()
+        rows = []
+        for key, entry in self._data["cache"].items():
+            if entry.get("harvested", True):          # missing key == legacy == done
+                continue
+            if now - entry.get("ts", 0.0) >= ttl_seconds:
+                continue
+            rows.append((entry.get("ts", 0.0), key, entry.get("candidates", [])))
+        rows.sort(key=lambda r: r[0])                 # oldest ts first
+        out = []
+        for _ts, key, raw in rows:
+            out.append((key, [SourceCandidate(name=c["name"], type=c["type"],
+                                              url_or_handle=c["url_or_handle"],
+                                              discovered_from_source_id=None,
+                                              discovery_note=f"ddg-cache: {key}",
+                                              origin_key=key)
+                              for c in raw]))
+        return out
 
     @staticmethod
     def _key(keyword: str) -> str:
