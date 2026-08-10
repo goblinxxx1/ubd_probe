@@ -32,8 +32,8 @@ describe("offerBadge", () => {
   it("discount with no type → Знижка", () => {
     expect(offerBadge({ type: "discount", discount_type: null })).toEqual({ text: "Знижка", kind: "discount" });
   });
-  it("special_price → Ціна N ₴", () => {
-    expect(offerBadge({ type: "discount", discount_type: "special_price", discount_value: 499 })).toEqual({ text: "Ціна 499 ₴", kind: "discount" });
+  it("special_price → Спеціальна ціна label", () => {
+    expect(offerBadge({ type: "discount", discount_type: "special_price", discount_value: 499 })).toEqual({ text: "Спеціальна ціна", kind: "discount" });
   });
 });
 

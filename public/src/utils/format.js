@@ -29,8 +29,8 @@ export function offerBadge(offer) {
   if (offer.discount_type === "fixed" && offer.discount_value != null) {
     return { text: `−${Number(offer.discount_value)} ₴`, kind: "discount" };
   }
-  if (offer.discount_type === "special_price" && offer.discount_value != null) {
-    return { text: `Ціна ${Number(offer.discount_value)} ₴`, kind: "discount" };
+  if (offer.discount_type === "special_price") {
+    return { text: "Спеціальна ціна", kind: "discount" };
   }
   return { text: "Знижка", kind: "discount" };
 }
