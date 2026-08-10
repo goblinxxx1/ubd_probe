@@ -8,11 +8,21 @@ _IG = re.compile(r"(?:https?://)?(?:www\.)?instagram\.com/([A-Za-z0-9_.]{2,})", 
 _FB = re.compile(r"(?:https?://)?(?:www\.)?facebook\.com/([A-Za-z0-9_.]{2,})", re.IGNORECASE)
 
 
+_LANG_SEG = re.compile(r"^([^/]+)/(?:en|ru|uk|ua)(?=/|$)")
+
+
 def normalize_ref(type: str, url_or_handle: str) -> str:
     s = url_or_handle.strip().lower()
     s = re.sub(r"^https?://", "", s)
     s = re.sub(r"^(www\.)?(t\.me/|instagram\.com/|facebook\.com/)", "", s)
-    return s.lstrip("@").rstrip("/")
+    s = s.lstrip("@").rstrip("/")
+    if type == "website":
+        # Canonicalize website URLs so language/mobile/www variants of ONE page dedup to
+        # one key (was: /en/, /ru/, m., www. each fetched separately — ~18% duplicate fetches).
+        s = re.sub(r"^(www\.|m\.)", "", s)          # host: drop www./m. mobile prefix
+        s = _LANG_SEG.sub(r"\1", s)                  # path: drop a leading lang segment
+        s = s.rstrip("/")
+    return s
 
 
 def _add(cands, seen, known, source_id, type_, handle, note):
