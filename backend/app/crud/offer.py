@@ -7,7 +7,7 @@ from app.core.errors import not_found, validation_error
 from app.core.urlnorm import canonicalize_target_url
 from app.crud.blocked_host import bare_host, list_approved_hosts
 from app.models import Offer, OfferCategory, OfferDiscount, OfferLocation, TargetCategory
-from app.models.enums import CreatedBy, DiscountType, OfferStatus, OfferType
+from app.models.enums import CreatedBy, DiscountType, OfferStatus, OfferType, VALUE_DISCOUNT_TYPES
 from app.schemas.offer import OfferCreate, OfferUpdate
 
 log = logging.getLogger(__name__)
@@ -321,12 +321,12 @@ def update_offer(db: Session, offer_id: int, data: OfferUpdate) -> Offer:
         obj.offer_categories = _load_categories(db, [], offer_ids)[1]
     if obj.valid_from and obj.valid_until and obj.valid_until < obj.valid_from:
         raise validation_error("valid_until must be on or after valid_from")
-    if obj.discount_type in (DiscountType.percent, DiscountType.fixed):
+    if obj.discount_type in VALUE_DISCOUNT_TYPES:
         if obj.discount_value is None:
-            raise validation_error("discount_value required for percent/fixed discounts")
+            raise validation_error("discount_value required for percent/fixed/special_price discounts")
     else:
         if obj.discount_value is not None:
-            raise validation_error("discount_value must be empty unless discount_type is percent/fixed")
+            raise validation_error("discount_value must be empty unless discount_type is percent/fixed/special_price")
     db.commit()
     db.refresh(obj)
     return obj

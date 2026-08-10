@@ -1,5 +1,6 @@
 export function placeholderText({ type, discount_type }) {
   if (type === "event" || discount_type === "free") return "безкоштовно для УБД";
+  if (discount_type === "special_price") return "спеціальна ціна для УБД";
   return "знижка для УБД";
 }
 

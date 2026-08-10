@@ -52,6 +52,7 @@ export function discountLabel(type, value) {
   if (n == null || Number.isNaN(n)) return "";
   if (type === "percent") return `−${n}%`;
   if (type === "fixed") return `−${n} грн`;
+  if (type === "special_price") return `${n} грн`;   // final price, not a discount off
   return "";
 }
 

@@ -88,6 +88,9 @@ describe("discountLabel", () => {
   it("formats free", () => {
     expect(discountLabel("free", null)).toBe("безкоштовно");
   });
+  it("formats special_price as a plain price (no minus)", () => {
+    expect(discountLabel("special_price", "499.00")).toBe("499 грн");
+  });
 });
 
 describe("supersedeSummary", () => {

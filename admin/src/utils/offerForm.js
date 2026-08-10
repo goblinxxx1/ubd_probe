@@ -1,3 +1,6 @@
+// Discount types that carry a numeric value (percent/fixed = discount, special_price = final price).
+export const VALUE_DISCOUNT_TYPES = ["percent", "fixed", "special_price"];
+
 export function validateOffer(form) {
   const errors = [];
   if (!form.title) errors.push("Вкажіть заголовок");
@@ -6,20 +9,20 @@ export function validateOffer(form) {
     errors.push("Дата «до» раніше за дату «від»");
   }
   const needsValue =
-    form.type === "discount" && (form.discount_type === "percent" || form.discount_type === "fixed");
+    form.type === "discount" && VALUE_DISCOUNT_TYPES.includes(form.discount_type);
   const hasValue = form.discount_value !== null && form.discount_value !== "" && form.discount_value !== undefined;
-  if (needsValue && !hasValue) errors.push("Вкажіть величину знижки");
-  if (!needsValue && hasValue) errors.push("Величина знижки лише для відсоток/фіксована");
+  if (needsValue && !hasValue) errors.push("Вкажіть величину знижки / ціну");
+  if (!needsValue && hasValue) errors.push("Величина лише для відсоток/фіксована/спеціальна ціна");
   const urlBad = (v) => v && !/^https?:\/\//.test(v);
   if (urlBad(form.site_url)) errors.push("«Сайт» має починатися з http:// або https://");
   if (urlBad(form.article_url)) errors.push("«Сторінка новини» має починатися з http:// або https://");
   for (const d of form.discounts || []) {
-    const needsValue = d.discount_type === "percent" || d.discount_type === "fixed";
+    const needsValue = VALUE_DISCOUNT_TYPES.includes(d.discount_type);
     if (needsValue && (d.discount_value === null || d.discount_value === undefined)) {
-      errors.push("Величина знижки обов'язкова для %/фіксованої знижки");
+      errors.push("Величина обов'язкова для %/фіксованої/спеціальної ціни");
     }
     if (!needsValue && d.discount_value !== null && d.discount_value !== undefined) {
-      errors.push("Величина знижки має бути порожньою, крім %/фіксованої");
+      errors.push("Величина має бути порожньою, крім %/фіксованої/спеціальної ціни");
     }
   }
   return errors;
@@ -27,7 +30,7 @@ export function validateOffer(form) {
 
 export function buildOfferPayload(form) {
   const isDiscount = form.type === "discount";
-  const withValue = isDiscount && (form.discount_type === "percent" || form.discount_type === "fixed");
+  const withValue = isDiscount && VALUE_DISCOUNT_TYPES.includes(form.discount_type);
   return {
     type: form.type,
     title: form.title,

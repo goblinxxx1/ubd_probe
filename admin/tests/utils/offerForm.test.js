@@ -12,7 +12,12 @@ describe("validateOffer", () => {
     expect(errors.length).toBe(2);
   });
   it("requires discount_value for percent", () => {
-    expect(validateOffer({ ...base, discount_value: null })).toContain("Вкажіть величину знижки");
+    expect(validateOffer({ ...base, discount_value: null })).toContain("Вкажіть величину знижки / ціну");
+  });
+  it("requires a value for special_price", () => {
+    const sp = { ...base, discount_type: "special_price" };
+    expect(validateOffer({ ...sp, discount_value: 499 })).toEqual([]);
+    expect(validateOffer({ ...sp, discount_value: null })).toContain("Вкажіть величину знижки / ціну");
   });
   it("forbids discount_value for events", () => {
     const errors = validateOffer({ type: "event", title: "T", provider: "P", discount_type: null, discount_value: 5 });
@@ -36,6 +41,16 @@ describe("buildOfferPayload", () => {
     expect(payload.locations).toEqual(["Київ"]);
     expect(payload.target_category_ids).toEqual([1]);
     expect(payload.offer_category_ids).toEqual([2]);
+  });
+
+  it("keeps discount_value as the price for special_price", () => {
+    const p = buildOfferPayload({
+      type: "discount", title: "T", provider: "P",
+      discount_type: "special_price", discount_value: 499,
+      locations: [], target_category_ids: [], offer_category_ids: [],
+    });
+    expect(p.discount_type).toBe("special_price");
+    expect(p.discount_value).toBe(499);
   });
 
   it("defaults locations to an empty array and drops the old location key", () => {

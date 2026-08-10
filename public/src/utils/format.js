@@ -16,6 +16,7 @@ export function discountText(d) {
   if (d.discount_type === "free") return "Безкоштовно";
   if (d.discount_type === "percent" && d.discount_value != null) return `−${Number(d.discount_value)}%`;
   if (d.discount_type === "fixed" && d.discount_value != null) return `−${Number(d.discount_value)} ₴`;
+  if (d.discount_type === "special_price" && d.discount_value != null) return `Ціна ${Number(d.discount_value)} ₴`;
   return "Знижка";
 }
 
@@ -27,6 +28,9 @@ export function offerBadge(offer) {
   }
   if (offer.discount_type === "fixed" && offer.discount_value != null) {
     return { text: `−${Number(offer.discount_value)} ₴`, kind: "discount" };
+  }
+  if (offer.discount_type === "special_price" && offer.discount_value != null) {
+    return { text: `Ціна ${Number(offer.discount_value)} ₴`, kind: "discount" };
   }
   return { text: "Знижка", kind: "discount" };
 }
