@@ -45,6 +45,44 @@ GEO_INTENTS = ("знижка", "акція", "безкоштовно", "спец
 GEO_AUDIENCES = ("військові", "ветерани", "УБД", "учасники бойових дій",
                  "ветеран війни", "мобілізовані")
 
+# Service-block axes (B3b + A): a concrete service crossed with a discount modifier
+# and a core audience. The modifier is folded into the EXISTING per-service budget —
+# 2 modifiers × 3 audiences = 6 phrases/service, the same count as the old 6-audience
+# 2-token block — so the grid does NOT grow, but each phrase now biases DDG toward
+# pages that actually carry a discount (precision at the search stage, upstream of
+# the extractor). The long-tail audiences stay covered by the base 351 grid.
+SERVICE_MODIFIERS = ("знижка", "безкоштовно")
+SERVICE_AUDIENCES = ("військовим", "ветеранам", "УБД")
+
+# Curated cold-start service seed: concrete commercial services where a veteran
+# discount is TYPICAL, so they're worth searching before the miner has offers to
+# learn from. Excludes brands (→ BRANDS/brand_feed axis) and gov/NGO-program terms
+# (credit/mortgage/utilities — the same noise the extractor gates fight). Uncertain
+# categories (e.g. legal) are intentionally left to the miner to discover from real
+# approved offers. Injected as always-in seed, never crowded out by the miner cap.
+SEED_SERVICES = (
+    # медицина / реабілітація
+    "протезування зубів", "імплантація", "окуляри", "контактні лінзи",
+    "МРТ", "УЗД", "фізіотерапія", "масаж спини",
+    # відпочинок / оздоровлення
+    "санаторій", "путівка", "СПА", "дитячий табір",
+    # авто / СТО
+    "СТО", "шиномонтаж", "заміна масла", "автомийка",
+    "автоцивілка", "ОСЦПВ", "КАСКО", "пальне",
+    # харчування (свідомо мало — категорія шумна)
+    "кафе", "ресторан",
+    # освіта
+    "автошкола", "курси англійської", "підготовка до НМТ",
+    # будівництво / техніка
+    "металопластикові вікна", "меблі", "генератори", "побутова техніка",
+    # побут / краса
+    "барбершоп", "салон краси", "манікюр", "хімчистка", "ремонт взуття",
+    # культура / спорт
+    "музей", "театр", "кінотеатр", "спортзал", "басейн",
+    # цифрові (бренди виключено)
+    "домашній інтернет",
+)
+
 # Brand names (retail / fuel / pharmacy / tech / clothing / banks / post / telecom).
 BRANDS = (
     "Rozetka", "Comfy", "Фокстрот", "Епіцентр", "Нова Лінія", "JYSK", "EVA", "Prostor",
@@ -81,9 +119,10 @@ def build_grid(cities: list[str] | None = None,
         for aud in GEO_AUDIENCES:
             for city in city_list:
                 _add(f"{head} {aud} {city}".strip())
-    for svc in svc_list:                     # service block (B3b): service → audience
-        for aud in GEO_AUDIENCES:
-            _add(f"{svc} {aud}".strip())
+    for svc in svc_list:                     # service block (B3b+A): svc → modifier → audience
+        for mod in SERVICE_MODIFIERS:
+            for aud in SERVICE_AUDIENCES:
+                _add(f"{svc} {mod} {aud}".strip())
     return out
 
 

@@ -505,3 +505,33 @@ def test_run_active_no_ingestor_is_fine():
     runner = Runner(api, {"website": FakeFetcher([])}, get_extractor("heuristic"), _rl(),
                     harvester=_RecordingHarvester(), domain_feed=_StubFeed([]))
     runner.run()                                # no reject_ingestor → no crash
+
+
+def test_learn_and_reload_grid_mines_then_swaps_live_grid(monkeypatch):
+    from types import SimpleNamespace
+    calls = {}
+    monkeypatch.setattr("crawler.learn.bootstrap_query_lexicon.bootstrap",
+                        lambda cfg, api, rec: calls.setdefault("boot", (cfg, api, rec)))
+    monkeypatch.setattr("crawler.wiring.build_query_grid", lambda cfg: "FRESH_GRID")
+
+    class _SP:
+        def __init__(self): self.grid = None
+        def set_grid(self, g): self.grid = g
+
+    sp, api, corpus = _SP(), FakeApi([]), object()
+    runner = Runner(api, {}, get_extractor("heuristic"), _rl(),
+                    search_pass=sp, corpus_recorder=corpus)
+    cfg = SimpleNamespace(corpus_path="x", corpus_max_mb=1)
+    runner.learn_and_reload_grid(cfg)
+    assert calls["boot"] == (cfg, api, corpus)   # mined with runner's own api + corpus
+    assert sp.grid == "FRESH_GRID"               # freshly rebuilt grid swapped in live
+
+
+def test_learn_and_reload_grid_noop_without_search_pass(monkeypatch):
+    from types import SimpleNamespace
+    boot = []
+    monkeypatch.setattr("crawler.learn.bootstrap_query_lexicon.bootstrap",
+                        lambda *a, **k: boot.append(1))
+    runner = Runner(FakeApi([]), {}, get_extractor("heuristic"), _rl(), search_pass=None)
+    runner.learn_and_reload_grid(SimpleNamespace(corpus_path="x", corpus_max_mb=1))
+    assert boot == []   # no active search pass → nothing to learn or reload

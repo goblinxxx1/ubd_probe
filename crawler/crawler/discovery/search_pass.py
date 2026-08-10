@@ -19,6 +19,12 @@ class SearchPass:
         self._pins = list(static_keywords or [])
         self._ttl = ttl_seconds
 
+    def set_grid(self, grid) -> None:
+        """Swap in a freshly rebuilt grid (after in-loop learning). The rotation
+        cursor lives in persistent state (`grid_cursor`), not here, so a swap never
+        loses position — next_batch wraps modulo the new length."""
+        self._grid = grid
+
     def run(self, known) -> list[SourceCandidate]:
         out: list[SourceCandidate] = []
         size = len(self._grid)

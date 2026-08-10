@@ -86,6 +86,43 @@ def test_run_loop_bounded_iterations():
     assert r.calls == ["passive", "active"] and slept == [100, 60]
 
 
+def test_run_loop_learn_fires_on_first_iteration():
+    r, learned = _Runner(), []
+    run_loop(r, lambda: _State(False), _Passive(), sleep=lambda _s: None,
+             iterations=1, learn=lambda: learned.append(1),
+             learn_interval_seconds=1000, now=lambda: 0.0, **_kw())
+    assert learned == [1]
+
+
+def test_run_loop_learn_gated_by_interval():
+    r, learned = _Runner(), []
+    times = iter([0.0, 10.0, 1000.0])   # one now() per iteration
+    run_loop(r, lambda: _State(False), _Passive(), sleep=lambda _s: None,
+             iterations=3, learn=lambda: learned.append(1),
+             learn_interval_seconds=1000, now=lambda: next(times), **_kw())
+    # t=0 fires (first); t=10 gated (10<1000 since last); t=1000 fires again
+    assert len(learned) == 2
+
+
+def test_run_loop_learn_never_kills_loop():
+    r = _Runner()
+
+    def boom():
+        raise RuntimeError("learn blew up")
+
+    run_loop(r, lambda: _State(False), _Passive(), sleep=lambda _s: None,
+             iterations=1, learn=boom, learn_interval_seconds=1, now=lambda: 0.0, **_kw())
+    assert r.calls == ["active"]   # the crawl pass still ran despite learn failure
+
+
+def test_run_loop_no_learn_when_interval_zero():
+    r, learned = _Runner(), []
+    run_loop(r, lambda: _State(False), _Passive(), sleep=lambda _s: None,
+             iterations=2, learn=lambda: learned.append(1),
+             learn_interval_seconds=0, now=lambda: 0.0, **_kw())
+    assert learned == []           # interval 0 disables the tick
+
+
 def test_run_loop_survives_pass_error():
     class Boom:
         def run_active(self):

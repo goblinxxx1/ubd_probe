@@ -42,6 +42,41 @@ def test_website_no_duplicate_or_overlapping_blocks():
     assert any("t.me/coffeechan" in link for link in discount_item.links)
 
 
+def test_article_splits_into_paragraph_items():
+    # A news <article> wrapping several <p> must emit ONE item PER paragraph,
+    # not one merged giant block. This restores the "all trigger words in one
+    # paragraph" rule: a donation-widget number ("250 грн") in one paragraph
+    # must stay isolated from a discount-context word in another, so the
+    # extractor can't fabricate a fixed-price offer from cross-paragraph noise.
+    html = ('<html><body><article>'
+            '<p>Знижка 15% для ветеранів на каву сьогодні у нас.</p>'
+            '<p>Підтримайте редакцію: Разово Щомісяця 250 грн 500 грн Підтримати.</p>'
+            '</article></body></html>')
+    f = _fetcher_returning(html)
+    items, _ = f.fetch({"id": 1, "url_or_handle": "http://news.x/a"}, None)
+    assert len(items) == 2
+    promo = next(i for i in items if "Знижка 15%" in i.text)
+    widget = next(i for i in items if "250 грн" in i.text)
+    # the paragraphs are separate items — the number never shares text with the promo
+    assert "250 грн" not in promo.text
+    assert "Знижка 15%" not in widget.text
+
+
+def test_article_paragraph_items_keep_ancestor_level_links():
+    # A link that sits between paragraphs (direct child of <article>, sibling of
+    # the <p>) must still ride along on the paragraph item, so per-paragraph
+    # segmentation does not drop offer links.
+    html = ('<html><body><article>'
+            '<p>Знижка 15% для ветеранів на каву сьогодні у нас.</p>'
+            '<a href="https://t.me/coffeechan">канал</a>'
+            '</article></body></html>')
+    f = _fetcher_returning(html)
+    items, _ = f.fetch({"id": 1, "url_or_handle": "http://x"}, None)
+    assert items
+    promo = next(i for i in items if "Знижка 15%" in i.text)
+    assert any("t.me/coffeechan" in link for link in promo.links)
+
+
 def test_website_captures_site_name():
     html = ('<html><head><meta property="og:site_name" content="My Cafe">'
             '<title>t</title></head><body>'
@@ -220,6 +255,64 @@ def test_report_type_sets_is_article():
     f = _fetcher_returning(html)
     items, _ = f.fetch({"id": 1, "url_or_handle": "https://ngo.example/r"}, None)
     assert items and items[0].is_article is True
+
+
+def test_og_type_article_sets_is_article():
+    # News/blog CMSes routinely set og:type=article without any schema.org JSON-LD.
+    # That must count as a media signal even though _has_article_schema is False.
+    html = ('<html><head><meta property="og:type" content="article"></head>'
+            '<body><p>Знижка 20% для ветеранів у місті детально розписана тут.</p>'
+            '</body></html>')
+    f = _fetcher_returning(html)
+    items, _ = f.fetch({"id": 1, "url_or_handle": "https://news.example/a"}, None)
+    assert items and items[0].is_article is True
+    assert items[0].has_business_schema is False
+
+
+def test_og_type_website_is_not_article():
+    # Plain business pages set og:type=website — must NOT be flagged media.
+    html = ('<html><head><meta property="og:type" content="website"></head>'
+            '<body><p>Знижка 20% для ветеранів у нашому магазині завжди діє тут.</p>'
+            '</body></html>')
+    f = _fetcher_returning(html)
+    items, _ = f.fetch({"id": 1, "url_or_handle": "https://shop.example"}, None)
+    assert items and items[0].is_article is False
+
+
+def test_dated_permalink_sets_is_article():
+    # A /YYYY/MM/DD/ (or /YYYY/MM/) permalink is a news/blog convention; business
+    # discount pages practically never carry dated permalinks.
+    html = '<html><body><p>Безкоштовна автоцивілка для ветеранів уже цього року.</p></body></html>'
+    f = _fetcher_returning(html)
+    url = "https://kalush.informator.ua/2025/10/27/bezkoshtovna-avtoczyvilka-dlya-veteraniv"
+    items, _ = f.fetch({"id": 1, "url_or_handle": url}, None)
+    assert items and items[0].is_article is True
+
+
+def test_dated_permalink_month_only_sets_is_article():
+    html = '<html><body><p>Знижки для ветеранів у Вінниці цього місяця активно діють.</p></body></html>'
+    f = _fetcher_returning(html)
+    items, _ = f.fetch({"id": 1, "url_or_handle": "https://presspoint.in.ua/2020/04/slug-here"}, None)
+    assert items and items[0].is_article is True
+
+
+def test_business_url_with_numbers_is_not_dated_permalink():
+    # A catalog/product path with numbers must not be mistaken for a dated permalink.
+    html = '<html><body><p>Знижка 15% для ветеранів на це взуття у нашому магазині завжди.</p></body></html>'
+    f = _fetcher_returning(html)
+    items, _ = f.fetch({"id": 1, "url_or_handle": "https://shop.example/catalog/12345/item-99"}, None)
+    assert items and items[0].is_article is False
+
+
+def test_url_dated_permalink_helper():
+    from crawler.fetchers.website import _url_dated_permalink
+    assert _url_dated_permalink("https://x.ua/2026/08/08/383579_news")
+    assert _url_dated_permalink("https://x.ua/uk/2026/08/08/slug")
+    assert _url_dated_permalink("https://x.ua/2020/04/slug")
+    assert not _url_dated_permalink("https://x.ua/catalog/12345")
+    assert not _url_dated_permalink("https://x.ua/2020")          # year alone — not a permalink
+    assert not _url_dated_permalink("https://x.ua/1234/56/78")    # not a plausible year
+    assert not _url_dated_permalink("")
 
 
 def test_site_tagline_prefers_header_then_footer_then_meta():

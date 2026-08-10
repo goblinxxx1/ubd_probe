@@ -415,37 +415,43 @@ def test_build_runner_aggregator_only_still_builds_harvester(tmp_path):
 
 
 def test_build_runner_grid_has_cities(tmp_path):
+    # isolate the city axis: query_lexicon off so the always-on service seed
+    # doesn't add to the base+geo count.
     cfg = _base_cfg(tmp_path, active_discovery=True, search_providers=["duckduckgo"],
-                    grid_cities_enabled=True)
+                    grid_cities_enabled=True, query_lexicon_enabled=False)
     runner = build_runner(cfg)
     assert len(runner._search_pass._grid) == 1701
 
 
 def test_build_runner_grid_cities_disabled(tmp_path):
     cfg = _base_cfg(tmp_path, active_discovery=True, search_providers=["duckduckgo"],
-                    grid_cities_enabled=False)
+                    grid_cities_enabled=False, query_lexicon_enabled=False)
     runner = build_runner(cfg)
     assert len(runner._search_pass._grid) == 351
 
 
-def test_build_runner_grid_includes_learned_services(tmp_path, monkeypatch):
+def test_build_runner_grid_includes_seed_and_learned_services(tmp_path, monkeypatch):
+    # With the feature enabled: curated SEED_SERVICES are always in the grid,
+    # and miner-learned terms add on top of them — both × 6 service phrases.
     import crawler.discovery.query_lexicon as ql
+    from crawler.discovery.query_grid import SEED_SERVICES
     monkeypatch.setattr(ql, "reload_learned", lambda *_a, **_k: None)
-    monkeypatch.setattr(ql, "learned_services", lambda: ("стоматологія", "автосервіс"))
+    monkeypatch.setattr(ql, "_cats", ())
+    monkeypatch.setattr(ql, "_mined", ("стоматологія", "автосервіс"))
     cfg = _base_cfg(tmp_path, active_discovery=True, search_providers=["duckduckgo"],
                     grid_cities_enabled=True, query_lexicon_enabled=True)
     runner = build_runner(cfg)
-    assert len(runner._search_pass._grid) == 1701 + 2 * 6   # two services × 6 audiences
+    assert len(runner._search_pass._grid) == 1701 + (len(SEED_SERVICES) + 2) * 6
 
 
 def test_build_runner_query_lexicon_disabled_is_1701(tmp_path, monkeypatch):
     import crawler.discovery.query_lexicon as ql
     monkeypatch.setattr(ql, "reload_learned", lambda *_a, **_k: None)
-    monkeypatch.setattr(ql, "learned_services", lambda: ("стоматологія",))
+    monkeypatch.setattr(ql, "_mined", ("стоматологія",))
     cfg = _base_cfg(tmp_path, active_discovery=True, search_providers=["duckduckgo"],
                     grid_cities_enabled=True, query_lexicon_enabled=False)
     runner = build_runner(cfg)
-    assert len(runner._search_pass._grid) == 1701           # services suppressed by flag
+    assert len(runner._search_pass._grid) == 1701           # seed + learned suppressed by flag
 
 
 def test_reject_ingestor_built_and_reuses_registry(tmp_path):

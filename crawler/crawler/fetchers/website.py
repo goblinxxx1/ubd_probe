@@ -164,6 +164,24 @@ def _has_article_schema(tree) -> bool:
     return False
 
 
+def _has_article_og(tree) -> bool:
+    """OpenGraph og:type=article — set by most news/blog CMSes even with no
+    schema.org JSON-LD. Schema-independent media signal."""
+    node = tree.css_first('meta[property="og:type"]')
+    return bool(node) and "article" in (node.attributes.get("content") or "").lower()
+
+
+# Dated permalink: /YYYY/MM[/DD]/… — a news/blog URL convention. Business discount
+# pages practically never carry dated permalinks, so this is a low-false-positive
+# media signal. YYYY constrained to 19xx/20xx so catalog ids (/1234/56) don't match.
+_DATED_PERMALINK = re.compile(r"/(?:19|20)\d\d/(?:0?[1-9]|1[0-2])(?:/\d{1,2})?(?:[/?#]|$)")
+
+
+def _url_dated_permalink(url: str) -> bool:
+    from urllib.parse import urlsplit
+    return bool(_DATED_PERMALINK.search(urlsplit(url or "").path))
+
+
 def _has_business_schema(tree) -> bool:
     for node in tree.css('script[type="application/ld+json"]'):
         if _BUSINESS_TYPE.search(node.text() or ""):
@@ -189,13 +207,14 @@ class WebsiteFetcher:
             site_tagline = _extract_site_tagline(tree)
             locality = _extract_locality(tree)
             has_offer = _has_offer_schema(tree)
-            is_article = _has_article_schema(tree)
+            is_article = (_has_article_schema(tree) or _has_article_og(tree)
+                          or _url_dated_permalink(url))
             has_business = _has_business_schema(tree)
             items: list[RawItem] = []
             seen_keys: set[str] = set()
             for node in tree.css("article, li, p"):
-                if self._has_block_ancestor(node):
-                    continue  # keep only the outermost matched block
+                if self._has_block_descendant(node):
+                    continue  # keep the innermost (leaf) block = one paragraph
                 text = node.text(separator=" ", strip=True)
                 if len(text) < _MIN_LEN:
                     continue
@@ -203,7 +222,11 @@ class WebsiteFetcher:
                 if key in seen_keys:
                     continue
                 seen_keys.add(key)
-                links = [a.attributes.get("href") for a in node.css("a")
+                # Links can sit between paragraphs (siblings of <p>, children of the
+                # wrapping <article>): scope link capture to the outermost block
+                # ancestor so per-paragraph items don't drop the offer's link.
+                link_scope = self._outermost_block(node)
+                links = [a.attributes.get("href") for a in link_scope.css("a")
                          if a.attributes.get("href")]
                 items.append(RawItem(source_id=source["id"], platform="website",
                                      key=key, text=text, url=url, links=links,
@@ -219,10 +242,24 @@ class WebsiteFetcher:
             return [], last_seen_key
 
     @staticmethod
-    def _has_block_ancestor(node) -> bool:
+    def _has_block_descendant(node) -> bool:
+        # Walk descendants (css_first would match `node` itself). A block that
+        # contains another block is a wrapper, not a leaf paragraph — skip it.
+        child = node.child
+        while child is not None:
+            if child.tag in _BLOCK_TAGS or WebsiteFetcher._has_block_descendant(child):
+                return True
+            child = child.next
+        return False
+
+    @staticmethod
+    def _outermost_block(node):
+        """Highest matched-block ancestor of `node` (or `node` itself). Used to
+        scope link capture up to the wrapping <article>/<li>."""
+        top = node
         parent = node.parent
         while parent is not None:
             if parent.tag in _BLOCK_TAGS:
-                return True
+                top = parent
             parent = parent.parent
-        return False
+        return top

@@ -79,7 +79,7 @@ class _RawSettings(BaseSettings):
     query_lexicon_learned_path: str = "/data/query_lexicon_learned.json"
     query_candidates_path: str = "/data/query_candidates.json"
     query_stoplist_path: str = "/data/query_stoplist.json"
-    query_lexicon_max_terms: int = 40
+    query_lexicon_max_terms: int = 0   # miner grid-feed cap; 0 = unlimited (bounded by audit quality). Seed/categories never capped.
     query_lexicon_resurface_factor: float = 2.0
     query_miner_min_domain_support: int = 3
     query_miner_min_logodds: float = 1.5
@@ -107,6 +107,7 @@ class _RawSettings(BaseSettings):
     active_loop_delay_seconds: float = 60.0
     backoff_max_sleep_seconds: float = 1800.0
     passive_hard_overdue_factor: float = 3.0
+    learn_interval_seconds: int = 86400   # 24h; in-loop self-learning tick (0 = off)
 
 
 @dataclass
@@ -181,7 +182,7 @@ class Config:
     query_lexicon_learned_path: str = "/data/query_lexicon_learned.json"
     query_candidates_path: str = "/data/query_candidates.json"
     query_stoplist_path: str = "/data/query_stoplist.json"
-    query_lexicon_max_terms: int = 40
+    query_lexicon_max_terms: int = 0   # miner grid-feed cap; 0 = unlimited (bounded by audit quality). Seed/categories never capped.
     query_lexicon_resurface_factor: float = 2.0
     query_miner_min_domain_support: int = 3
     query_miner_min_logodds: float = 1.5
@@ -209,6 +210,7 @@ class Config:
     active_loop_delay_seconds: float = 60.0
     backoff_max_sleep_seconds: float = 1800.0
     passive_hard_overdue_factor: float = 3.0
+    learn_interval_seconds: int = 86400   # 24h; in-loop self-learning tick (0 = off)
 
 
 def _parse_accounts(platform: str, raw: str) -> list[BotCredential]:
@@ -334,4 +336,5 @@ def load_config() -> Config:
         active_loop_delay_seconds=s.active_loop_delay_seconds,
         backoff_max_sleep_seconds=s.backoff_max_sleep_seconds,
         passive_hard_overdue_factor=s.passive_hard_overdue_factor,
+        learn_interval_seconds=s.learn_interval_seconds,
     )
