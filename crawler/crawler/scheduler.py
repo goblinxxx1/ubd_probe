@@ -9,12 +9,14 @@ MIN_ACTIVE_DELAY = 5.0   # floor so an instantly-returning active pass can't bus
 def step(runner, state, passive_schedule, *, active_delay, backoff_max_sleep, hard_factor):
     """One scheduling decision: run exactly one pass, return the sleep (seconds).
 
-    - Global backoff active: DDG is unusable, so run the DDG-independent passive pass
-      (only if its cadence is due) and sleep until the backoff lifts (capped).
+    - Global backoff active: DDG is unusable, so run the DDG-INDEPENDENT part of the active
+      pass (drain + feeds + harvest; no DDG search/site:) plus the passive pass (when its
+      cadence is due), then sleep until the backoff lifts (capped).
     - Otherwise: run the DDG active pass (new-offer discovery). Passive runs in
       DDG-available time ONLY as a freshness safety net when it is hard-overdue.
     """
     if state is not None and state.in_global_backoff():
+        runner.run_active(ddg_allowed=False)      # DDG-independent discovery survives backoff
         if passive_schedule is None or passive_schedule.due():
             runner.run_passive()
             if passive_schedule is not None:
@@ -24,7 +26,7 @@ def step(runner, state, passive_schedule, *, active_delay, backoff_max_sleep, ha
         runner.run_passive()
         passive_schedule.mark()
         return max(active_delay, MIN_ACTIVE_DELAY)
-    runner.run_active()
+    runner.run_active(ddg_allowed=True)
     return max(active_delay, MIN_ACTIVE_DELAY)
 
 

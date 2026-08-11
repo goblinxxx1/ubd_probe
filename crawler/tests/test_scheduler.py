@@ -4,9 +4,11 @@ from crawler.scheduler import step, run_loop, MIN_ACTIVE_DELAY
 class _Runner:
     def __init__(self):
         self.calls = []
+        self.ddg_flags = []
 
-    def run_active(self):
+    def run_active(self, ddg_allowed=True):
         self.calls.append("active")
+        self.ddg_flags.append(ddg_allowed)
 
     def run_passive(self):
         self.calls.append("passive")
@@ -46,7 +48,7 @@ def _kw(**over):
 def test_not_backed_off_runs_active():
     r = _Runner()
     assert step(r, _State(False), _Passive(), **_kw()) == 60
-    assert r.calls == ["active"]
+    assert r.calls == ["active"] and r.ddg_flags == [True]
 
 
 def test_active_delay_floor():
@@ -54,16 +56,17 @@ def test_active_delay_floor():
     assert step(r, _State(False), _Passive(), **_kw(active_delay=0)) == MIN_ACTIVE_DELAY
 
 
-def test_backed_off_passive_due_runs_passive_sleeps_to_T():
+def test_backed_off_passive_due_runs_active_then_passive():
     r, p = _Runner(), _Passive(due=True)
     assert step(r, _State(True, secs=500), p, **_kw()) == 500
-    assert r.calls == ["passive"] and p.marked == 1
+    assert r.calls == ["active", "passive"] and p.marked == 1
+    assert r.ddg_flags == [False]              # active pass ran DDG-independent
 
 
-def test_backed_off_passive_not_due_sleeps_capped_no_pass():
+def test_backed_off_passive_not_due_runs_ddg_independent_active():
     r = _Runner()
     assert step(r, _State(True, secs=9999), _Passive(due=False), **_kw()) == 1800
-    assert r.calls == []
+    assert r.calls == ["active"] and r.ddg_flags == [False]
 
 
 def test_hard_overdue_runs_passive_in_active_window():
@@ -83,7 +86,7 @@ def test_run_loop_bounded_iterations():
     states = iter([_State(True, 100), _State(False)])
     run_loop(r, lambda: next(states), _Passive(due=True),
              sleep=slept.append, iterations=2, **_kw())
-    assert r.calls == ["passive", "active"] and slept == [100, 60]
+    assert r.calls == ["active", "passive", "active"] and slept == [100, 60]
 
 
 def test_run_loop_learn_fires_on_first_iteration():
@@ -125,7 +128,7 @@ def test_run_loop_no_learn_when_interval_zero():
 
 def test_run_loop_survives_pass_error():
     class Boom:
-        def run_active(self):
+        def run_active(self, ddg_allowed=True):
             raise RuntimeError("boom")
 
         def run_passive(self):
