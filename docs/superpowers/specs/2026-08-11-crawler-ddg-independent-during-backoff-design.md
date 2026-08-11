@@ -38,19 +38,21 @@ runner to search-state, hides the decision, harder to test; (C) a separate
 
 ### Components and boundaries
 
-1. **`SearchPass`** — split `run()` into two network-disjoint halves:
+1. **`SearchPass`** — extract the drain into a reusable method; keep `run()` otherwise as-is:
    - `drain() -> list[SourceCandidate]` — current step 1 (`unharvested(ttl)`), gated on
      `ttl > 0`; **zero network**; does NOT touch `grid_cursor`.
-   - `search(known) -> list[SourceCandidate]` — current step 2 (due-walk `_collect_due` +
-     provider search); advances `grid_cursor` only on `plan.succeeded()`.
-   - `run(known) = drain() + search(known)` — unchanged public contract (tests / one-shot /
-     back-compat). The empty-guard (`size == 0 or not plans`) stays in `run()`/`search()`.
+   - `run(known)` — **unchanged** behaviour and signature; its step-1 block now simply calls
+     `drain()` (the due-walk search stays inline in `run()`). A standalone `search()` is
+     deliberately NOT added — it would be dead code (nothing calls the search leg alone), and
+     keeping the search inside `run()` makes the non-backoff path byte-identical: `run_active`
+     appends one combined feed entry, same `zip_longest` interleave as today.
 
 2. **`Runner.run_active(ddg_allowed: bool = True)`**:
-   - **always:** `drain()` + `domain_feed` + `brand_feed` + `osm_feed` + `aggregator_feed`
-     + `harvest(...) -> stop_index` + `_mark_consumed_search_phrases`.
-   - **only when `ddg_allowed`:** `search(known)` (added to the feed list) and the `site:`
-     query arm.
+   - **always:** the four feeds (`domain`/`brand`/`osm`/`aggregator`) + `harvest(...) ->
+     stop_index` + `_mark_consumed_search_phrases`, and the search-pass contribution.
+   - **search-pass contribution:** `run(known)` (full drain+due-walk search) when
+     `ddg_allowed`, else `drain()` only.
+   - **only when `ddg_allowed`:** the `site:` query arm.
    - Default `True` = current behaviour (back-compat for `run()` / tests / one-shot).
 
 3. **`scheduler.step`** — the global-backoff branch calls `run_active(ddg_allowed=False)`
@@ -75,9 +77,9 @@ already-loaded state.
 
 ## Testing (TDD)
 
-- `SearchPass.drain()` returns unharvested candidates and makes **no** provider call;
-  `search(known)` does the due-walk provider call and advances the cursor on success;
-  `run(known)` equals `drain() + search(known)` (contract preserved).
+- `SearchPass.drain()` returns unharvested candidates and makes **no** provider call
+  (`ttl<=0` => empty); `run(known)` keeps its existing due-walk/cursor behaviour (covered by
+  existing tests) and still drains-then-searches.
 - `Runner.run_active(ddg_allowed=False)`: `search` and the `site:` arm are **not** invoked;
   `drain` + all four feeds + `harvest` + `mark_consumed` **are**.
 - `Runner.run_active()` default (`ddg_allowed=True`): unchanged full behaviour.
