@@ -226,4 +226,5 @@ def build_runner(config) -> Runner:
                   passive_schedule=PassiveSchedule(config.passive_state_path,
                                                    config.passive_interval_seconds),
                   revisit_cooldown_seconds=revisit_cooldown,
-                  reject_ingestor=reject_ingestor)
+                  reject_ingestor=reject_ingestor,
+                  first_crawl_budget=config.first_crawl_budget)

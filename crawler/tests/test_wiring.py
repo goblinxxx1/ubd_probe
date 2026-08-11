@@ -476,3 +476,12 @@ def test_reject_ingestor_absent_when_rating_disabled(tmp_path):
     cfg = _harvest_config(tmp_path, brand_feed_enabled=False, sitemap_depth_enabled=False,
                           domain_rating_enabled=False, rejection_feedback_enabled=True)
     assert build_runner(cfg)._reject_ingestor is None
+
+
+def test_wiring_sets_first_crawl_budget(monkeypatch):
+    from crawler.config import load_config
+    from crawler.wiring import build_runner
+    cfg = load_config()
+    runner = build_runner(cfg)
+    assert runner._first_crawl_budget == cfg.first_crawl_budget
+    assert cfg.first_crawl_budget == 10          # live default

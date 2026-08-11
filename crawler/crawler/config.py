@@ -30,6 +30,7 @@ class _RawSettings(BaseSettings):
     search_global_backoff_hours: float = 6.0
     search_budget: int = 0  # 0 = process all keywords
     active_fetch_budget: int = 80
+    first_crawl_budget: int = 10
     search_block_size: int = 15
     grid_cities_enabled: bool = True
     site_query_enabled: bool = True
@@ -133,6 +134,7 @@ class Config:
     search_global_backoff_hours: float = 6.0
     search_budget: int | None = None
     active_fetch_budget: int = 80
+    first_crawl_budget: int = 10
     search_block_size: int = 15
     grid_cities_enabled: bool = True
     site_query_enabled: bool = True
@@ -259,6 +261,7 @@ def load_config() -> Config:
         search_global_backoff_hours=s.search_global_backoff_hours,
         search_budget=(s.search_budget or None),
         active_fetch_budget=s.active_fetch_budget,
+        first_crawl_budget=s.first_crawl_budget,
         search_block_size=s.search_block_size,
         grid_cities_enabled=s.grid_cities_enabled,
         site_query_enabled=s.site_query_enabled,
