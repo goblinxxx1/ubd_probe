@@ -12,7 +12,24 @@ from crawler.models import RawItem
 
 log = logging.getLogger(__name__)
 _MIN_LEN = 30
-_BLOCK_TAGS = {"article", "li", "p"}
+# Segment boundaries: every block-level *content* container. Offer text can live in
+# ANY of these, not only <p>/<li>/<article> — a discount in a bare <div>, <section>
+# or <td> was invisible before. Inline tags (<a>,<span>,<b>,<em>…) are NOT boundaries:
+# their text bubbles up into the enclosing leaf via node.text(), so they never split a
+# block. Pure wrappers (<ul>,<ol>,<table>,<tr>) are omitted — they always contain a
+# block child, so the leaf filter would drop them anyway.
+_BLOCK_TAGS = {
+    "article", "section", "div", "li", "p", "td", "th", "dd", "dt",
+    "blockquote", "figure", "figcaption", "main", "aside", "summary", "caption",
+    "h1", "h2", "h3", "h4", "h5", "h6",
+}
+_BLOCK_SELECTOR = ", ".join(sorted(_BLOCK_TAGS))
+# Site chrome — never carries offer content; skip any candidate nested under these.
+_CHROME_TAGS = {"nav", "header", "footer", "form"}
+# Link-scope grouping: climb only through item-grouping containers (article/li), NOT
+# generic divs, so a per-paragraph item still picks up a sibling link without vacuuming
+# up every link on a page-wide wrapper <div>.
+_LINK_SCOPE_TAGS = {"article", "li"}
 
 
 def _origin(url: str) -> str:
@@ -212,9 +229,11 @@ class WebsiteFetcher:
             has_business = _has_business_schema(tree)
             items: list[RawItem] = []
             seen_keys: set[str] = set()
-            for node in tree.css("article, li, p"):
+            for node in tree.css(_BLOCK_SELECTOR):
                 if self._has_block_descendant(node):
                     continue  # keep the innermost (leaf) block = one paragraph
+                if self._under_chrome(node):
+                    continue  # nav/header/footer/form is site chrome, never an offer
                 text = node.text(separator=" ", strip=True)
                 if len(text) < _MIN_LEN:
                     continue
@@ -253,13 +272,24 @@ class WebsiteFetcher:
         return False
 
     @staticmethod
+    def _under_chrome(node) -> bool:
+        """True if `node` is nested inside site chrome (nav/header/footer/form)."""
+        parent = node.parent
+        while parent is not None:
+            if parent.tag in _CHROME_TAGS:
+                return True
+            parent = parent.parent
+        return False
+
+    @staticmethod
     def _outermost_block(node):
-        """Highest matched-block ancestor of `node` (or `node` itself). Used to
-        scope link capture up to the wrapping <article>/<li>."""
+        """Highest item-grouping ancestor of `node` (or `node` itself). Used to scope
+        link capture up to the wrapping <article>/<li> only — NOT to generic layout
+        <div>s, which would over-widen link capture to the whole page."""
         top = node
         parent = node.parent
         while parent is not None:
-            if parent.tag in _BLOCK_TAGS:
+            if parent.tag in _LINK_SCOPE_TAGS:
                 top = parent
             parent = parent.parent
         return top

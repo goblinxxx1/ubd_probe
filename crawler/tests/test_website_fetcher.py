@@ -206,6 +206,73 @@ def _fetcher_returning(html):
     return WebsiteFetcher(httpx.Client(transport=httpx.MockTransport(handle)))
 
 
+# --- generic block segmentation: content can live in ANY structural container,
+#     not only <p>/<li>/<article> ---
+
+def test_bare_div_leaf_is_segmented():
+    # The common real-world case (terraincognita military discount): the offer text
+    # sits in a plain <div> with no <p>/<li>/<article> wrapper. It must be captured.
+    html = ('<html><body><div>Для військових діє постійна знижка 10% '
+            'за промокодом TERRA450 у нашому магазині.</div></body></html>')
+    f = _fetcher_returning(html)
+    items, _ = f.fetch({"id": 1, "url_or_handle": "https://shop.ua/oplata"}, None)
+    assert any("знижка 10%" in i.text for i in items)
+
+
+def test_section_and_td_leaves_are_segmented():
+    # <section> and <td> are structural containers too — text directly inside them
+    # (no inner block) was invisible to the article/li/p-only selector.
+    html = ('<html><body>'
+            '<section>Ветеранам знижка 15% на все спорядження цього місяця.</section>'
+            '<table><tr><td>Військовим знижка 20% за промокодом ARMY у нас.</td></tr></table>'
+            '</body></html>')
+    f = _fetcher_returning(html)
+    items, _ = f.fetch({"id": 1, "url_or_handle": "https://shop.ua/x"}, None)
+    texts = " || ".join(i.text for i in items)
+    assert "знижка 15%" in texts
+    assert "знижка 20%" in texts
+
+
+def test_inline_tags_do_not_split_a_block():
+    # <b>/<a>/<span> inside a block must NOT become separate items — their text stays
+    # merged into the single enclosing block leaf (they are inline, never boundaries).
+    html = ('<html><body><div>Знижка <b>10%</b> для '
+            '<a href="/vet">військових</a> та <span>ветеранів</span> завжди.'
+            '</div></body></html>')
+    f = _fetcher_returning(html)
+    items, _ = f.fetch({"id": 1, "url_or_handle": "https://shop.ua/x"}, None)
+    merged = [i for i in items if "Знижка" in i.text]
+    assert len(merged) == 1
+    assert all(w in merged[0].text for w in ("10%", "військових", "ветеранів"))
+
+
+def test_chrome_blocks_are_not_segmented():
+    # Discount-looking text in nav/header/footer is site chrome, not an offer — drop it.
+    html = ('<html><body>'
+            '<nav><div>Знижки 10% для військових — меню магазину тут завжди.</div></nav>'
+            '<footer><div>Знижка 5% ветеранам у футері нашого сайту сьогодні.</div></footer>'
+            '<div>Знижка 25% для військових у головному блоці сторінки завжди.</div>'
+            '</body></html>')
+    f = _fetcher_returning(html)
+    items, _ = f.fetch({"id": 1, "url_or_handle": "https://shop.ua/x"}, None)
+    texts = " || ".join(i.text for i in items)
+    assert "25%" in texts            # main content kept
+    assert "меню" not in texts       # nav dropped
+    assert "футері" not in texts     # footer dropped
+
+
+def test_wrapper_div_not_duplicated_over_inner_paragraph():
+    # A <div> that only wraps a <p> must emit the inner leaf <p> exactly once, never
+    # both the wrapper and the paragraph (no duplicate/overlapping blocks).
+    html = ('<html><body><div class="wrap">'
+            '<p>Знижка 15% для ветеранів на каву у нас сьогодні завжди.</p>'
+            '</div></body></html>')
+    f = _fetcher_returning(html)
+    items, _ = f.fetch({"id": 1, "url_or_handle": "https://shop.ua/x"}, None)
+    assert len(items) == 1
+    assert "Знижка 15%" in items[0].text
+
+
 def test_news_article_schema_sets_is_article(monkeypatch):
     html = ('<html><head>'
             '<script type="application/ld+json">'
