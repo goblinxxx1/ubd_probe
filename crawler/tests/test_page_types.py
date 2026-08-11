@@ -42,6 +42,15 @@ def test_promo_slugs_still_target():
     assert pl.page_is_target("https://s.ua/rozprodazh") is True
 
 
+def test_special_no_longer_matches_specialists_pages():
+    # 'special'(спецпропозиція) matched inside 'type_specialists' -> every doctor page fetched
+    assert pl.page_is_target("https://edclinic.com.ua/type_specialists/stomatolog-implantolog") is False
+    assert pl.url_is_promo("https://s.ua/specialists/list") is False
+    # real special-offer slugs still match via other tokens
+    assert pl.page_is_target("https://s.ua/special-offers") is True    # 'offer'
+    assert pl.page_is_target("https://s.ua/akciya") is True            # 'akci'
+
+
 def test_sale_hot_no_longer_match_product_slugs():
     # real terraincognita product slugs that stole the page_cap budget via sale/hot
     assert pl.page_is_target("https://terraincognita.com.ua/chereviki-salewa-ms-mtn-397/") is False

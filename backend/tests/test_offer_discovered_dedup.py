@@ -52,8 +52,9 @@ def test_published_page_bumps_last_seen_without_shadow(db_session):
 
 
 def test_different_pages_stay_separate(db_session):
+    # distinct discounts (10% vs 20%) so this tests page-based separation, not banner-dedup
     a = _create(db_session, _offer("https://shop.ua/one"), ch="h1")
-    b = _create(db_session, _offer("https://shop.ua/two"), ch="h2")
+    b = _create(db_session, _offer("https://shop.ua/two", val="20"), ch="h2")
     assert a.id != b.id
 
 

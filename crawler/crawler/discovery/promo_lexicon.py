@@ -25,7 +25,10 @@ SEED_URL_TOKENS: tuple[str, ...] = (
     # --- розширення ---
     # NB: "sale"/"hot" removed — over-matched product slugs (chereviki-«sale»wa brand,
     # termos-«hot»-and-cold), stealing the walker's page_cap from real veteran/info pages.
-    "utsinka", "bonus", "cashback", "special", "specialna", "spec-cina",
+    # NB: bare "special" removed — matched 'type-specialists'/doctor pages (each carries the
+    # site-wide banner), flooding the queue with dupes. Specific forms ('specialna',
+    # 'specialpropoz', 'spec-propoz', 'spec-cina') above/here still match.
+    "utsinka", "bonus", "cashback", "specialna", "spec-cina",
 )
 
 DISCOUNT_CTX = re.compile(

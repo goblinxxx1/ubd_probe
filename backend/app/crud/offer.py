@@ -65,6 +65,25 @@ def _discount_rows(data):
     return []
 
 
+def _norm_label(s) -> str:
+    return " ".join((s or "").lower().split())
+
+
+def _primary_disc_sig(discounts, dt, dv):
+    """Page-independent identity of the PRIMARY discount: (type, value, normalized label).
+    A site-wide banner has the same identity on every page it appears on, so this collapses
+    the N-pages-one-banner duplicates; the label keeps two genuinely different same-percent
+    offers (e.g. '-10% lunch' vs '-10% dinner') distinct. None when there is no discount."""
+    if dt is None:
+        return None
+    label = ""
+    if discounts:
+        primary = min(discounts, key=lambda d: getattr(d, "sort_order", 0) or 0)
+        label = _norm_label(getattr(primary, "label", None))
+    # Raw type/value (enum + Decimal) so 15 == 15.00; label normalized. Compared with ==.
+    return (dt, dv, label)
+
+
 def _apply_content(obj, data, canon, canon_article, content_hash, targets, offers, mk_link):
     obj.type = data.type
     obj.title = data.title
@@ -215,6 +234,33 @@ def create_offer(db: Session, data: OfferCreate, created_by: CreatedBy,
             db.commit()
             db.refresh(existing)
             return existing
+
+    # 3c) Site-wide-banner dedup (host + primary-discount identity). One site-wide promo appears
+    #     on many pages (doctor/specialist, contact, about); each fetch yields the SAME discount,
+    #     producing N duplicates the per-page branches above can't collapse (distinct
+    #     article_url_canonical). If a non-expired, non-shadow crawler offer from the SAME host
+    #     already carries the SAME primary-discount identity (type+value+label), bump last_seen
+    #     and return it instead of inserting a duplicate. Different value OR different label still
+    #     make distinct offers (real 50% vs 30%, or '-10% lunch' vs '-10% dinner').
+    if crawler and not blocked and data.discount_type is not None:
+        host = _source_host(getattr(data, "site_url", None)) or _source_host(getattr(data, "article_url", None))
+        sig = _primary_disc_sig(getattr(data, "discounts", None),
+                                data.discount_type, data.discount_value)
+        if host and sig is not None:
+            cands = (db.query(Offer)
+                     .filter(Offer.created_by == CreatedBy.crawler,
+                             Offer.status != OfferStatus.expired,
+                             Offer.supersedes_offer_id.is_(None),
+                             Offer.discount_type == data.discount_type,
+                             Offer.discount_value == data.discount_value)
+                     .order_by(Offer.id).all())
+            for c in cands:
+                c_host = _source_host(c.site_url) or _source_host(c.article_url)
+                if c_host == host and _primary_disc_sig(c.discounts, c.discount_type, c.discount_value) == sig:
+                    c.last_seen_at = datetime.utcnow()
+                    db.commit()
+                    db.refresh(c)
+                    return c
 
     # 4) Cross-source canonical merge (aggregator / cross-platform) — existing behavior.
     if crawler and canon and not blocked:
