@@ -18,6 +18,7 @@ class RawItem:
     url: str | None = None
     links: list[str] = field(default_factory=list)
     logo_url: str | None = None
+    logo_alt: str | None = None
     site_name: str | None = None
     site_tagline: str | None = None
     locality: str | None = None

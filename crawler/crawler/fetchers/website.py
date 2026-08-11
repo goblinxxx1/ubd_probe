@@ -51,6 +51,25 @@ def _extract_logo(tree, base_url: str) -> str | None:
     return None
 
 
+# Logo <img> containers, best-name-first. Scoping to logo/brand containers avoids
+# unrelated page images (payment icons, partner badges) whose alt is not the business.
+_LOGO_IMG_SELECTORS = (
+    "img[class*=logo]", "[class*=logo] img", "[id*=logo] img",
+    "a[class*=brand] img", "header a img",
+)
+# Generic alts that are not a business name — never use them as the provider.
+_GENERIC_ALTS = {"logo", "лого", "image", "img", "banner", "банер", "home", "головна"}
+
+
+def _extract_logo_alt(tree) -> str | None:
+    for css in _LOGO_IMG_SELECTORS:
+        for node in tree.css(css):
+            alt = (node.attributes.get("alt") or "").strip()
+            if alt and alt.lower() not in _GENERIC_ALTS:
+                return _cap_tagline(alt)
+    return None
+
+
 def _extract_site_name(tree) -> str | None:
     node = tree.css_first('meta[property="og:site_name"]')
     if node is not None and node.attributes.get("content"):
@@ -220,6 +239,7 @@ class WebsiteFetcher:
 
             tree = HTMLParser(resp.text)
             logo = _extract_logo(tree, url)
+            logo_alt = _extract_logo_alt(tree)
             site_name = _extract_site_name(tree)
             site_tagline = _extract_site_tagline(tree)
             locality = _extract_locality(tree)
@@ -249,8 +269,8 @@ class WebsiteFetcher:
                          if a.attributes.get("href")]
                 items.append(RawItem(source_id=source["id"], platform="website",
                                      key=key, text=text, url=url, links=links,
-                                     logo_url=logo, site_name=site_name,
-                                     site_tagline=site_tagline,
+                                     logo_url=logo, logo_alt=logo_alt,
+                                     site_name=site_name, site_tagline=site_tagline,
                                      locality=locality, has_offer_schema=has_offer,
                                      is_article=is_article,
                                      has_business_schema=has_business))

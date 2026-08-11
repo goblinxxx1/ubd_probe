@@ -414,3 +414,39 @@ def test_fetch_puts_site_tagline_on_items():
     fetcher = WebsiteFetcher(httpx.Client(transport=transport))
     items, _ = fetcher.fetch({"id": 1, "url_or_handle": "https://biz.example"}, None)
     assert items and items[0].site_tagline == "Опис магазину"
+
+
+# --- provider name from logo <img alt> ---
+
+def test_extract_logo_alt_from_logo_scope():
+    from crawler.fetchers.website import _extract_logo_alt
+    from selectolax.parser import HTMLParser
+    html = ('<header><a class="header__logo"><img src="/l.svg" alt="Terra Incognita"></a>'
+            '</header><img src="/pay.svg" alt="Накладений платіж">')
+    assert _extract_logo_alt(HTMLParser(html)) == "Terra Incognita"
+
+
+def test_extract_logo_alt_ignores_non_logo_images():
+    from crawler.fetchers.website import _extract_logo_alt
+    from selectolax.parser import HTMLParser
+    html = ('<body><img src="/pay.svg" alt="Накладений платіж">'
+            '<img src="/m.svg" alt="Meest Пошта"></body>')
+    assert _extract_logo_alt(HTMLParser(html)) is None
+
+
+def test_extract_logo_alt_skips_generic_alt():
+    from crawler.fetchers.website import _extract_logo_alt
+    from selectolax.parser import HTMLParser
+    for generic in ("logo", "Лого", "IMAGE", "Головна"):
+        html = f'<div class="logo"><img alt="{generic}"></div>'
+        assert _extract_logo_alt(HTMLParser(html)) is None, generic
+
+
+def test_fetch_puts_logo_alt_on_items():
+    html = ('<html><head><title>t</title></head><body>'
+            '<header><div class="site-logo"><img src="/l.png" alt="Кафе Львів"></div>'
+            '</header><p>Знижка 15% для ветеранів на каву у нас сьогодні завжди.</p>'
+            '</body></html>')
+    f = _fetcher_returning(html)
+    items, _ = f.fetch({"id": 1, "url_or_handle": "https://cafe.example"}, None)
+    assert items and all(i.logo_alt == "Кафе Львів" for i in items)

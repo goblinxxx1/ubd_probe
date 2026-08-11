@@ -330,3 +330,19 @@ def test_content_hash_unchanged_when_only_display_provider_differs():
                                    text=text, site_name="Гастро-бар Угловой"), "uglovoy.com.ua", CATS)
     no_name = ex.extract(_item(text), "uglovoy.com.ua", CATS)
     assert with_name.content_hash == no_name.content_hash   # hash on host, not display name
+
+
+def test_provider_prefers_logo_alt_over_site_name():
+    # logo <img alt> is the cleanest business name — it wins over og:site_name/title.
+    it = RawItem(source_id=1, platform="website", key="k",
+                 text="Знижка 20% для ветеранів", site_name="og-name",
+                 logo_alt="Terra Incognita")
+    cand = get_extractor("heuristic").extract(it, "arg-provider", CATS)
+    assert cand.provider == "Terra Incognita"
+
+
+def test_provider_falls_back_to_site_name_without_logo_alt():
+    it = RawItem(source_id=1, platform="website", key="k",
+                 text="Знижка 20% для ветеранів", site_name="og-name")
+    cand = get_extractor("heuristic").extract(it, "arg-provider", CATS)
+    assert cand.provider == "og-name"

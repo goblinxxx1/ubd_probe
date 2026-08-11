@@ -131,7 +131,8 @@ class HeuristicExtractor:
                        "discount_type": discount_type,
                        "discount_value": discount_value}]
                      if discount_type is not None else [])
-        display_provider = (item.site_name or "").strip() or provider
+        display_provider = ((item.logo_alt or item.site_name or "").strip()
+                             or provider)
         return OfferCandidate(
             source_id=item.source_id,
             title=title,
