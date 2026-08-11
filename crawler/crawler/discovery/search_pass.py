@@ -25,6 +25,17 @@ class SearchPass:
         loses position — next_batch wraps modulo the new length."""
         self._grid = grid
 
+    def drain(self) -> list[SourceCandidate]:
+        """Step 1 in isolation: re-surface cached-but-unharvested candidates. No network,
+        does not touch grid_cursor — safe to call during global backoff when the DDG search
+        leg is skipped. ttl<=0 => no drain (mirrors run())."""
+        if self._ttl <= 0:
+            return []
+        out: list[SourceCandidate] = []
+        for _kw, cands in self._state.unharvested(self._ttl):
+            out.extend(cands)
+        return out
+
     def run(self, known) -> list[SourceCandidate]:
         out: list[SourceCandidate] = []
         size = len(self._grid)
@@ -32,9 +43,7 @@ class SearchPass:
             return out
         plan = self._plans[0]
         # 1) DRAIN: re-surface cached-but-unharvested candidates (no DDG re-search).
-        if self._ttl > 0:
-            for _kw, cands in self._state.unharvested(self._ttl):
-                out.extend(cands)
+        out.extend(self.drain())
         # 2) SEARCH new due phrases (fresh phrases are skipped by _collect_due / cache).
         cursor = self._state.grid_cursor
         if self._ttl > 0:

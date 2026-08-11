@@ -118,3 +118,26 @@ def test_run_drains_unharvested_before_searching(tmp_path):
     searched = [k for call in ddg.discovery.calls for k in call]
     assert "імплантація знижка військовим" not in searched    # its phrase was NOT re-searched
     assert ddg.discovery.calls == [["q0", "q1"]]              # new due phrases still searched
+
+
+def test_drain_returns_unharvested_without_searching(tmp_path):
+    st = SearchState(str(tmp_path / "s.json"), clock=lambda: 1000.0)
+    st.cache_put("імплантація знижка убд",
+                 [SourceCandidate(name="edclinic", type="website",
+                                  url_or_handle="https://edclinic.com.ua")])
+    ddg = _Plan(include_pins=False, ok=True)
+    sp = SearchPass([ddg], st, QueryGrid([f"q{i}" for i in range(3)]),
+                    block_size=2, ttl_seconds=10_000.0)
+    out = sp.drain()
+    assert [c.url_or_handle for c in out] == ["https://edclinic.com.ua"]
+    assert out[0].origin_key == "імплантація знижка убд"
+    assert ddg.discovery.calls == []            # drain must NOT call the provider
+
+
+def test_drain_ttl_zero_is_empty(tmp_path):
+    st = SearchState(str(tmp_path / "s.json"), clock=lambda: 1000.0)
+    st.cache_put("kw", [SourceCandidate(name="x", type="website",
+                                        url_or_handle="https://x.example")])
+    sp = SearchPass([_Plan(False, True)], st, QueryGrid(["q0"]),
+                    block_size=1, ttl_seconds=0.0)
+    assert sp.drain() == []                      # ttl<=0 => no drain (matches run())
