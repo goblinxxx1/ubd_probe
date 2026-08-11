@@ -90,9 +90,13 @@ class Runner:
         log.info("crawl summary: %s", summary)
         return summary
 
-    def run_active(self) -> dict:
+    def run_active(self, ddg_allowed: bool = True) -> dict:
         """Discovery of NEW domains: feeds + site: + harvester. Never crawls a host that
-        is already an active source (published/approved) — passive owns those."""
+        is already an active source (published/approved) — passive owns those.
+
+        ddg_allowed=False (global backoff): run everything DDG-INDEPENDENT — the cache
+        drain, all four feeds, harvest — and skip only the DDG legs (due-walk search +
+        site:). Default True = full pass (byte-identical to before)."""
         summary = self._empty_summary()
         if self._harvester is None:
             return summary
@@ -116,7 +120,9 @@ class Runner:
             if self._domain_feed is not None:
                 feeds.append(self._domain_feed.candidates(known_hosts))
             if self._search_pass is not None:
-                feeds.append(self._search_pass.run(known))
+                # DDG-independent drain always runs; the DDG due-walk search only when allowed.
+                feeds.append(self._search_pass.run(known) if ddg_allowed
+                             else self._search_pass.drain())
             if self._brand_feed is not None:
                 feeds.append(self._brand_feed.candidates(known))
             if self._osm_feed is not None:
@@ -127,7 +133,7 @@ class Runner:
             candidates = [c for group in zip_longest(*feeds) for c in group if c is not None]
             # site: only for productive-but-not-yet-approved domains (registry.top excludes
             # known_hosts). No approved-partner arm — passive re-confirms approved sources.
-            if (self._site_planner is not None and self._site_state is not None
+            if (ddg_allowed and self._site_planner is not None and self._site_state is not None
                     and self._discovery is not None and self._domain_registry is not None):
                 cur = self._site_state.site_cursor
                 reg = [h for h in self._domain_registry.top(
