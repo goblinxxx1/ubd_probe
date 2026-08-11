@@ -36,6 +36,15 @@ def test_info_slugs_are_target():
         assert pl.page_is_target(u) is True, u
 
 
+def test_bare_loyal_slug_is_target():
+    # Real terraincognita canonical loyalty page lives at /loyal/ (no trailing 'n'/'ty'),
+    # so 'loyaln'/'loyalty' word-start tokens never fired — the page slipped the gate.
+    assert pl.page_is_target("https://terraincognita.com.ua/loyal/") is True
+    assert pl.page_is_target("https://s.ua/loyal-program") is True
+    # still no substring false positives on unrelated slugs
+    assert pl.page_is_target("https://s.ua/royal-collection") is False
+
+
 def test_promo_slugs_still_target():
     assert pl.page_is_target("https://s.ua/promo") is True
     assert pl.page_is_target("https://s.ua/akcii") is True

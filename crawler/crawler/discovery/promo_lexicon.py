@@ -101,8 +101,9 @@ _PAGE_TYPE_TOKENS: tuple[str, ...] = (
     "dostavka", "oplata", "delivery", "payment", "shipping",
     # про нас
     "pro-nas", "pro_nas", "pronas", "pro-kompaniyu", "about", "o-nas", "o_nas",
-    # лояльність / бонусна програма ("bonus" already in SEED_URL_TOKENS)
-    "loyaln", "loyalty", "club",
+    # лояльність / бонусна програма ("bonus" already in SEED_URL_TOKENS).
+    # bare "loyal" stem covers /loyal/ (canonical page), /loyalty/, /loyalnist/…
+    "loyal", "club",
     # faq / корисна інформація
     "faq", "pytannya", "pitannya", "korysn", "korisn", "useful",
     # кирилиця (decoded percent-encoded paths)
