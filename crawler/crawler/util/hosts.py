@@ -19,6 +19,15 @@ def bare_host(value: str | None) -> str:
 # Двобуквені ccTLD, що вживаються генерично (не як країнний сигнал), тож дозволені.
 _GENERIC_CCTLDS = {"co", "io", "me", "tv", "ai", "cc"}
 
+# Однозначні коди російських міст як leading-субдомен — російський сайт на gTLD
+# (spb.boombate.com). Лише безсумнівні (без коротких/двозначних, що колізять з UA).
+_RU_CITY_SUBDOMAINS = frozenset({
+    "spb", "msk", "mow", "ekb", "nsk", "kzn", "rostov", "sochi", "samara", "perm",
+    "omsk", "ufa", "krasnodar", "volgograd", "voronezh", "tyumen", "irkutsk",
+    "vladivostok", "khabarovsk", "chelyabinsk", "kaliningrad", "saratov",
+    "barnaul", "tomsk", "kemerovo",
+})
+
 # IDN-ccTLD України (.укр) — punycode; єдиний дозволений xn--*. Решта IDN-ccTLD
 # (xn--p1ai=.рф, xn--90ae=.бг, xn--90a3ac=.срб, ...) — іноземні.
 _UA_IDN_CCTLDS = {"xn--j1amh"}
@@ -38,6 +47,9 @@ def is_foreign_host(value: str | None) -> bool:
         return False
     if host == "ua" or host.endswith(".ua"):
         return False
+    labels = host.split(".")
+    if len(labels) >= 3 and labels[0] in _RU_CITY_SUBDOMAINS:
+        return True                          # російський місто-субдомен на gTLD
     tld = host.rsplit(".", 1)[-1]
     if tld.startswith("xn--"):
         return tld not in _UA_IDN_CCTLDS      # foreign IDN ccTLD (allow only .укр)

@@ -75,3 +75,19 @@ def test_empty_and_none_return_empty_string():
 
 def test_subdomain_preserved():
     assert bare_host("https://sub.shop.ua/p") == "sub.shop.ua"
+
+
+def test_russian_city_subdomain_on_gtld_is_foreign():
+    assert is_foreign_host("https://spb.boombate.com/zdorove/fitnes-kluby") is True
+    assert is_foreign_host("msk.example.net") is True
+    assert is_foreign_host("https://www.spb.foo.com/x") is True   # www stripped, spb kept
+    assert is_foreign_host("ekb.shop.org") is True
+
+
+def test_russian_heuristic_does_not_overblock():
+    assert is_foreign_host("edclinic.com.ua") is False            # .ua host
+    assert is_foreign_host("spb.example.com.ua") is False         # .ua wins even with spb
+    assert is_foreign_host("shop.com") is False                   # legit gTLD, no ru subdomain
+    assert is_foreign_host("mate.academy") is False
+    assert is_foreign_host("sub.mate.academy") is False           # non-ru subdomain
+    assert is_foreign_host("boombate.com") is False               # apex -> blocklist, not geo-gate
