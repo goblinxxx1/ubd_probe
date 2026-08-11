@@ -24,7 +24,7 @@ class Runner:
                  site_planner=None, site_state=None, site_query_budget=5,
                  osm_feed=None, aggregator_feed=None,
                  passive_schedule=None, now=time.time, revisit_cooldown_seconds=0,
-                 reject_ingestor=None):
+                 reject_ingestor=None, first_crawl_budget=0):
         self._api = api_client
         self._fetchers = fetchers
         self._extractor = extractor
@@ -50,6 +50,7 @@ class Runner:
         self._now = now
         self._revisit_cooldown = revisit_cooldown_seconds
         self._reject_ingestor = reject_ingestor
+        self._first_crawl_budget = first_crawl_budget
 
     def _fetch_for(self, source: dict, last_seen_key):
         fetcher = self._fetchers.get(source["type"])
@@ -161,6 +162,44 @@ class Runner:
                     self._domain_registry.save()
                 except Exception as exc:  # noqa: BLE001 — persistence best-effort
                     log.warning("domain registry persist failed: %s", exc)
+        if self._first_crawl_budget > 0:
+            fc = self.run_first_crawl(self._first_crawl_budget)
+            for k in fc:
+                summary[k] = summary.get(k, 0) + fc[k]
+        return summary
+
+    def run_first_crawl(self, budget) -> dict:
+        """Crawl up to `budget` never-crawled active website sources NOW — the same passive
+        deep-walk path, but without waiting for the rare passive cadence. DDG-independent. A
+        source whose crawl raises is marked attempted (set_crawl_state None) so it drops out of
+        'uncrawled' and cannot loop the budget; the next passive cycle re-crawls it fresh."""
+        summary = self._empty_summary()
+        if budget <= 0:
+            return summary
+        try:
+            sources = self._api.list_uncrawled_sources(budget)
+        except Exception as exc:  # noqa: BLE001 — first-crawl must not crash the pass
+            summary["errors"] += 1
+            log.warning("first-crawl: list uncrawled failed: %s", exc)
+            return summary
+        if not sources:
+            return summary
+        cats = CategoryIndex(self._api.list_target_categories(),
+                             self._api.list_offer_categories())
+        known = {normalize_ref(s["type"], s["url_or_handle"])
+                 for s in self._api.list_sources(is_active=True)}
+        for source in sources:
+            summary["sources"] += 1
+            try:
+                self._crawl_source(source, cats, known, summary)
+            except Exception as exc:  # noqa: BLE001 — isolate per source
+                summary["errors"] += 1
+                log.warning("first-crawl source #%s failed: %s", source.get("id"), exc)
+                try:
+                    self._api.set_crawl_state(source["id"], None)   # mark attempted -> no loop
+                except Exception as exc2:  # noqa: BLE001 — mark is best-effort
+                    log.warning("first-crawl mark-attempted #%s failed: %s",
+                                source.get("id"), exc2)
         return summary
 
     def _mark_consumed_search_phrases(self, candidates, stop_index) -> None:
