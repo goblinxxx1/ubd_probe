@@ -101,6 +101,12 @@ class Runner:
         summary = self._empty_summary()
         if self._harvester is None:
             return summary
+        # First-crawl NEW sources FIRST so a heavy discovery harvest can't starve them
+        # (first-crawl is DDG-independent; runs in both ddg modes). Self-draining + bounded.
+        if self._first_crawl_budget > 0:
+            fc = self.run_first_crawl(self._first_crawl_budget)
+            for k in fc:
+                summary[k] = summary.get(k, 0) + fc[k]
         # Apply moderator-rejection feedback BEFORE feeds read the registry this pass, so a
         # down-ranked domain is already excluded from domain_feed.top() / site: targeting.
         if self._reject_ingestor is not None:
@@ -162,10 +168,6 @@ class Runner:
                     self._domain_registry.save()
                 except Exception as exc:  # noqa: BLE001 — persistence best-effort
                     log.warning("domain registry persist failed: %s", exc)
-        if self._first_crawl_budget > 0:
-            fc = self.run_first_crawl(self._first_crawl_budget)
-            for k in fc:
-                summary[k] = summary.get(k, 0) + fc[k]
         return summary
 
     def run_first_crawl(self, budget) -> dict:

@@ -86,3 +86,33 @@ def test_run_active_skips_first_crawl_when_budget_zero():
     r = _RecordingRunner(api, {}, None, None, harvester=_Harv(), first_crawl_budget=0)
     r.run_active(ddg_allowed=True)
     assert r.crawled == [] and api.uncrawled_called is False
+
+
+def test_run_active_first_crawls_before_harvest():
+    """First-crawl must run BEFORE discovery/harvest, else a heavy harvest starves it."""
+    from crawler.models import SourceCandidate
+
+    order = []
+
+    class _OrderHarv:
+        def harvest(self, candidates, cats, known, summary, known_hosts=None):
+            order.append("harvest"); return 0
+
+    class _Feed:  # a search_pass yielding one candidate so harvest is reached
+        def run(self, known):
+            return [SourceCandidate(name="c", type="website",
+                                    url_or_handle="https://c.example")]
+        def drain(self):
+            return []
+
+    class _OrderRunner(_RecordingRunner):
+        def _crawl_source(self, source, cats, known, summary):
+            order.append("first_crawl")
+            super()._crawl_source(source, cats, known, summary)
+
+    api = FakeApi([_src(1)])
+    r = _OrderRunner(api, {}, None, None, harvester=_OrderHarv(),
+                     search_pass=_Feed(), first_crawl_budget=5)
+    r.run_active(ddg_allowed=True)
+    assert order and order[0] == "first_crawl"   # first-crawl runs before harvest
+    assert "harvest" in order                    # harvest still runs (not starved out)
