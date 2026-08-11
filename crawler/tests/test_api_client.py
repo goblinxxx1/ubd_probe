@@ -11,6 +11,9 @@ def _handler(captured):
         if request.url.path == "/api/internal/sources":
             return httpx.Response(200, json=[{"id": 1, "type": "website",
                                               "url_or_handle": "http://x", "name": "X"}])
+        if request.url.path == "/api/internal/sources/uncrawled":
+            return httpx.Response(200, json=[{"id": 2, "type": "website",
+                                              "url_or_handle": "http://y", "name": "Y"}])
         if request.url.path.endswith("/crawl-state") and request.method == "GET":
             return httpx.Response(200, json={"last_seen_key": "p1", "last_crawled_at": None})
         if request.url.path == "/api/internal/offers":
@@ -66,3 +69,13 @@ def test_list_rejected_offers_calls_endpoint():
     assert rows == [{"host": "news.ua", "rejected_at": None}]
     assert "/api/internal/rejected-offers" in seen["url"]
     assert "since=2026-08-01" in seen["url"]
+
+
+def test_list_uncrawled_sources_sends_limit_and_key():
+    captured = []
+    client = ApiClient("http://api", "secret", 10.0,
+                       transport=httpx.MockTransport(_handler(captured)))
+    out = client.list_uncrawled_sources(7)
+    assert out[0]["id"] == 2
+    assert captured[0].headers["X-API-Key"] == "secret"
+    assert captured[0].url.params.get("limit") == "7"

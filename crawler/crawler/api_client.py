@@ -25,6 +25,11 @@ class ApiClient:
         r.raise_for_status()
         return r.json()
 
+    def list_uncrawled_sources(self, limit: int) -> list[dict]:
+        r = self._client.get("/api/internal/sources/uncrawled", params={"limit": limit})
+        r.raise_for_status()
+        return r.json()
+
     def get_crawl_state(self, source_id: int) -> dict:
         r = self._client.get(f"/api/internal/sources/{source_id}/crawl-state")
         r.raise_for_status()
