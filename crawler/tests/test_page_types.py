@@ -79,6 +79,20 @@ def test_no_substring_false_positives():
     assert pl.page_is_target("https://s.ua/vintage") is False          # 'tag' vs vintage
 
 
+def test_include_tokens_word_start_anchored():
+    # 'aktsi'(акція) must NOT match inside 'atraktsionah'(атракціон) — real ururu.ua leak
+    u = ("https://ururu.ua/rozvagy-v-ururu-vikovi-obmezhennya-na-"
+         "lokatsiyah-ta-atraktsionah-parku/")
+    assert pl.url_is_promo(u) is False
+    assert pl.page_is_target(u) is False
+    # boundary-anchored promo/audience/info slugs still match (word-start)
+    assert pl.page_is_target("https://s.ua/aktsiya-dnya") is True       # segment starts 'aktsi'
+    assert pl.url_is_promo("https://s.ua/akcii") is True
+    assert pl.page_is_target("https://s.ua/dlya-veteraniv") is True     # '-veteran…' boundary
+    assert pl.page_is_target("https://s.ua/national-guard") is True     # hyphenated token intact
+    assert pl.page_is_target("https://s.ua/dostavka-i-oplata") is True  # info slug still matches
+
+
 def test_exclude_tokens_no_substring_collisions():
     # EXCLUDE hard-prunes (skip + no traverse) — must not misfire on legit paths.
     assert pl.is_excluded("https://s.ua/border-crossing") is False     # '/order' not 'order'

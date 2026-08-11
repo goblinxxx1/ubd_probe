@@ -59,9 +59,26 @@ def offer_triggers() -> tuple[str, ...]:
     return SEED_OFFER_TRIGGERS + _learned_terms
 
 
+_WORD_START = "/-_.+ "
+
+
+def _seg_hit(path: str, tokens) -> bool:
+    """True iff any token starts a word/segment in `path` (preceded by start-of-path or one
+    of / - _ . + space). Word-start stem matching — the match the module docstring promises —
+    so a token never fires mid-word: 'aktsi' (акція) can't match inside 'atraktsionah'
+    (атракціон). Tokens may carry their own hyphens (e.g. 'national-guard')."""
+    for t in tokens:
+        i = path.find(t)
+        while i != -1:
+            if i == 0 or path[i - 1] in _WORD_START:
+                return True
+            i = path.find(t, i + 1)
+    return False
+
+
 def url_is_promo(url: str) -> bool:
     path = unquote(urlsplit(url or "").path).lower()
-    return any(tok in path for tok in SEED_URL_TOKENS)
+    return _seg_hit(path, SEED_URL_TOKENS)
 
 
 # --- page-type targeting (superset of promo; drives DomainWalker page selection) ---
@@ -121,7 +138,7 @@ def page_is_target(url: str, anchor_text: str | None = None) -> bool:
     if is_excluded(url):
         return False                                    # EXCLUDE wins
     path = unquote(urlsplit(url or "").path).lower()
-    if any(t in path for t in INCLUDE_TOKENS):
+    if _seg_hit(path, INCLUDE_TOKENS):
         return True
     if anchor_text and any(a in anchor_text.lower() for a in INCLUDE_ANCHORS):
         return True
