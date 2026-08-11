@@ -36,3 +36,44 @@ def test_crawl_state_unknown_source_404(client, db_session):
 def test_crawl_state_requires_api_key(client, db_session):
     src = _make_source(db_session)
     assert client.get(f"/api/internal/sources/{src.id}/crawl-state").status_code == 401
+
+
+def test_uncrawled_lists_active_website_never_crawled(client, db_session):
+    from datetime import datetime, timezone
+    from app.models.enums import CreatedBy, SourceType
+
+    def mk(name, url, active=True, type=SourceType.website, crawled=False):
+        s = Source(name=name, type=type, url_or_handle=url, is_active=active,
+                   created_by=CreatedBy.admin)
+        if crawled:
+            s.last_crawled_at = datetime.now(timezone.utc)
+        db_session.add(s); db_session.commit(); db_session.refresh(s)
+        return s
+
+    a = mk("A", "http://a")                       # active website, never crawled -> IN
+    mk("B", "http://b", crawled=True)             # already crawled -> OUT
+    mk("C", "http://c", active=False)             # inactive -> OUT
+    mk("D", "tg://d", type=SourceType.telegram)   # non-website -> OUT
+    e = mk("E", "http://e")                       # active website, never crawled -> IN
+
+    h = {"X-API-Key": settings.crawler_api_key}
+    r = client.get("/api/internal/sources/uncrawled?limit=10", headers=h)
+    assert r.status_code == 200
+    assert [s["id"] for s in r.json()] == [a.id, e.id]   # only uncrawled active website, id order
+
+
+def test_uncrawled_respects_limit(client, db_session):
+    from app.models.enums import CreatedBy, SourceType
+    ids = []
+    for i in range(3):
+        s = Source(name=f"S{i}", type=SourceType.website, url_or_handle=f"http://s{i}",
+                   is_active=True, created_by=CreatedBy.admin)
+        db_session.add(s); db_session.commit(); db_session.refresh(s)
+        ids.append(s.id)
+    h = {"X-API-Key": settings.crawler_api_key}
+    r = client.get("/api/internal/sources/uncrawled?limit=2", headers=h)
+    assert [s["id"] for s in r.json()] == ids[:2]        # first two by id
+
+
+def test_uncrawled_requires_api_key(client, db_session):
+    assert client.get("/api/internal/sources/uncrawled").status_code == 401

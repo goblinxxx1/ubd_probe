@@ -31,6 +31,16 @@ def list_sources(db: Session, is_active: bool | None = None):
     return q.order_by(Source.created_at.desc()).all()
 
 
+def list_uncrawled_website_sources(db: Session, limit: int):
+    return (db.query(Source)
+            .filter(Source.is_active.is_(True),
+                    Source.type == SourceType.website,
+                    Source.last_crawled_at.is_(None))
+            .order_by(Source.id)
+            .limit(limit)
+            .all())
+
+
 def get_source(db: Session, source_id: int) -> Source:
     obj = db.get(Source, source_id)
     if obj is None:

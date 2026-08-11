@@ -32,6 +32,11 @@ def list_sources(is_active: bool | None = True, db: Session = Depends(get_db)):
     return source_crud.list_sources(db, is_active=is_active)
 
 
+@router.get("/sources/uncrawled", response_model=list[SourceOut])
+def list_uncrawled_sources(limit: int = 10, db: Session = Depends(get_db)):
+    return source_crud.list_uncrawled_website_sources(db, limit)
+
+
 class InternalOfferCreate(OfferCreate):
     source_id: int | None = None
     content_hash: str | None = None
