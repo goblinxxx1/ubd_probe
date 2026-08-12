@@ -52,6 +52,24 @@ def test_sitemap_path_filters_promo_homepage_first_and_caps(monkeypatch):
     assert plan.urls == ["https://shop.ua", "https://shop.ua/akcii"]  # capped at 2, promo only
 
 
+def test_offer_pages_prioritised_over_info_pages_when_capped(monkeypatch):
+    # Info/page-type targets (kontakty/about/faq) come BEFORE the real offer page in
+    # sitemap order; with a tight cap the walker must still fetch the offer page — promo
+    # slugs (SEED_URL_TOKENS: 'offers') outrank generic page-type targets.
+    monkeypatch.setattr(walker_mod, "collect_sitemap_urls",
+                        lambda *a, **k: ["https://shop.ua/kontakty",
+                                         "https://shop.ua/about",
+                                         "https://shop.ua/faq",
+                                         "https://shop.ua/about/offers/skidka-dlya-viyskovyh"])
+    policy = FakePolicy(FakeRobots(sitemaps=["https://shop.ua/s.xml"]))
+    w = DomainWalker(client=object(), robots=policy, rate_limiter=NoWait(),
+                     domain_page_cap=2, bfs_trigger_min=1)
+    plan = w.walk(_cand("https://shop.ua"))
+    assert plan.urls[0] == "https://shop.ua"                                    # homepage first
+    assert "https://shop.ua/about/offers/skidka-dlya-viyskovyh" in plan.urls    # offer wins the slot
+    assert "https://shop.ua/kontakty" not in plan.urls                          # info page yielded
+
+
 def test_disallowed_urls_are_dropped(monkeypatch):
     monkeypatch.setattr(walker_mod, "collect_sitemap_urls",
                         lambda *a, **k: ["https://shop.ua/akcii", "https://shop.ua/promo"])

@@ -47,6 +47,10 @@ class DomainWalker:
         self._bfs_trigger_min = bfs_trigger_min
         self._floor = domain_min_delay
         self._cap = crawl_delay_cap
+        # Collect a wider candidate pool than we fetch, so promo/offer pages can be sorted
+        # ahead of generic page-type targets BEFORE the page_cap is applied (a site can list
+        # dozens of info pages before its offer pages in sitemap order).
+        self._collect_cap = max(domain_page_cap * 6, 60)
 
     def walk(self, cand) -> WalkPlan:
         homepage = cand.url_or_handle
@@ -58,10 +62,14 @@ class DomainWalker:
             found = collect_sitemap_urls(
                 sm_urls, self._client, self._rl, domain, delay, self._sitemap_max_docs,
                 promo_filter=lambda u: _same_domain(u, domain) and page_is_target(u),
-                promo_target=self._page_cap)
+                promo_target=self._collect_cap)
             promo = [u for u in found if _same_domain(u, domain) and page_is_target(u)]
             if len(promo) < self._bfs_trigger_min:
                 promo += self._bfs(homepage, domain, robots, delay)
+            # Offer/promo-slug pages (SEED_URL_TOKENS: offers/akcii/discount/…) ahead of
+            # generic page-type targets (about/contacts/faq) so the page_cap budget buys
+            # real offer pages, not filler. Stable sort preserves sitemap order within a tier.
+            promo.sort(key=lambda u: 0 if url_is_promo(u) else 1)
             urls = self._finalize(homepage, promo, robots)
             return WalkPlan(domain, urls, delay)
         except Exception as exc:  # noqa: BLE001 — expansion must never crash a pass

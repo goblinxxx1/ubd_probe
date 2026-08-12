@@ -46,7 +46,8 @@ from crawler.discovery.lexicon import classify, OFFER_LEXICON, TARGET_LEXICON
 from crawler.extract.base import CategoryIndex
 from crawler.models import OfferCandidate, RawItem
 
-_PERCENT = re.compile(r"(\d{1,3})\s*%")
+# Percent written as the symbol OR spelled out in Ukrainian ("20 відсотків", "15 проценти").
+_PERCENT = re.compile(r"(\d{1,3})\s*(?:%|відсот\w*|процент\w*)")
 _FIXED = re.compile(r"(\d[\d\s]{0,7})\s*(?:грн|гривень|₴|uah)", re.IGNORECASE)
 _UNTIL = re.compile(r"(?:до|діє до)\s+(\d{1,2})[.\-/](\d{1,2})(?:[.\-/](\d{2,4}))?")
 

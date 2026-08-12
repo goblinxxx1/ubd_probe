@@ -85,6 +85,33 @@ def test_exclude_beats_include():
     assert pl.is_excluded("https://s.ua/about") is False
 
 
+# --- russian-language pages: never crawled (aggressor language) ---
+def test_russian_language_pages_are_excluded():
+    for u in ("https://s.ua/ru/about/offers/x", "https://s.ua/ru/akcii",
+              "https://s.ua/ru/dlya-veteraniv"):
+        assert pl.is_excluded(u) is True, u
+        assert pl.page_is_target(u) is False, u
+    # 'ru' inside a word (not the /ru/ language segment) must NOT be excluded
+    assert pl.is_excluded("https://s.ua/drukarnya-akcii") is False
+
+
+# --- reviews & photogallery: practically never carry offers ---
+def test_reviews_pages_are_excluded():
+    for u in ("https://s.ua/about/reviews", "https://s.ua/otzyvy",
+              "https://s.ua/vidhuky", "https://s.ua/відгуки"):
+        assert pl.is_excluded(u) is True, u
+        assert pl.page_is_target(u) is False, u
+
+
+def test_photogallery_pages_are_excluded():
+    for u in ("https://s.ua/about/photogallery/sport", "https://s.ua/galereya",
+              "https://s.ua/фотогалерея"):
+        assert pl.is_excluded(u) is True, u
+        assert pl.page_is_target(u) is False, u
+    # a real offer page under the same site is still a target
+    assert pl.page_is_target("https://s.ua/about/offers/skidka-dlya-viyskovyh") is True
+
+
 # --- neutral ---
 def test_neutral_is_not_target():
     assert pl.page_is_target("https://s.ua/random/page") is False

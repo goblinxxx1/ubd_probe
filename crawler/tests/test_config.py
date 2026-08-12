@@ -106,7 +106,7 @@ def test_sitemap_depth_defaults(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)      # no .env -> defaults apply
     cfg = load_config()
     assert cfg.sitemap_depth_enabled is True
-    assert cfg.domain_page_cap == 10
+    assert cfg.domain_page_cap == 15
     assert cfg.sitemap_max_docs == 20
     assert cfg.bfs_max_depth == 2
     assert cfg.bfs_max_pages == 8

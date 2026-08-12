@@ -117,6 +117,21 @@ def test_bare_percentage_is_not_an_offer():
     assert ex.extract(_item("18% студентів-ветеранів мають знижений тариф"), "Новини", CATS) is None
 
 
+def test_percent_word_vidsotkiv_parsed():
+    # Discounts written in words ("20 відсотків") must parse as percent, not fall to free.
+    cand = get_extractor("heuristic").extract(
+        _item("Знижка 20 відсотків для ветеранів у нашому магазині"), "Shop", CATS)
+    assert cand.discount_type == "percent"
+    assert cand.discount_value == "20"
+
+
+def test_percent_word_protsentiv_parsed():
+    cand = get_extractor("heuristic").extract(
+        _item("Акція: 15 процентів знижки для військових"), "Shop", CATS)
+    assert cand.discount_type == "percent"
+    assert cand.discount_value == "15"
+
+
 def test_sale_percent_still_parsed():
     ex = get_extractor("heuristic")
     cand = ex.extract(_item("Розпродаж 50% для військових"), "Shop", CATS)

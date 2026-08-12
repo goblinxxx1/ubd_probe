@@ -120,6 +120,15 @@ EXCLUDE_TOKENS: tuple[str, ...] = (
     "account", "login", "signin", "/register", "cabinet", "kabinet",
     "/profile", "wishlist",
     "blog", "news", "novyny", "/search", "poshuk", "filter", "/tag", "privacy", "cookie",
+    # russian-language mirror pages — the aggressor's language, never crawled. The `/ru/`
+    # language segment (with both slashes) never collides with a Ukrainian slug that merely
+    # contains the letters "ru" mid-word.
+    "/ru/",
+    # reviews / testimonials — customer opinions about service quality, practically never a
+    # real offer (a review quoting a past discount was a false-positive source).
+    "review", "otzyv", "vidhuk", "vidguk", "testimonial", "відгук", "отзыв",
+    # photo galleries — imagery, never carry offers.
+    "photogallery", "gallery", "galereya", "галере", "фотогалер",
 )
 
 # Link-anchor-text signals (lowercased substrings) for opaque URLs.

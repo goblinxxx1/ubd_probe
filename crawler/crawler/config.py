@@ -57,7 +57,7 @@ class _RawSettings(BaseSettings):
     aggregator_domains_path: str = "/data/aggregator_domains.json"
     aggregator_max_domains: int = 500
     sitemap_depth_enabled: bool = True
-    domain_page_cap: int = 10
+    domain_page_cap: int = 15
     sitemap_max_docs: int = 20
     bfs_max_depth: int = 2
     bfs_max_pages: int = 8
@@ -161,7 +161,7 @@ class Config:
     aggregator_domains_path: str = "/data/aggregator_domains.json"
     aggregator_max_domains: int = 500
     sitemap_depth_enabled: bool = True
-    domain_page_cap: int = 10
+    domain_page_cap: int = 15
     sitemap_max_docs: int = 20
     bfs_max_depth: int = 2
     bfs_max_pages: int = 8
