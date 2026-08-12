@@ -29,13 +29,18 @@ def list_locations(db: Session = Depends(get_db)):
 
 
 @router.get("/offers", response_model=Page[OfferOut])
-def list_offers(type: OfferType | None = None, target_category: int | None = None,
-                offer_category: int | None = None, location: list[str] | None = Query(None),
+def list_offers(type: list[OfferType] | None = Query(None),
+                target_category: list[int] | None = Query(None),
+                offer_category: list[int] | None = Query(None),
+                location: list[str] | None = Query(None),
                 q: str | None = None, page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100),
                 db: Session = Depends(get_db)):
+    # All facets are multi-select checkbox groups on the public sidebar. Within a facet the
+    # selected values are OR-ed; different facets are AND-ed. A single repeated value still
+    # arrives as a one-element list, so old single-value links keep working.
     items, total = offer_crud.list_offers(
-        db, status=OfferStatus.published, type=type, target_category_id=target_category,
-        offer_category_id=offer_category, locations=location,
+        db, status=OfferStatus.published, types=type, target_category_ids=target_category,
+        offer_category_ids=offer_category, locations=location,
         search=q, page=page, size=size,
     )
     return Page(items=items, total=total, page=page, size=size)

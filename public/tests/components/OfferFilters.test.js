@@ -6,60 +6,64 @@ function mountFilters(modelValue = {}) {
   return mount(OfferFilters, {
     props: {
       modelValue,
-      targetCategories: [{ id: 1, name: "УБД" }],
-      offerCategories: [{ id: 2, name: "Розваги" }],
+      targetCategories: [{ id: 1, name: "УБД" }, { id: 2, name: "Ветерани" }],
+      offerCategories: [{ id: 5, name: "Розваги" }],
       locations: ["Київ", "Львів", "Одеса"],
     },
   });
 }
 
-describe("OfferFilters", () => {
-  it("counts active filters from modelValue", () => {
-    const w = mountFilters({ type: "discount", q: "кава" });
-    expect(w.vm.activeCount).toBe(2);
-  });
-
-  it("apply emits cleaned filters and closes", async () => {
+describe("OfferFilters (sidebar)", () => {
+  it("renders each option with the checkbox to the LEFT of its label text", () => {
     const w = mountFilters({});
-    w.vm.open = true;
-    Object.assign(w.vm.draft, { type: "event", locations: [], q: "музей" });
-    w.vm.apply();
-    expect(w.emitted().apply[0][0]).toEqual({ type: "event", q: "музей" });
-    expect(w.vm.open).toBe(false);
+    const opt = w.get(".filters__opt");
+    // first element child of the row is the checkbox, text comes after it
+    expect(opt.element.firstElementChild.tagName).toBe("INPUT");
+    expect(opt.get("input").attributes("type")).toBe("checkbox");
   });
 
-  it("emits selected cities as a location array", () => {
+  it("seeds checkbox state from modelValue (single value normalised to array)", () => {
+    const w = mountFilters({ target_category: "1", type: ["discount", "event"] });
+    expect(w.vm.sel.target_category).toEqual(["1"]);
+    expect(w.vm.sel.type).toEqual(["discount", "event"]);
+  });
+
+  it("live-applies a multi target-category selection as an array", () => {
     const w = mountFilters({});
-    w.vm.open = true;
-    Object.assign(w.vm.draft, { locations: ["Київ", "Одеса"] });
+    w.vm.sel.target_category = ["1", "2"];
     w.vm.apply();
-    expect(w.emitted().apply[0][0]).toEqual({ location: ["Київ", "Одеса"] });
+    expect(w.emitted().apply[0][0]).toEqual({ target_category: ["1", "2"] });
   });
 
-  it("counts a non-empty location selection as one active filter", () => {
-    const w = mountFilters({ location: ["Київ", "Львів"] });
-    expect(w.vm.activeCount).toBe(1);
+  it("emits every active facet together", () => {
+    const w = mountFilters({});
+    Object.assign(w.vm.sel, {
+      type: ["event"], target_category: ["1"], offer_category: ["5"],
+      location: ["Київ", "Одеса"], q: "музей",
+    });
+    w.vm.apply();
+    expect(w.emitted().apply[0][0]).toEqual({
+      type: ["event"], target_category: ["1"], offer_category: ["5"],
+      location: ["Київ", "Одеса"], q: "музей",
+    });
   });
 
-  it("does not count an empty location array as an active filter", () => {
-    const w = mountFilters({ location: [] });
-    expect(w.vm.activeCount).toBe(0);
+  it("toggling a checkbox in the DOM fires a live apply", async () => {
+    const w = mountFilters({});
+    await w.get(".filters__opt input[type=checkbox]").setValue(true);
+    expect(w.emitted().apply).toBeTruthy();
+    expect(w.emitted().apply[0][0].target_category).toEqual(["1"]);
+  });
+
+  it("counts active facets from modelValue (arrays and scalars)", () => {
+    expect(mountFilters({ target_category: ["1", "2"], q: "кава" }).vm.activeCount).toBe(2);
+    expect(mountFilters({ location: [] }).vm.activeCount).toBe(0);
+    expect(mountFilters({ type: ["discount"], location: ["Київ"] }).vm.activeCount).toBe(2);
   });
 
   it("reset emits empty filters", () => {
-    const w = mountFilters({ type: "discount" });
+    const w = mountFilters({ type: ["discount"] });
     w.vm.reset();
     expect(w.emitted().apply[0][0]).toEqual({});
-  });
-
-  it("reflects open state via aria-expanded and links the panel via aria-controls", async () => {
-    const w = mountFilters({});
-    const trigger = w.get(".filters__trigger");
-    expect(trigger.attributes("aria-expanded")).toBe("false");
-    expect(trigger.attributes("aria-controls")).toBe("filters-panel");
-    w.vm.open = true;
-    await w.vm.$nextTick();
-    expect(w.get(".filters__trigger").attributes("aria-expanded")).toBe("true");
-    expect(w.get("#filters-panel").exists()).toBe(true);
   });
 });

@@ -304,24 +304,26 @@ def get_offer(db: Session, offer_id: int, published_only: bool = False) -> Offer
     return obj
 
 
-def list_offers(db: Session, *, status: OfferStatus | None = None, type: OfferType | None = None,
-                target_category_id: int | None = None, offer_category_id: int | None = None,
+def list_offers(db: Session, *, status: OfferStatus | None = None,
+                types: list[OfferType] | None = None,
+                target_category_ids: list[int] | None = None,
+                offer_category_ids: list[int] | None = None,
                 locations: list[str] | None = None, search: str | None = None,
                 page: int = 1, size: int = 20):
     q = db.query(Offer)
     if status is not None:
         q = q.filter(Offer.status == status)
-    if type is not None:
-        q = q.filter(Offer.type == type)
+    if types:
+        q = q.filter(Offer.type.in_(types))
     if locations:
         q = q.filter(Offer.locations.any(OfferLocation.name.in_(locations)))
     if search:
         like = f"%{search}%"
         q = q.filter((Offer.title.ilike(like)) | (Offer.description.ilike(like)) | (Offer.provider.ilike(like)))
-    if target_category_id is not None:
-        q = q.filter(Offer.target_categories.any(TargetCategory.id == target_category_id))
-    if offer_category_id is not None:
-        q = q.filter(Offer.offer_categories.any(OfferCategory.id == offer_category_id))
+    if target_category_ids:
+        q = q.filter(Offer.target_categories.any(TargetCategory.id.in_(target_category_ids)))
+    if offer_category_ids:
+        q = q.filter(Offer.offer_categories.any(OfferCategory.id.in_(offer_category_ids)))
     total = q.count()
     items = q.order_by(Offer.created_at.desc()).offset((page - 1) * size).limit(size).all()
     return items, total

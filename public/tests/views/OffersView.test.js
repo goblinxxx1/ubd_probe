@@ -48,6 +48,32 @@ describe("OffersView", () => {
     expect(offers.list).toHaveBeenLastCalledWith({ page: 1, size: 12, type: "discount", q: "кава" });
   });
 
+  it("renders a persistent filter sidebar next to the content", async () => {
+    const router = makeRouter();
+    router.push("/");
+    await router.isReady();
+    const w = mount(OffersView, { global: { plugins: [router] } });
+    await flushPromises();
+    expect(w.get(".offers__rail").exists()).toBe(true);
+    expect(w.get(".offers__main").exists()).toBe(true);
+    expect(w.getComponent({ name: "OfferFilters" }).exists()).toBe(true);
+  });
+
+  it("toggles the mobile filter drawer open and closed", async () => {
+    const router = makeRouter();
+    router.push("/");
+    await router.isReady();
+    const w = mount(OffersView, { global: { plugins: [router] } });
+    await flushPromises();
+    expect(w.vm.filtersOpen).toBe(false);
+    expect(w.get(".offers__rail").classes()).not.toContain("is-open");
+    await w.get(".offers__toggle").trigger("click");
+    expect(w.vm.filtersOpen).toBe(true);
+    expect(w.get(".offers__rail").classes()).toContain("is-open");
+    await w.get(".offers__rail-close").trigger("click");
+    expect(w.vm.filtersOpen).toBe(false);
+  });
+
   it("changing page updates the query", async () => {
     const router = makeRouter();
     router.push("/");

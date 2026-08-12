@@ -32,6 +32,59 @@ def test_filter_by_type(client, db_session):
     assert body["total"] == 0  # the only event is pending, not published
 
 
+def _seed_variety(db_session):
+    """Three published offers across distinct target/offer categories and types."""
+    t1 = TargetCategory(name="УБД", slug="ubd")
+    t2 = TargetCategory(name="Ветерани", slug="veteran")
+    t3 = TargetCategory(name="Родини", slug="family")
+    o1 = OfferCategory(name="Розваги", slug="rozvahy")
+    o2 = OfferCategory(name="Здоровʼя", slug="health")
+    db_session.add_all([t1, t2, t3, o1, o2])
+    db_session.commit()
+
+    def mk(title, tt, tcs, ocs):
+        offer_crud.create_offer(
+            db_session, OfferCreate(type=tt, title=title, provider="P",
+                                    target_category_ids=tcs, offer_category_ids=ocs),
+            created_by=CreatedBy.admin, status=OfferStatus.published)
+
+    mk("A", OfferType.discount, [t1.id], [o1.id])
+    mk("B", OfferType.event, [t2.id], [o2.id])
+    mk("C", OfferType.discount, [t3.id], [o1.id])
+    return {"t1": t1.id, "t2": t2.id, "t3": t3.id, "o1": o1.id, "o2": o2.id}
+
+
+def test_filter_by_multiple_target_categories(client, db_session):
+    ids = _seed_variety(db_session)
+    body = client.get(
+        f"/api/offers?target_category={ids['t1']}&target_category={ids['t2']}").json()
+    assert body["total"] == 2
+    assert sorted(o["title"] for o in body["items"]) == ["A", "B"]
+
+
+def test_filter_by_multiple_types(client, db_session):
+    _seed_variety(db_session)
+    both = client.get("/api/offers?type=discount&type=event").json()
+    assert both["total"] == 3
+    one = client.get("/api/offers?type=discount").json()
+    assert one["total"] == 2
+    assert sorted(o["title"] for o in one["items"]) == ["A", "C"]
+
+
+def test_filter_by_multiple_offer_categories(client, db_session):
+    ids = _seed_variety(db_session)
+    body = client.get(
+        f"/api/offers?offer_category={ids['o1']}&offer_category={ids['o2']}").json()
+    assert body["total"] == 3   # o1 -> A,C ; o2 -> B
+
+
+def test_single_target_category_still_filters(client, db_session):
+    ids = _seed_variety(db_session)
+    body = client.get(f"/api/offers?target_category={ids['t1']}").json()
+    assert body["total"] == 1
+    assert body["items"][0]["title"] == "A"
+
+
 def test_filter_by_offer_category(client, db_session):
     _, oc = _seed(db_session)
     body = client.get(f"/api/offers?offer_category={oc.id}").json()

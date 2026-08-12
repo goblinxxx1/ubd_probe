@@ -81,7 +81,8 @@ def list_offers(status: OfferStatus | None = None, type: OfferType | None = None
                 q: str | None = None,
                 page: int = Query(1, ge=1), size: int = Query(20, ge=1, le=100),
                 db: Session = Depends(get_db), _=Depends(get_current_admin)):
-    items, total = offer_crud.list_offers(db, status=status, type=type, search=q, page=page, size=size)
+    items, total = offer_crud.list_offers(db, status=status, types=[type] if type else None,
+                                          search=q, page=page, size=size)
     if status == OfferStatus.pending_review:
         from app.services.confidence import enrich_pending
         enrich_pending(db, items)   # moderation-queue assist (advisory only)
