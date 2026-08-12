@@ -84,15 +84,15 @@ const meta = computed(() => (props.offer.locations || []).join(" · "));
 }
 .card__provider:hover { text-decoration: none; color: @link; }
 .card__photo {
-  width: 26px; height: 26px; flex: none; object-fit: cover; border-radius: 9px;
+  width: 60px; height: 60px; flex: none; object-fit: contain; border-radius: 9px;
 }
 .card__discount { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
-.card__dtext { font-size: 12px; }
+.card__dtext { font-size: 16px; }
 .card__discounts { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
-.card__discount-row { display: flex; align-items: baseline; gap: 8px; font-size: 12px; }
+.card__discount-row { display: flex; align-items: baseline; gap: 8px; font-size: 14px; }
 .card__discount-val { font-weight: 800; color: @text; white-space: nowrap; }
 .card__discount-label { color: @desc-muted; overflow-wrap: anywhere; }
-.card__desc { font-size: 11.5px; line-height: 1.45; color: @desc-muted; margin: 10px 0 0; overflow-wrap: anywhere; }
+.card__desc { font-size: 12px; line-height: 1.5; color: @desc-muted; margin: 10px 0 0; overflow-wrap: anywhere; }
 .card__desc-empty { color: @placeholder; font-style: italic; }
 .card__whom {
   background: @whom-bg; border: 1px solid @whom-border; border-radius: 8px; padding: 7px 9px; margin-top: 11px;
@@ -103,14 +103,18 @@ const meta = computed(() => (props.offer.locations || []).join(" · "));
 }
 .card__chips { display: flex; flex-wrap: wrap; gap: 4px; }
 .chip {
-  font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 999px;
+  font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px;
   background: @chip-bg; color: @chip-text;
 }
 .card__foot {
   display: flex; justify-content: space-between; align-items: center; gap: 8px;
-  margin-top: 12px; padding-top: 10px; border-top: 1px solid @card-border;
+  flex-wrap: wrap; margin-top: 12px; padding-top: 10px; border-top: 1px solid @card-border;
 }
-.card__meta { font-size: 9.5px; text-transform: uppercase; letter-spacing: 1px; color: @meta-muted; }
-.card__links { display: flex; gap: 10px; flex-wrap: wrap; }
-.card__link { font-size: 11px; font-weight: 700; color: @link; }
+.card__meta { font-size: 14px; letter-spacing: .2px; color: @meta-muted; }
+.card__links { display: flex; gap: 8px; flex-wrap: wrap; }
+.card__link {
+  font-size: 14px; font-weight: 700; color: @link; line-height: 1;
+  padding: 7px 12px; border-radius: 8px; border: 1px solid @card-border;
+}
+.card__link:hover { background: @whom-bg; text-decoration: none; }
 </style>

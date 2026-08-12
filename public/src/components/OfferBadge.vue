@@ -14,8 +14,8 @@ const badge = computed(() => offerBadge(props.offer));
 @import "@/styles/variables.less";
 .badge {
   display: inline-flex; align-items: center; justify-content: center;
-  padding: 3px 9px; border-radius: 5px;
-  font-size: 13px; font-weight: 900; line-height: 1; letter-spacing: -.2px;
+  padding: 4px 10px; border-radius: 5px;
+  font-size: 16px; font-weight: 900; line-height: 1; letter-spacing: -.2px;
 }
 .badge--discount { background: @badge-discount-bg; color: @badge-discount-text; }
 .badge--free { background: @badge-free-bg; color: @badge-free-text; }
