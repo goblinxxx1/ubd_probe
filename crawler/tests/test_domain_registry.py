@@ -165,3 +165,31 @@ def test_record_rejections_does_not_move_last_seen():
     clk[0] = 900.0
     reg.record_rejections("a.ua", 1)
     assert reg._data["domains"]["a.ua"]["last_seen"] == seen_before   # cooldown/prune unaffected
+
+
+# --- empty-pass skip: 0-offer pass -> skip the host's next N crawls ---
+def test_empty_pass_arms_skip_counted_down_by_take_skip(tmp_path):
+    r = _reg(tmp_path, empty_skip=3)
+    r.record("empty.ua", offers=0, errors=0)      # empty pass -> skip next 3 crawls
+    assert r.take_skip("empty.ua") is True         # skip 1
+    assert r.take_skip("empty.ua") is True         # skip 2
+    assert r.take_skip("empty.ua") is True         # skip 3
+    assert r.take_skip("empty.ua") is False        # 4th crawl proceeds
+
+
+def test_offers_clear_the_skip(tmp_path):
+    r = _reg(tmp_path, empty_skip=3)
+    r.record("x.ua", offers=0, errors=0)           # skip armed
+    assert r.take_skip("x.ua") is True
+    r.record("x.ua", offers=2, errors=0)           # found offers -> skip cleared
+    assert r.take_skip("x.ua") is False
+
+
+def test_take_skip_unknown_host_is_false(tmp_path):
+    assert _reg(tmp_path).take_skip("never-seen.ua") is False
+
+
+def test_default_empty_skip_is_five(tmp_path):
+    r = _reg(tmp_path)                              # default empty_skip=5
+    r.record("e.ua", offers=0, errors=0)
+    assert sum(1 for _ in range(6) if r.take_skip("e.ua")) == 5   # 5 skips then allow

@@ -166,7 +166,8 @@ def build_runner(config) -> Runner:
             offer_weight=config.domain_offer_weight,
             error_weight=config.domain_error_weight,
             promote_min_score=config.domain_promote_min_score,
-            reject_weight=config.domain_reject_weight)
+            reject_weight=config.domain_reject_weight,
+            empty_skip=config.domain_empty_skip_crawls)
         domain_feed = DomainFeed(domain_registry, per_pass=config.domain_feed_per_pass,
                                  cooldown_seconds=revisit_cooldown)
         if walker is None:

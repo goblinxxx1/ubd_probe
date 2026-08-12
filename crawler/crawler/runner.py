@@ -243,16 +243,33 @@ class Runner:
         except Exception as exc:  # noqa: BLE001 — sweep must not crash the pass
             summary["errors"] += 1
             log.warning("expire-stale failed: %s", exc)
+        # Persist per-source empty-pass skip counters (armed/decremented above) so the
+        # cooldown survives across passes and process restarts.
+        if self._domain_registry is not None:
+            try:
+                self._domain_registry.save()
+            except Exception as exc:  # noqa: BLE001 — persistence must not crash the pass
+                log.warning("domain registry save (passive) failed: %s", exc)
         return summary
 
     def _crawl_source(self, source, cats, known, summary):
+        # Empty-pass cooldown: a website source that produced 0 offers last time is skipped
+        # for its next N crawls (noise/budget saver) — even when it is not blocklisted.
+        host = _host(source["url_or_handle"]) if source["type"] == "website" else None
+        if host and self._domain_registry is not None and self._domain_registry.take_skip(host):
+            summary["skipped_empty"] = summary.get("skipped_empty", 0) + 1
+            return
+        before_o, before_e = summary["offers"], summary["errors"]
         if self._walker is not None and source["type"] == "website":
             self._crawl_website_deep(source, cats, known, summary)
-            return
-        state = self._api.get_crawl_state(source["id"])
-        items, new_key = self._fetch_for(source, state.get("last_seen_key"))
-        self._process_page(items, source, cats, known, summary)
-        self._api.set_crawl_state(source["id"], new_key)
+        else:
+            state = self._api.get_crawl_state(source["id"])
+            items, new_key = self._fetch_for(source, state.get("last_seen_key"))
+            self._process_page(items, source, cats, known, summary)
+            self._api.set_crawl_state(source["id"], new_key)
+        if host and self._domain_registry is not None:
+            self._domain_registry.record(host, summary["offers"] - before_o,
+                                         summary["errors"] - before_e)
 
     def _crawl_website_deep(self, source, cats, known, summary):
         cand = SourceCandidate(name=source["name"], type="website",

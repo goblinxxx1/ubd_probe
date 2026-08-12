@@ -18,7 +18,7 @@ _EMPTY = {"version": 1, "domains": {}}
 class DomainRegistry:
     def __init__(self, path, data=None, clock=time.time, *,
                  decay=0.9, offer_weight=1.0, error_weight=0.5, promote_min_score=0.5,
-                 reject_weight=1.0):
+                 reject_weight=1.0, empty_skip=5):
         self._path = path
         self._clock = clock
         self._data = data if data is not None else json.loads(json.dumps(_EMPTY))
@@ -27,6 +27,7 @@ class DomainRegistry:
         self._error_w = error_weight
         self._promote = promote_min_score
         self._reject_w = reject_weight
+        self._empty_skip = int(empty_skip)
 
     @classmethod
     def load(cls, path, clock=time.time, **score_kw):
@@ -50,7 +51,8 @@ class DomainRegistry:
         e = self._data["domains"].get(host)
         if e is None:
             e = {"score": 0.0, "offers": 0, "errors": 0, "rejects": 0, "passes": 0,
-                 "empty_passes": 0, "first_seen": now, "last_seen": now, "last_offer": 0.0}
+                 "empty_passes": 0, "skip_left": 0, "first_seen": now, "last_seen": now,
+                 "last_offer": 0.0}
             self._data["domains"][host] = e
         e["score"] = max(0.0, e["score"] * self._decay
                          + offers * self._offer_w - errors * self._error_w)
@@ -59,9 +61,21 @@ class DomainRegistry:
         e["passes"] += 1
         if offers == 0:
             e["empty_passes"] += 1
+            e["skip_left"] = self._empty_skip   # empty pass → skip the host's next N crawls
         else:
             e["last_offer"] = now
+            e["skip_left"] = 0                   # productive again → resume normal cadence
         e["last_seen"] = now
+
+    def take_skip(self, host) -> bool:
+        """Empty-pass cooldown gate. If the host still owes skipped crawls, consume one and
+        return True (caller must skip this crawl); otherwise return False (crawl proceeds).
+        Unknown host → False. Mutates state, so the caller's pass must save() the registry."""
+        e = self._data["domains"].get(_host(host))
+        if e and e.get("skip_left", 0) > 0:
+            e["skip_left"] -= 1
+            return True
+        return False
 
     def record_rejections(self, host, n):
         """Soft down-rank an EXISTING domain by n rejections (score -= n*reject_weight,

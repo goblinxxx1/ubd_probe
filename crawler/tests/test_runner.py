@@ -556,3 +556,40 @@ def test_run_active_marks_only_fully_consumed_search_phrases():
                     harvester=_Harv(), search_pass=_SP())
     runner.run_active()
     assert marked["ks"] == ["phraseA"]    # phraseB straddles the budget -> NOT marked
+
+
+class _EmptyFetcher:
+    """Website fetcher that never yields an offer-bearing item (an empty pass)."""
+    platform = "website"
+    def __init__(self): self.calls = 0
+    def fetch(self, source, last_seen_key):
+        self.calls += 1
+        return [], last_seen_key
+
+
+def test_passive_skips_source_for_next_crawls_after_empty_pass(tmp_path):
+    src = {"id": 11, "type": "website", "name": "Empty", "url_or_handle": "https://empty.ua"}
+    api = FakeApi([src])
+    fetcher = _EmptyFetcher()
+    walker = _FakeWalker(["https://empty.ua"], "empty.ua")
+    reg = DomainRegistry(str(tmp_path / "r.json"), empty_skip=5)
+    runner = Runner(api, {"website": fetcher}, get_extractor("heuristic"), _rl(),
+                    walker=walker, domain_rate_limiter=_FakeDomainRL(), domain_registry=reg)
+    runner.run_passive()
+    assert fetcher.calls == 1                 # crawled once, found nothing -> skip armed
+    runner.run_passive()
+    runner.run_passive()
+    assert fetcher.calls == 1                 # skipped on the following passes
+
+
+def test_passive_does_not_skip_a_productive_source(tmp_path):
+    src = {"id": 12, "type": "website", "name": "Shop", "url_or_handle": "https://shop.ua"}
+    api = FakeApi([src])
+    fetcher = _MultiPageFetcher()             # yields an offer per page
+    walker = _FakeWalker(["https://shop.ua"], "shop.ua")
+    reg = DomainRegistry(str(tmp_path / "r.json"), empty_skip=5)
+    runner = Runner(api, {"website": fetcher}, get_extractor("heuristic"), _rl(),
+                    walker=walker, domain_rate_limiter=_FakeDomainRL(), domain_registry=reg)
+    runner.run_passive()
+    runner.run_passive()
+    assert fetcher.seen == ["https://shop.ua", "https://shop.ua"]   # crawled both passes
