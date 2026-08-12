@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { mount } from "@vue/test-utils";
-import ElementPlus, { ElMessage } from "element-plus";
+import ElementPlus, { ElMessage, ElSelect } from "element-plus";
 import OfferForm from "@/components/OfferForm.vue";
 
 vi.mock("element-plus", async (importOriginal) => {
@@ -89,6 +89,14 @@ describe("OfferForm", () => {
     Object.assign(wrapper.vm.form, { discount_type: "percent", discount_value: 10 });
     wrapper.vm.submit();
     expect(wrapper.emitted().submit[0][0].discounts).toEqual([{ label: "МВС", discount_type: "percent", discount_value: 10 }]);
+  });
+
+  it("clears the city filter text after each selection (reserve-keyword off)", () => {
+    const wrapper = mount(OfferForm, { props: { initial: null }, global: { plugins: [ElementPlus] } });
+    const citySelect = wrapper.findAllComponents(ElSelect)
+      .find((s) => (s.props("placeholder") || "").includes("міста"));
+    expect(citySelect).toBeTruthy();
+    expect(citySelect.props("reserveKeyword")).toBe(false);
   });
 
   it("defaults discounts to an empty array for a new offer", () => {

@@ -106,6 +106,7 @@ defineExpose({ form, submit, submitPublish, canPublish, addDiscount, removeDisco
     </el-form-item>
     <el-form-item label="Локація (міста)">
       <el-select v-model="form.locations" multiple filterable clearable
+                 :reserve-keyword="false"
                  style="width: 100%" placeholder="Оберіть міста або «Онлайн»">
         <el-option label="Онлайн" value="Онлайн" />
         <el-option v-for="c in GAZETTEER" :key="c" :label="c" :value="c" />

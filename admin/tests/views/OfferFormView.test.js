@@ -20,6 +20,7 @@ vi.mock("element-plus", async (importOriginal) => {
   return { ...actual, ElMessage: { error: vi.fn(), success: vi.fn() } };
 });
 import * as offers from "@/api/offers";
+import { useModerationStore } from "@/stores/moderation";
 
 function mountView(path, routeName, params = {}) {
   const stub = { template: "<div/>" };
@@ -66,6 +67,24 @@ describe("OfferFormView", () => {
     await flushPromises();
     expect(offers.update).toHaveBeenCalledWith("5", { title: "Pub", type: "event", provider: "P" });
     expect(offers.publish).toHaveBeenCalledWith("5");
+  });
+
+  it("refreshes the moderation badge after publishing from the edit page", async () => {
+    const wrapper = await mountView("/offers/5/edit");
+    await flushPromises();
+    const spy = vi.spyOn(useModerationStore(), "refresh").mockResolvedValue();
+    wrapper.vm.onSubmitPublish({ title: "Pub", type: "event", provider: "P" });
+    await flushPromises();
+    expect(spy).toHaveBeenCalled();
+  });
+
+  it("refreshes the moderation badge after saving an edited offer", async () => {
+    const wrapper = await mountView("/offers/5/edit");
+    await flushPromises();
+    const spy = vi.spyOn(useModerationStore(), "refresh").mockResolvedValue();
+    wrapper.vm.onSubmit({ title: "Upd", type: "discount", provider: "P" });
+    await flushPromises();
+    expect(spy).toHaveBeenCalled();
   });
 
   it("returns to the originating section after save", async () => {
