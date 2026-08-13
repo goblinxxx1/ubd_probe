@@ -26,6 +26,39 @@ def test_public_lists_only_published(client, db_session):
     assert body["items"][0]["title"] == "Published"
 
 
+def _mk_published(db_session, title, valid_until, locations=None):
+    o = offer_crud.create_offer(
+        db_session,
+        OfferCreate(type=OfferType.discount, title=title, provider="P",
+                    valid_until=valid_until, locations=locations or []),
+        created_by=CreatedBy.admin, status=OfferStatus.published)
+    return o.id
+
+
+def test_public_hides_offers_past_valid_until(client, db_session):
+    import datetime
+    today = datetime.date.today()
+    expired_id = _mk_published(db_session, "Expired", today - datetime.timedelta(days=1))
+    _mk_published(db_session, "EndsToday", today)          # inclusive — still valid today
+    _mk_published(db_session, "NoEnd", None)
+    _mk_published(db_session, "Future", today + datetime.timedelta(days=1))
+    titles = {i["title"] for i in client.get("/api/offers").json()["items"]}
+    assert titles == {"EndsToday", "NoEnd", "Future"}      # only the past-valid_until one is hidden
+    # public detail of an expired offer 404s...
+    assert client.get(f"/api/offers/{expired_id}").status_code == 404
+    # ...but the moderation preview link still renders it
+    assert client.get(f"/api/offers/{expired_id}?preview=1").status_code == 200
+
+
+def test_public_locations_facet_excludes_expired_only_city(client, db_session):
+    import datetime
+    today = datetime.date.today()
+    _mk_published(db_session, "Exp", today - datetime.timedelta(days=1), locations=["Суми"])
+    _mk_published(db_session, "Live", None, locations=["Київ"])
+    locs = client.get("/api/locations").json()
+    assert "Київ" in locs and "Суми" not in locs
+
+
 def test_filter_by_type(client, db_session):
     _seed(db_session)
     body = client.get("/api/offers?type=event").json()

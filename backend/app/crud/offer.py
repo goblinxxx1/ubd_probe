@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from sqlalchemy.orm import Session
 
@@ -301,7 +301,11 @@ def create_offer(db: Session, data: OfferCreate, created_by: CreatedBy,
 
 def get_offer(db: Session, offer_id: int, published_only: bool = False) -> Offer:
     obj = db.get(Offer, offer_id)
-    if obj is None or (published_only and obj.status != OfferStatus.published):
+    # published_only is the public path: also hide offers whose valid_until has passed
+    # (soft-expiry). Preview (published_only=False) still renders them for moderation.
+    expired = published_only and obj is not None and obj.valid_until is not None \
+        and obj.valid_until < date.today()
+    if obj is None or expired or (published_only and obj.status != OfferStatus.published):
         raise not_found(f"Offer {offer_id} not found")
     return obj
 
@@ -311,10 +315,15 @@ def list_offers(db: Session, *, status: OfferStatus | None = None,
                 target_category_ids: list[int] | None = None,
                 offer_category_ids: list[int] | None = None,
                 locations: list[str] | None = None, search: str | None = None,
+                hide_expired: bool = False,
                 page: int = 1, size: int = 20):
     q = db.query(Offer)
     if status is not None:
         q = q.filter(Offer.status == status)
+    if hide_expired:
+        # soft-expiry: drop offers whose "діє до" date has passed (valid through it,
+        # inclusive). NULL valid_until = no end date, always shown.
+        q = q.filter((Offer.valid_until.is_(None)) | (Offer.valid_until >= date.today()))
     if types:
         q = q.filter(Offer.type.in_(types))
     if locations:
@@ -499,8 +508,10 @@ def expire_stale(db: Session, older_than_days: int) -> int:
 
 
 def list_distinct_locations(db: Session, status: OfferStatus = OfferStatus.published):
+    # public facet: don't advertise a city served only by a soft-expired offer
     rows = (db.query(OfferLocation.name)
             .join(Offer, Offer.id == OfferLocation.offer_id)
             .filter(Offer.status == status)
+            .filter((Offer.valid_until.is_(None)) | (Offer.valid_until >= date.today()))
             .distinct().order_by(OfferLocation.name).all())
     return [r[0] for r in rows]

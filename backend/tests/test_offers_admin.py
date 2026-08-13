@@ -34,6 +34,24 @@ def test_admin_offers_requires_auth(client):
     assert client.get("/api/admin/offers").status_code == 401
 
 
+def test_admin_marks_expired_published_offer(client, db_session):
+    import datetime
+    token = _admin_token(db_session)
+    h = {"Authorization": f"Bearer {token}"}
+    today = datetime.date.today()
+    offer_crud.create_offer(
+        db_session, OfferCreate(type=OfferType.discount, title="Old", provider="P",
+                                valid_until=today - datetime.timedelta(days=1)),
+        created_by=CreatedBy.admin, status=OfferStatus.published)
+    offer_crud.create_offer(
+        db_session, OfferCreate(type=OfferType.discount, title="Live", provider="P"),
+        created_by=CreatedBy.admin, status=OfferStatus.published)
+    items = {i["title"]: i for i in client.get("/api/admin/offers?status=published", headers=h).json()["items"]}
+    # admin still SEES the expired offer (unlike public) but it is flagged
+    assert items["Old"]["is_expired"] is True
+    assert items["Live"]["is_expired"] is False
+
+
 def test_list_offers_search_by_q(client, db_session):
     token = _admin_token(db_session)
     h = {"Authorization": f"Bearer {token}"}

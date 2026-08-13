@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, computed_field, field_validator, model_validator
 
 from app.models.enums import DiscountType, OfferStatus, OfferType, CreatedBy, VALUE_DISCOUNT_TYPES
 from app.schemas.category import CategoryOut
@@ -165,3 +165,10 @@ class ConfidenceOut(BaseModel):
 
 class OfferAdminOut(OfferOut):
     confidence: ConfidenceOut | None = None
+
+    @computed_field
+    @property
+    def is_expired(self) -> bool:
+        # soft-expiry marker for admins: a published offer past its valid_until is
+        # hidden from the public site but still shown (flagged) in admin.
+        return self.valid_until is not None and self.valid_until < date.today()

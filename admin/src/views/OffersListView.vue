@@ -264,6 +264,8 @@ defineExpose({ onPublish, onReject, onRestore, onDelete, onBlockHost, preview, e
       </template>
       <template #col-status="{ row }">
         <el-tag :type="statusTagType(row.status)">{{ enumLabel(OFFER_STATUSES, row.status) }}</el-tag>
+        <el-tag v-if="row.is_expired" size="small" type="info" effect="plain" style="margin-top: 4px"
+                title="Термін дії (діє до) минув — прихований з публічного сайту">протерміновано</el-tag>
       </template>
       <template #col-validUntil="{ row }">{{ formatDate(row.valid_until) }}</template>
       <template #col-source="{ row }">

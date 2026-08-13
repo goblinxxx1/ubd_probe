@@ -41,7 +41,7 @@ def list_offers(type: list[OfferType] | None = Query(None),
     items, total = offer_crud.list_offers(
         db, status=OfferStatus.published, types=type, target_category_ids=target_category,
         offer_category_ids=offer_category, locations=location,
-        search=q, page=page, size=size,
+        search=q, hide_expired=True, page=page, size=size,
     )
     return Page(items=items, total=total, page=page, size=size)
 
