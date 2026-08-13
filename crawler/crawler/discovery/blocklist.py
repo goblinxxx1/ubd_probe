@@ -29,6 +29,11 @@ _BLOCKED = _MEDIA | _STOCK | _SOCIAL
 
 _LEARNED: frozenset[str] = frozenset()
 
+# Hosts pinned as Russia/Belarus by a geo signal in the URL (path/subdomain) —
+# persisted crawler-side (GeoBlockStore) and pushed here so the WHOLE host is never
+# fetched/walked/re-fed again. Kept separate from _LEARNED (media/aggregator audit).
+_GEO_BLOCKED: frozenset[str] = frozenset()
+
 
 def reload_learned(hosts) -> None:
     """Replace the learned media/aggregator host set (approved via the Vue audit).
@@ -41,6 +46,16 @@ def reload_learned(hosts) -> None:
     _LEARNED = frozenset(n for n in norm if n)
 
 
+def reload_geo_blocked(hosts) -> None:
+    """Replace the RU/BY geo-blocked host set. None/empty ⇒ cleared."""
+    global _GEO_BLOCKED
+    if not hosts:
+        _GEO_BLOCKED = frozenset()
+        return
+    norm = {bare_host(h) for h in hosts if h and h.strip()}
+    _GEO_BLOCKED = frozenset(n for n in norm if n)
+
+
 def is_blocked_host(host: str | None) -> bool:
     if not host:
         return False
@@ -50,6 +65,8 @@ def is_blocked_host(host: str | None) -> bool:
     if host == "gov.ua" or host.endswith(".gov.ua"):
         return True
     if any(host == d or host.endswith("." + d) for d in _BLOCKED):
+        return True
+    if any(host == d or host.endswith("." + d) for d in _GEO_BLOCKED):
         return True
     return any(host == d or host.endswith("." + d) for d in _LEARNED)
 

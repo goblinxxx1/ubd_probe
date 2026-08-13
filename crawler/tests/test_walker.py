@@ -70,6 +70,20 @@ def test_offer_pages_prioritised_over_info_pages_when_capped(monkeypatch):
     assert "https://shop.ua/kontakty" not in plan.urls                          # info page yielded
 
 
+def test_russian_geo_path_pages_are_dropped_from_walk(monkeypatch):
+    # a RU-city path page discovered while walking an allowed gTLD host must never be fetched
+    monkeypatch.setattr(walker_mod, "collect_sitemap_urls",
+                        lambda *a, **k: ["https://shop.com/akcii",
+                                         "https://shop.com/spb/akcii",   # Russian section
+                                         "https://shop.com/promo"])
+    policy = FakePolicy(FakeRobots(sitemaps=["https://shop.com/s.xml"]))
+    w = DomainWalker(client=object(), robots=policy, rate_limiter=NoWait(),
+                     domain_page_cap=10, bfs_trigger_min=1)
+    plan = w.walk(_cand("https://shop.com"))
+    assert "https://shop.com/spb/akcii" not in plan.urls   # Russian page dropped
+    assert "https://shop.com/akcii" in plan.urls           # UA promo page kept
+
+
 def test_disallowed_urls_are_dropped(monkeypatch):
     monkeypatch.setattr(walker_mod, "collect_sitemap_urls",
                         lambda *a, **k: ["https://shop.ua/akcii", "https://shop.ua/promo"])

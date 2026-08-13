@@ -270,6 +270,33 @@ def test_walker_expands_website_candidate_to_multiple_pages(monkeypatch):
     assert drl.calls == [("shop.ua", 1.0), ("shop.ua", 1.0)]
 
 
+class _GeoStore:
+    """Fake GeoBlockStore recording pinned hosts."""
+    def __init__(self):
+        self.added = []
+
+    def add(self, host_or_url):
+        from crawler.util.hosts import bare_host
+        h = bare_host(host_or_url)
+        self.added.append(h)
+        return True
+
+
+def test_ru_by_geo_candidate_is_skipped_and_host_pinned():
+    # restoran.cafe/spb (Saint-Petersburg path) must not be fetched, and the whole host
+    # must be pinned into the geo-block store so it is never re-fed.
+    fetcher = _Fetcher()
+    store = _GeoStore()
+    harv = ActiveHarvester(_Api(), {"website": fetcher}, _Extractor(), rate_limiter=None,
+                           geo_block_store=store)
+    summary = {"offers": 0, "suggestions": 0, "errors": 0}
+    cand = SourceCandidate(name="R", type="website",
+                           url_or_handle="https://restoran.cafe/spb")
+    harv.harvest([cand], cats=object(), known=set(), summary=summary)
+    assert fetcher.urls == []                    # never fetched
+    assert store.added == ["restoran.cafe"]      # whole host pinned
+
+
 def test_walker_none_keeps_single_homepage_fetch(monkeypatch):
     import crawler.discovery.harvest as h
     monkeypatch.setattr(h, "resolve_offer_categories", lambda *a, **k: [])

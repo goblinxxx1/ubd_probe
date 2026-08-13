@@ -98,6 +98,7 @@ class _RawSettings(BaseSettings):
     domain_reject_weight: float = 1.0
     domain_empty_skip_crawls: int = 5
     reject_since_state_path: str = "/data/reject_since.json"
+    geo_blocked_hosts_path: str = "/data/geo_blocked_hosts.json"
     attribution_hardening_enabled: bool = True
     blocked_hosts_fetch_enabled: bool = True
     aggregator_min_outbound: int = 3
@@ -203,6 +204,7 @@ class Config:
     domain_reject_weight: float = 1.0
     domain_empty_skip_crawls: int = 5
     reject_since_state_path: str = "/data/reject_since.json"
+    geo_blocked_hosts_path: str = "/data/geo_blocked_hosts.json"
     attribution_hardening_enabled: bool = True
     blocked_hosts_fetch_enabled: bool = True
     aggregator_min_outbound: int = 3
@@ -331,6 +333,7 @@ def load_config() -> Config:
         domain_reject_weight=s.domain_reject_weight,
         domain_empty_skip_crawls=s.domain_empty_skip_crawls,
         reject_since_state_path=s.reject_since_state_path,
+        geo_blocked_hosts_path=s.geo_blocked_hosts_path,
         attribution_hardening_enabled=s.attribution_hardening_enabled,
         blocked_hosts_fetch_enabled=s.blocked_hosts_fetch_enabled,
         aggregator_min_outbound=s.aggregator_min_outbound,

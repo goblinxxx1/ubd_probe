@@ -10,6 +10,7 @@ from crawler.discovery.brand_feed import (
     BRAND_SEEDS, BrandDomainCache, BrandFeed, BrandResolver, refresh_brand_domains)
 from crawler.discovery.domain_feed import DomainFeed
 from crawler.discovery.domain_registry import DomainRegistry
+from crawler.discovery.geo_block import GeoBlockStore
 from crawler.discovery.harvest import ActiveHarvester
 from crawler.discovery.osm_feed import OsmDomainFeed, OsmEnumerator
 from crawler.discovery.providers import build_search_plans
@@ -108,6 +109,10 @@ def build_runner(config) -> Runner:
             blocklist.reload_learned(api.list_blocked_hosts())
         except Exception as exc:  # noqa: BLE001 — learned-host fetch is best-effort
             log.warning("blocked-hosts fetch failed: %s", exc)
+
+    # Persistent RU/BY geo-block (path/subdomain signal → whole host). load() pushes the
+    # set into blocklist so is_blocked_host drops these hosts everywhere from the start.
+    geo_block_store = GeoBlockStore(config.geo_blocked_hosts_path).load()
 
     web_client = _http_client(config.request_timeout)
     ig_creds = [c for c in config.bot_accounts if c.platform == "instagram"]
@@ -212,7 +217,8 @@ def build_runner(config) -> Runner:
                                     aggregator_min_outbound=config.aggregator_min_outbound,
                                     aggregator_store=aggregator_store,
                                     aggregator_max_domains=config.aggregator_max_domains,
-                                    revisit_cooldown_seconds=revisit_cooldown)
+                                    revisit_cooldown_seconds=revisit_cooldown,
+                                    geo_block_store=geo_block_store)
     return Runner(api, fetchers, extractor, rate_limiter,
                   discovery=discovery, search_pass=search_pass, harvester=harvester,
                   brand_feed=brand_feed, freshness_ttl_days=config.freshness_ttl_days,

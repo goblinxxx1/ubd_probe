@@ -1,4 +1,4 @@
-from crawler.util.hosts import bare_host, is_foreign_host
+from crawler.util.hosts import bare_host, is_foreign_host, is_ru_by_geo
 
 
 def test_foreign_cctld_hosts_are_foreign():
@@ -91,3 +91,59 @@ def test_russian_heuristic_does_not_overblock():
     assert is_foreign_host("mate.academy") is False
     assert is_foreign_host("sub.mate.academy") is False           # non-ru subdomain
     assert is_foreign_host("boombate.com") is False               # apex -> blocklist, not geo-gate
+
+
+# --- is_ru_by_geo: Russia/Belarus signal anywhere in the URL (ccTLD, subdomain,
+#     OR path segment) -> the whole host must be blocked. ---
+
+def test_ru_by_geo_path_segment_on_gtld():
+    # the reported leak: /spb (Saint Petersburg) as a PATH segment on a gTLD host
+    assert is_ru_by_geo("https://restoran.cafe/spb") is True
+    assert is_ru_by_geo("https://restoran.cafe/spb/restaurant") is True
+    assert is_ru_by_geo("https://x.com/city/msk/list") is True
+    assert is_ru_by_geo("https://shop.org/ekb/") is True
+
+
+def test_ru_by_geo_belarus_city_path_and_subdomain():
+    assert is_ru_by_geo("https://x.com/minsk") is True            # BY city path
+    assert is_ru_by_geo("https://gomel.example.com/x") is True    # BY city subdomain
+
+
+def test_ru_by_geo_russian_city_subdomain():
+    assert is_ru_by_geo("https://spb.boombate.com/x") is True
+    assert is_ru_by_geo("msk.example.net") is True
+
+
+def test_ru_by_geo_ru_by_cctlds():
+    assert is_ru_by_geo("https://shop.ru") is True
+    assert is_ru_by_geo("poodle.by") is True
+    assert is_ru_by_geo("https://x.xn--p1ai/") is True            # .рф
+    assert is_ru_by_geo("https://x.xn--90ais/") is True           # .бел
+
+
+def test_ru_by_geo_whole_segment_only_no_substring():
+    # /spbank contains "spb" but is not the segment "spb" -> must NOT match
+    assert is_ru_by_geo("https://shop.com/spbank") is False
+    assert is_ru_by_geo("https://shop.com/permanent") is False    # "perm" is a substring only
+
+
+def test_ru_by_geo_ua_host_is_never_ru_by():
+    # a confirmed-UA host (.ua) is Ukrainian; a coincidental /spb path must NOT block it
+    assert is_ru_by_geo("https://shop.com.ua/spb") is False
+    assert is_ru_by_geo("https://spb.example.com.ua/x") is False  # .ua wins over spb subdomain
+
+
+def test_ru_by_geo_clean_urls_are_not_flagged():
+    assert is_ru_by_geo("https://restoran.cafe/kyiv") is False
+    assert is_ru_by_geo("https://shop.com/about") is False
+    assert is_ru_by_geo("https://mate.academy/lviv") is False
+
+
+def test_ru_by_geo_query_string_is_not_a_path_segment():
+    # conservative: only PATH segments count, query params do not
+    assert is_ru_by_geo("https://shop.com/list?city=spb") is False
+
+
+def test_ru_by_geo_empty_or_none():
+    assert is_ru_by_geo("") is False
+    assert is_ru_by_geo(None) is False

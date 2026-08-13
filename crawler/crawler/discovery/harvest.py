@@ -9,7 +9,7 @@ from crawler.discovery.promo_lexicon import seed_is_target
 from crawler.extract.aggregate import aggregate_page
 from crawler.extract.categories import resolve_offer_categories
 from crawler.payloads import offer_payload
-from crawler.util.hosts import is_foreign_host
+from crawler.util.hosts import is_foreign_host, is_ru_by_geo
 
 log = logging.getLogger(__name__)
 
@@ -21,7 +21,8 @@ class ActiveHarvester:
                  walker=None, domain_rate_limiter=None, corpus_recorder=None,
                  domain_registry=None, hardening_enabled=True,
                  aggregator_min_outbound=3, aggregator_store=None,
-                 aggregator_max_domains=500, revisit_cooldown_seconds=0):
+                 aggregator_max_domains=500, revisit_cooldown_seconds=0,
+                 geo_block_store=None):
         self._api = api
         self._fetchers = fetchers
         self._extractor = extractor
@@ -36,6 +37,7 @@ class ActiveHarvester:
         self._aggregator_store = aggregator_store
         self._aggregator_max_domains = aggregator_max_domains
         self._revisit_cooldown = revisit_cooldown_seconds
+        self._geo_block_store = geo_block_store
 
     def harvest(self, candidates, cats, known, summary, known_hosts=None) -> int:
         known_hosts = known_hosts or set()
@@ -46,6 +48,13 @@ class ActiveHarvester:
                 return idx                    # budget break: idx..end untouched
             stop = idx + 1
             if cand.type not in _FETCHABLE:
+                continue
+            # Russia/Belarus signal anywhere in the URL — ccTLD/subdomain OR a city-code
+            # path segment (restoran.cafe/spb). Never fetch, AND pin the WHOLE host into the
+            # persistent geo-block so is_blocked_host drops it from every future feed/walk.
+            if cand.type == "website" and is_ru_by_geo(cand.url_or_handle):
+                if self._geo_block_store is not None:
+                    self._geo_block_store.add(cand.url_or_handle)
                 continue
             # UA-only: never fetch/walk a foreign-ccTLD site (напр. .by). Гейт до
             # витрати бюджету й до запису в domain_registry, тож іноземний хост не

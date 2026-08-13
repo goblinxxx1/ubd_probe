@@ -12,7 +12,7 @@ from crawler.discovery.passive import normalize_ref
 from crawler.discovery.promo_lexicon import (  # re-export url_is_promo for callers/tests
     is_excluded, page_is_target, seed_is_target, url_is_promo)
 from crawler.discovery.sitemap import collect_sitemap_urls
-from crawler.util.hosts import bare_host
+from crawler.util.hosts import bare_host, is_ru_by_geo
 
 log = logging.getLogger(__name__)
 
@@ -82,6 +82,8 @@ class DomainWalker:
         for url in [homepage, *promo]:
             if url == homepage and not seed_is_target(homepage):
                 continue                                # active non-target candidate: skip seed
+            if is_ru_by_geo(url):
+                continue                                # RU/BY page (e.g. /spb) — never fetch
             if not robots.can_fetch(url):
                 continue
             key = normalize_ref("website", url)
@@ -110,7 +112,7 @@ class DomainWalker:
                     if link in seen:
                         continue
                     seen.add(link)
-                    if is_excluded(link):
+                    if is_excluded(link) or is_ru_by_geo(link):
                         continue                        # hard skip: no collect, no traverse
                     if page_is_target(link, anchor):
                         found.append(link)
