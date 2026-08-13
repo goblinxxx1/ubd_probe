@@ -12,6 +12,15 @@ def test_crawler_submits_pending_offer(client, db_session):
     assert client.get("/api/offers").json()["total"] == 0
 
 
+def test_crawler_offer_persists_logo_url(client, db_session):
+    resp = client.post("/api/internal/offers",
+                       json={"type": "discount", "title": "T", "provider": "P",
+                             "logo_url": "https://woodmallcinema.com/img/logo.svg"},
+                       headers={"X-API-Key": settings.crawler_api_key})
+    assert resp.status_code == 200
+    assert resp.json()["logo_url"] == "https://woodmallcinema.com/img/logo.svg"
+
+
 def test_internal_offer_requires_api_key(client):
     resp = client.post("/api/internal/offers",
                        json={"type": "discount", "title": "x", "provider": "y"})

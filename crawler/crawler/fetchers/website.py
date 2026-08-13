@@ -37,17 +37,96 @@ def _origin(url: str) -> str:
     return f"{p.scheme}://{p.netloc}" if p.scheme and p.netloc else ""
 
 
-def _extract_logo(tree, base_url: str) -> str | None:
-    # priority: apple-touch-icon -> og:image -> favicon
+_ORG_TYPES = {"organization", "localbusiness", "website"}
+
+
+def _safe_url(base_url: str, val) -> str | None:
+    """Resolve val against base_url; allow ONLY http/https; cap length. Blocks
+    javascript:/data: and other schemes from ever reaching the DB or an <img src>."""
+    if not val or not isinstance(val, str):
+        return None
+    absolute = urljoin(base_url, val.strip())
+    if urlsplit(absolute).scheme not in ("http", "https"):
+        return None
+    return absolute[:1024]
+
+
+def _extract_image(tree, base_url: str) -> str | None:
+    # card HERO image, priority: apple-touch-icon -> og:image -> favicon
     for css, attr in (('link[rel="apple-touch-icon"]', "href"),
                       ('meta[property="og:image"]', "content"),
                       ('link[rel="icon"]', "href"),
                       ('link[rel="shortcut icon"]', "href")):
         node = tree.css_first(css)
         if node is not None:
-            val = node.attributes.get(attr)
-            if val:
-                return urljoin(base_url, val)
+            safe = _safe_url(base_url, node.attributes.get(attr))
+            if safe:
+                return safe
+    return None
+
+
+def _find_logo(obj) -> str | None:
+    """Recurse a parsed JSON-LD value for an Organization/LocalBusiness/WebSite
+    `logo` (string or {url}). Handles list, @graph wrapper, and @type-as-list."""
+    if isinstance(obj, list):
+        for item in obj:
+            got = _find_logo(item)
+            if got:
+                return got
+        return None
+    if not isinstance(obj, dict):
+        return None
+    if "@graph" in obj:
+        got = _find_logo(obj["@graph"])
+        if got:
+            return got
+    t = obj.get("@type")
+    if isinstance(t, str):
+        types = {t.lower()}
+    elif isinstance(t, list):
+        types = {x.lower() for x in t if isinstance(x, str)}
+    else:
+        types = set()
+    if types & _ORG_TYPES:
+        logo = obj.get("logo")
+        if isinstance(logo, str):
+            return logo
+        if isinstance(logo, dict) and isinstance(logo.get("url"), str):
+            return logo["url"]
+    return None
+
+
+def _jsonld_logo(tree) -> str | None:
+    for node in tree.css('script[type="application/ld+json"]'):
+        raw = node.text()
+        if not raw:
+            continue
+        try:
+            data = json.loads(raw)
+        except (ValueError, TypeError):
+            continue                     # malformed block — skip, never crash
+        got = _find_logo(data)
+        if got:
+            return got
+    return None
+
+
+def _extract_logo(tree, base_url: str) -> str | None:
+    """Brand LOGO (SVG-friendly), best-source-first: JSON-LD Organization.logo ->
+    <img class=logo> src -> apple-touch-icon. Returns a URL only (never inline SVG);
+    http/https enforced by _safe_url. Distinct from the card hero (_extract_image)."""
+    got = _safe_url(base_url, _jsonld_logo(tree))
+    if got:
+        return got
+    for css in _LOGO_IMG_SELECTORS:
+        node = tree.css_first(css)
+        if node is not None:
+            got = _safe_url(base_url, node.attributes.get("src"))
+            if got:
+                return got
+    node = tree.css_first('link[rel="apple-touch-icon"]')
+    if node is not None:
+        return _safe_url(base_url, node.attributes.get("href"))
     return None
 
 
@@ -238,6 +317,7 @@ class WebsiteFetcher:
             resp.raise_for_status()
 
             tree = HTMLParser(resp.text)
+            image = _extract_image(tree, url)
             logo = _extract_logo(tree, url)
             logo_alt = _extract_logo_alt(tree)
             site_name = _extract_site_name(tree)
@@ -269,7 +349,7 @@ class WebsiteFetcher:
                          if a.attributes.get("href")]
                 items.append(RawItem(source_id=source["id"], platform="website",
                                      key=key, text=text, url=url, links=links,
-                                     logo_url=logo, logo_alt=logo_alt,
+                                     image_url=image, logo_url=logo, logo_alt=logo_alt,
                                      site_name=site_name, site_tagline=site_tagline,
                                      locality=locality, has_offer_schema=has_offer,
                                      is_article=is_article,

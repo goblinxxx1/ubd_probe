@@ -148,7 +148,8 @@ class HeuristicExtractor:
             site_url=(f"{urlsplit(item.url).scheme}://{urlsplit(item.url).netloc}"
                       if item.url else None),
             article_url=item.url,
-            image_url=getattr(item, "logo_url", None),
+            image_url=getattr(item, "image_url", None),
+            logo_url=getattr(item, "logo_url", None),
             target_url=_pick_target(getattr(item, "links", None), item.url or ""),
             target_category_ids=target_ids,
             offer_category_matches=offer_matches,

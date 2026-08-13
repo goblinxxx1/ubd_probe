@@ -97,6 +97,7 @@ def _apply_content(obj, data, canon, canon_article, content_hash, targets, offer
     obj.site_url = data.site_url
     obj.article_url = data.article_url
     obj.image_url = data.image_url
+    obj.logo_url = data.logo_url
     obj.target_url = data.target_url
     obj.target_url_canonical = canon
     obj.article_url_canonical = canon_article
@@ -282,6 +283,7 @@ def create_offer(db: Session, data: OfferCreate, created_by: CreatedBy,
         valid_from=data.valid_from, valid_until=data.valid_until,
         discount_type=data.discount_type, discount_value=data.discount_value,
         site_url=data.site_url, article_url=data.article_url, image_url=data.image_url,
+        logo_url=data.logo_url,
         target_url=data.target_url, target_url_canonical=canon,
         article_url_canonical=canon_article, source_id=source_id,
         status=status, created_by=created_by, content_hash=content_hash,

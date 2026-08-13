@@ -13,6 +13,7 @@ const isPreview = !!route.query.preview;
 
 const discounts = computed(() => offer.value?.discounts || []);
 const showList = computed(() => discounts.value.length > 1);
+const logoBroken = ref(false);   // hide the badge gracefully if the remote logo 404s
 
 const period = computed(() => {
   if (!offer.value) return "";
@@ -58,7 +59,11 @@ defineExpose({ offer, loading, notFound, isPreview });
       <router-link :to="{ name: 'offers' }" class="detail__back">← до списку</router-link>
 
       <div class="detail__head">
-        <h1 class="detail__provider">{{ offer.provider }}</h1>
+        <div class="detail__ident">
+          <img v-if="offer.logo_url && !logoBroken" class="detail__logo" :src="offer.logo_url"
+               :alt="offer.provider" loading="lazy" @error="logoBroken = true" />
+          <h1 class="detail__provider">{{ offer.provider }}</h1>
+        </div>
         <img v-if="offer.image_url" class="detail__photo" :src="offer.image_url" :alt="offer.provider" />
       </div>
 
@@ -102,6 +107,11 @@ defineExpose({ offer, loading, notFound, isPreview });
 @import "@/styles/variables.less";
 .detail__back { display: inline-block; margin-bottom: 16px; color: @link; }
 .detail__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.detail__ident { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.detail__logo {
+  width: 44px; height: 44px; flex: none; object-fit: contain; border-radius: 9px;
+  background: #fff; padding: 3px;   /* light chip so transparent/dark SVG logos stay legible in any theme */
+}
 .detail__provider { margin: 0; font-weight: 900; font-size: 38px; line-height: .95; letter-spacing: -.5px; color: @text; overflow-wrap: anywhere; min-width: 0; }
 .detail__photo { width: 40px; height: 40px; flex: none; object-fit: cover; border-radius: 9px; }
 .detail__discount { display: flex; align-items: center; gap: 10px; margin: 14px 0; }

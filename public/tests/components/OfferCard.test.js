@@ -173,6 +173,26 @@ describe("OfferCard", () => {
     expect(text).toContain("−15%");
   });
 
+  it("renders the brand logo badge bound to logo_url when present", () => {
+    const w = mountCard({
+      id: 30, type: "discount", title: "T", provider: "WoodMall", description: "d",
+      image_url: "https://x/hero.jpg", logo_url: "https://woodmallcinema.com/img/logo.svg",
+      target_categories: [], offer_categories: [], locations: [],
+    });
+    const logo = w.get("img.card__logo");
+    expect(logo.attributes("src")).toBe("https://woodmallcinema.com/img/logo.svg");
+    // rendered via <img src>, never inlined markup (no XSS surface)
+    expect(w.html()).not.toContain("<svg");
+  });
+
+  it("omits the brand logo badge when logo_url is absent", () => {
+    const w = mountCard({
+      id: 31, type: "discount", title: "T", provider: "P", description: "d",
+      image_url: null, logo_url: null, target_categories: [], offer_categories: [], locations: [],
+    });
+    expect(w.find("img.card__logo").exists()).toBe(false);
+  });
+
   it("hides the discount list when there is only one discount", () => {
     const w = mountCard({
       id: 22, provider: "Кафе", type: "discount",

@@ -43,6 +43,7 @@ class OfferBase(BaseModel):
     article_url: str | None = None
     target_url: str | None = None
     image_url: str | None = None
+    logo_url: str | None = None
     target_category_ids: list[int] = []
     offer_category_ids: list[int] = []
     discounts: list[DiscountIn] = []
@@ -87,6 +88,7 @@ class OfferUpdate(BaseModel):
     article_url: str | None = None
     target_url: str | None = None
     image_url: str | None = None
+    logo_url: str | None = None
     target_category_ids: list[int] | None = None
     offer_category_ids: list[int] | None = None
     discounts: list[DiscountIn] | None = None
@@ -138,6 +140,7 @@ class OfferOut(BaseModel):
     article_url: str | None
     target_url: str | None
     image_url: str | None
+    logo_url: str | None
     links: list[OfferLinkOut] = []
     source_id: int | None
     supersedes_offer_id: int | None = None

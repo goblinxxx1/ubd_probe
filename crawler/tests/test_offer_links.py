@@ -1,6 +1,6 @@
 import httpx
 
-from crawler.fetchers.website import WebsiteFetcher, _extract_logo, _origin
+from crawler.fetchers.website import WebsiteFetcher, _extract_image, _origin
 
 PAGE = ('<html><head>'
         '<link rel="apple-touch-icon" href="/touch.png">'
@@ -18,10 +18,10 @@ def test_origin_derivation():
     assert _origin("https://shop.example.com/news/1") == "https://shop.example.com"
 
 
-def test_logo_prefers_apple_touch_icon():
+def test_image_prefers_apple_touch_icon():
     from selectolax.parser import HTMLParser
     tree = HTMLParser(PAGE)
-    assert _extract_logo(tree, "https://shop.example.com").endswith("/touch.png")
+    assert _extract_image(tree, "https://shop.example.com").endswith("/touch.png")
 
 
 def test_website_item_has_page_url_and_logo():
@@ -29,4 +29,4 @@ def test_website_item_has_page_url_and_logo():
     items, _ = f.fetch({"id": 1, "type": "website",
                         "url_or_handle": "https://shop.example.com/news"}, None)
     assert items and items[0].url == "https://shop.example.com/news"
-    assert items[0].logo_url.endswith("/touch.png")
+    assert items[0].image_url.endswith("/touch.png")

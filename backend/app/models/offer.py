@@ -40,6 +40,7 @@ class Offer(Base):
     site_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     article_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     image_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    logo_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     target_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     target_url_canonical: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     article_url_canonical: Mapped[str | None] = mapped_column(String(1024), nullable=True)
