@@ -44,6 +44,15 @@ services:
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD}
     ports:
       - "${BACKEND_PORT:-8000}:8000"
+    healthcheck:
+      # App-readiness gate: migrations + seed + uvicorn must be serving before
+      # dependents (crawler) start. python is already in the backend image — no
+      # extra deps (curl/wget not guaranteed).
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/api/health').status==200 else 1)"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
 
   public:
     build: ./public
@@ -77,7 +86,7 @@ services:
         required: false
     depends_on:
       backend:
-        condition: service_started
+        condition: service_healthy
       fixture:
         condition: service_started
     volumes:
