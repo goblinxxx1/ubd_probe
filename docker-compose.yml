@@ -1,6 +1,7 @@
 services:
   db:
     image: mysql:8.0
+    restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ubd
@@ -33,6 +34,7 @@ services:
       - db
   backend:
     build: ./backend
+    restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
@@ -56,6 +58,7 @@ services:
 
   public:
     build: ./public
+    restart: unless-stopped
     depends_on:
       - backend
     ports:
@@ -63,6 +66,7 @@ services:
 
   admin:
     build: ./admin
+    restart: unless-stopped
     depends_on:
       - backend
     ports:
@@ -77,6 +81,12 @@ services:
   crawler:
     build: ./crawler
     profiles: ["crawler"]
+    # unless-stopped so the loop-mode crawler (CRAWL_INTERVAL_SECONDS>0) survives a
+    # Docker/host restart — the whole point of adding restart policies here. NOTE: in
+    # one-shot mode (CRAWL_INTERVAL_SECONDS=0) the process exits 0 and this policy would
+    # re-run it in a loop; run one-shot passes via `run --rm` (which ignores the policy),
+    # not `up`.
+    restart: unless-stopped
     # Load search config (SEARCH_KEYWORDS / SEARCH_PROVIDERS / limits, bot accounts,
     # EXTRACTOR, ACTIVE_DISCOVERY) from crawler/.env if present. Optional: absence
     # doesn't break the offline demo (falls back to image defaults). The environment
