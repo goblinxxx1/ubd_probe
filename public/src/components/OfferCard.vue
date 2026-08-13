@@ -1,11 +1,12 @@
 <script setup>
-import { computed, ref } from "vue";
+import { computed } from "vue";
 import { placeholderDataUri } from "@/utils/placeholder";
 import { discountText } from "@/utils/format";
 import OfferBadge from "@/components/OfferBadge.vue";
 
 const props = defineProps({ offer: { type: Object, required: true } });
-const image = computed(() => props.offer.image_url || placeholderDataUri(props.offer));
+// One image per card: prefer the brand logo, fall back to the hero photo, then placeholder.
+const image = computed(() => props.offer.logo_url || props.offer.image_url || placeholderDataUri(props.offer));
 const discounts = computed(() => props.offer.discounts || []);
 const showList = computed(() => discounts.value.length > 1);
 const sourceLinks = computed(() =>
@@ -16,17 +17,12 @@ const sourceLinks = computed(() =>
         : [])
 );
 const meta = computed(() => (props.offer.locations || []).join(" · "));
-const logoBroken = ref(false);   // hide the badge gracefully if the remote logo 404s
 </script>
 
 <template>
   <div class="card">
     <div class="card__top">
-      <div class="card__ident">
-        <img v-if="offer.logo_url && !logoBroken" class="card__logo" :src="offer.logo_url"
-             :alt="offer.provider" loading="lazy" @error="logoBroken = true" />
-        <router-link class="card__provider" :to="{ name: 'offer', params: { id: offer.id } }">{{ offer.provider }}</router-link>
-      </div>
+      <router-link class="card__provider" :to="{ name: 'offer', params: { id: offer.id } }">{{ offer.provider }}</router-link>
       <img class="card__photo" :src="image" :alt="offer.provider" />
     </div>
 
@@ -83,11 +79,6 @@ const logoBroken = ref(false);   // hide the badge gracefully if the remote logo
   padding: 14px; color: @text;
 }
 .card__top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
-.card__ident { display: flex; align-items: center; gap: 9px; min-width: 0; }
-.card__logo {
-  width: 30px; height: 30px; flex: none; object-fit: contain; border-radius: 7px;
-  background: #fff; padding: 2px;   /* light chip so transparent/dark SVG logos stay legible in any theme */
-}
 .card__provider {
   font-weight: 900; font-size: 24px; line-height: .95; letter-spacing: -.3px; color: @text;
   overflow-wrap: anywhere; min-width: 0;
