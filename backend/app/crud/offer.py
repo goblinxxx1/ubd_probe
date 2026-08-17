@@ -8,6 +8,8 @@ from app.core.urlnorm import canonicalize_target_url
 from app.crud.blocked_host import bare_host, list_approved_hosts
 from app.models import Offer, OfferCategory, OfferDiscount, OfferLocation, TargetCategory
 from app.models.enums import CreatedBy, DiscountType, OfferStatus, OfferType, VALUE_DISCOUNT_TYPES
+from app.core.config import settings
+from app.crud.dedup import normalize_tokens, discount_magnitudes, is_duplicate_promo
 from app.schemas.offer import OfferCreate, OfferUpdate
 
 log = logging.getLogger(__name__)
@@ -82,6 +84,17 @@ def _primary_disc_sig(discounts, dt, dv):
         label = _norm_label(getattr(primary, "label", None))
     # Raw type/value (enum + Decimal) so 15 == 15.00; label normalized. Compared with ==.
     return (dt, dv, label)
+
+
+def _promo_text(obj) -> str:
+    """Text identifying a promo: its discount paragraph plus all discount labels.
+    Excludes title (business tagline, identical across a host's pages)."""
+    parts = [getattr(obj, "description", None) or ""]
+    for d in (getattr(obj, "discounts", None) or []):
+        lbl = getattr(d, "label", None)
+        if lbl:
+            parts.append(lbl)
+    return " ".join(parts)
 
 
 def _apply_content(obj, data, canon, canon_article, content_hash, targets, offers, mk_link):
@@ -236,28 +249,31 @@ def create_offer(db: Session, data: OfferCreate, created_by: CreatedBy,
             db.refresh(existing)
             return existing
 
-    # 3c) Site-wide-banner dedup (host + primary-discount identity). One site-wide promo appears
-    #     on many pages (doctor/specialist, contact, about); each fetch yields the SAME discount,
-    #     producing N duplicates the per-page branches above can't collapse (distinct
-    #     article_url_canonical). If a non-expired, non-shadow crawler offer from the SAME host
-    #     already carries the SAME primary-discount identity (type+value+label), bump last_seen
-    #     and return it instead of inserting a duplicate. Different value OR different label still
-    #     make distinct offers (real 50% vs 30%, or '-10% lunch' vs '-10% dinner').
+    # 3c) Same-promo dedup (host + discount-magnitude subset + text similarity). One promo
+    #     appears on many pages worded differently (apex, /pro-nas, /category, /promotions);
+    #     exact-label matching missed the reworded copies. Collapse when an existing live
+    #     crawler offer from the SAME host already covers this offer's magnitudes and its
+    #     promo text is similar enough. Shadows are INCLUDED as targets, so a new page's
+    #     offer collapses onto an in-flight shadow of the same promo. Conservative: below the
+    #     threshold the offers stay distinct (two real same-% offers survive).
     if crawler and not blocked and data.discount_type is not None:
         host = _source_host(getattr(data, "site_url", None)) or _source_host(getattr(data, "article_url", None))
-        sig = _primary_disc_sig(getattr(data, "discounts", None),
-                                data.discount_type, data.discount_value)
-        if host and sig is not None:
+        new_text = normalize_tokens(_promo_text(data))
+        new_mags = discount_magnitudes(getattr(data, "discounts", None),
+                                       data.discount_type, data.discount_value)
+        if host and new_mags:
+            threshold = settings.dedup_text_similarity_threshold
             cands = (db.query(Offer)
                      .filter(Offer.created_by == CreatedBy.crawler,
-                             Offer.status != OfferStatus.expired,
-                             Offer.supersedes_offer_id.is_(None),
-                             Offer.discount_type == data.discount_type,
-                             Offer.discount_value == data.discount_value)
+                             Offer.status != OfferStatus.expired)
                      .order_by(Offer.id).all())
             for c in cands:
                 c_host = _source_host(c.site_url) or _source_host(c.article_url)
-                if c_host == host and _primary_disc_sig(c.discounts, c.discount_type, c.discount_value) == sig:
+                if c_host != host:
+                    continue
+                c_mags = discount_magnitudes(c.discounts, c.discount_type, c.discount_value)
+                if is_duplicate_promo(new_text, new_mags, c_text := normalize_tokens(_promo_text(c)),
+                                      c_mags, threshold):
                     c.last_seen_at = datetime.utcnow()
                     db.commit()
                     db.refresh(c)
