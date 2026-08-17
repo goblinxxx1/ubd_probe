@@ -1,5 +1,7 @@
-# SearXNG — self-hosted metasearch for crawler discovery. JSON API on; only engines that
-# work from our single residential IP (NO google/bing → CAPTCHA; NO yandex → project rule).
+# SearXNG — self-hosted metasearch for crawler discovery. JSON API on.
+# google/bing ENABLED: verified live-working from our residential IP (27-40 / 10 real results,
+# no CAPTCHA) — they carry the largest index. yandex DISABLED forever (project rule: no Russian
+# service). SearXNG marks any engine that throttles as unresponsive and drops it gracefully.
 use_default_settings: true
 server:
   secret_key: "change-me-searxng-secret"   # override in prod via env SEARXNG_SECRET
@@ -13,8 +15,8 @@ search:
   default_lang: "uk"
 engines:
   - name: google
-    disabled: true
+    disabled: false
   - name: bing
-    disabled: true
+    disabled: false
   - name: yandex
     disabled: true

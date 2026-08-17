@@ -45,7 +45,7 @@ straight to moderation (source suggestions are a by-product). See
 Краулер використовує self-hosted SearXNG як другий, DDG-незалежний канал discovery.
 - `SEARCH_PROVIDERS=duckduckgo,searxng` (дефолт)
 - `SEARXNG_URL=http://searxng:8080`
-- `SEARXNG_ENGINES` — звуження рушіїв per-query (дефолт: duckduckgo,brave,mojeek,qwant,marginalia,wikidata; БЕЗ google/bing/yandex)
+- `SEARXNG_ENGINES` — рушії per-query (дефолт: google,bing,duckduckgo,brave,mojeek,qwant,marginalia,wikidata; БЕЗ yandex — правило проєкту). google/bing перевірено наживо: працюють з нашого резидентного IP
 - Сервіс `searxng` піднімається профілем `crawler`. Налаштування — `docker/searxng/settings.yml`.
 
 Zero-cost runtime: no cloud LLM, no paid services required.

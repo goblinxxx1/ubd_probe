@@ -118,7 +118,7 @@ class _RawSettings(BaseSettings):
     passive_hard_overdue_factor: float = 3.0
     learn_interval_seconds: int = 86400   # 24h; in-loop self-learning tick (0 = off)
     searxng_url: str = "http://searxng:8080"
-    searxng_engines: str = "duckduckgo,brave,mojeek,qwant,marginalia,wikidata"  # no google/bing/yandex
+    searxng_engines: str = "google,bing,duckduckgo,brave,mojeek,qwant,marginalia,wikidata"  # NO yandex (project rule); google/bing verified live-working from our residential IP
     searxng_min_delay: float = 4.0
 
 
@@ -233,7 +233,7 @@ class Config:
     passive_hard_overdue_factor: float = 3.0
     learn_interval_seconds: int = 86400   # 24h; in-loop self-learning tick (0 = off)
     searxng_url: str = "http://searxng:8080"
-    searxng_engines: str = "duckduckgo,brave,mojeek,qwant,marginalia,wikidata"
+    searxng_engines: str = "google,bing,duckduckgo,brave,mojeek,qwant,marginalia,wikidata"
     searxng_min_delay: float = 4.0
 
 

@@ -19,5 +19,7 @@ def test_searxng_config_defaults():
     from crawler.config import _RawSettings, from_settings
     cfg = from_settings(_RawSettings())
     assert cfg.searxng_url == "http://searxng:8080"
-    assert "yandex" not in cfg.searxng_engines
-    assert "google" not in cfg.searxng_engines
+    assert "yandex" not in cfg.searxng_engines   # project rule: never a Russian service
+    # google/bing are verified live-working from our residential IP → intentionally enabled
+    assert "google" in cfg.searxng_engines
+    assert "bing" in cfg.searxng_engines

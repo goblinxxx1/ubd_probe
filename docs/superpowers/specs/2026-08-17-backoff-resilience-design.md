@@ -126,7 +126,7 @@ search_backoff_floor_seconds: float = 300.0
 ```
 search_providers: "duckduckgo,searxng"     # додати searxng
 searxng_url: "http://searxng:8080"
-searxng_engines: "duckduckgo,brave,mojeek,qwant,marginalia,wikidata"  # без google/bing/yandex
+searxng_engines: "google,bing,duckduckgo,brave,mojeek,qwant,marginalia,wikidata"  # без yandex (правило); google/bing ре-валідовано наживо — працюють з резидентного IP
 ```
 
 ---
