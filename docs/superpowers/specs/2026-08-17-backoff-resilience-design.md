@@ -98,7 +98,16 @@ search_backoff_floor_seconds: float = 300.0
 **Файли:** `docker-compose.yml` (+ `docker/searxng/` конфіг), `crawler/crawler/discovery/searxng_provider.py` (воскресити), `crawler/crawler/discovery/providers.py` (`build_search_plans`), `crawler/crawler/discovery/search_pass.py`, `crawler/crawler/runner.py`, `crawler/crawler/scheduler.py`, `config.py`
 
 ### Інфра
-- Сервіс `searxng` (образ `searxng/searxng`), `format: [json]` увімкнено, лише рушії, що працюють з нашого IP: `duckduckgo, brave, mojeek, qwant` (google/bing свідомо ВИМКНЕНІ — саме вони капчили нас раніше). Тільки внутрішня Docker-мережа, без публічного порту.
+- Сервіс `searxng` (образ `searxng/searxng`), `format: [json]` увімкнено, **широкий набір незалежних рушіїв**, що працюють з нашого IP: `duckduckgo, brave, mojeek, qwant, marginalia, wikidata` (google/bing свідомо ВИМКНЕНІ — саме вони капчили нас раніше; Yandex та будь-які рос-рушії ВИМКНЕНІ за правилом проєкту). Тільки внутрішня Docker-мережа, без публічного порту.
+- «Ширша функціональність» реалізується саме тут — набором рушіїв в одному контейнері, а не окремими провайдерами (див. «Дослідження провайдерів»).
+
+### Дослідження провайдерів (висновок 2026-08)
+Проведено огляд альтернатив DDG/SearXNG. Висновок: **безкоштовного drop-in кращого за DDG+SearXNG немає.**
+- **Brave Search API** — безкоштовний тир убито (початок 2026), тепер метерд-білінг → платний, поза скоупом.
+- **Mojeek API** — лише B2B/платний (безкоштовно тільки trial).
+- **Whoogle** — лише Google → з нашого єдиного IP та сама CAPTCHA, що вбила SearXNG раніше; гірше.
+- **4get / LibreY / LibreX / MetaGer** — та сама метапошукова модель, без переваги.
+- **Ключове:** brave/mojeek/qwant/startpage/ddg **уже досяжні** через `ddgs` і через SearXNG без ключів → окрема інтеграція = дублювання + платно. Тому breadth беремо конфігом рушіїв SearXNG, а не новими провайдерами.
 
 ### Провайдер
 - Воскресити `SearxngProvider` з git `834ce30`, адаптувати під поточні `SearchProviderPlan`, `classify_candidate`, `SourceCandidate`. Запит до локального `http://searxng:8080/search?format=json`.
@@ -117,7 +126,7 @@ search_backoff_floor_seconds: float = 300.0
 ```
 search_providers: "duckduckgo,searxng"     # додати searxng
 searxng_url: "http://searxng:8080"
-searxng_engines: "duckduckgo,brave,mojeek,qwant"
+searxng_engines: "duckduckgo,brave,mojeek,qwant,marginalia,wikidata"  # без google/bing/yandex
 ```
 
 ---
@@ -144,7 +153,9 @@ searxng_engines: "duckduckgo,brave,mojeek,qwant"
 ## Свідомо поза скоупом (YAGNI)
 
 - **Проксі-пул (Шар 5).** Докази кажуть, що наш IP наразі придатний; безкоштовні/датацентрові проксі радше нашкодять (спалені/капчаться, MITM-ризик), резидентні — платні. Плумбінг `config.proxies` уже є — підключити до пошуку можна пізніше маленькою зміною, якщо впремося в стелю єдиного IP. Відкладання нічого не коштує.
-- **Платні пошукові API** (SerpAPI/Brave API) — не в цьому треку.
+- **Платні пошукові API** (SerpAPI/Brave API/Mojeek B2B) — не в цьому треку.
+- **Throttle-immune канали іншої форми (окремий майбутній трек).** YaCy (self-hosted P2P власний індекс) і Common Crawl (bulk-енумерація URL через CDX, лягає в наявну feed-архітектуру) імунні до тротлінгу, але важкі й з непевним/тонким UA-покриттям, поки не наповнимо/не звузимо. Свідомо відкладено, щоб не роздувати поточний трек і не додавати канал без ре-валідації покриття.
+- **Російські пошукові сервіси (Yandex XML/Search API тощо)** — виключені назавжди за правилом проєкту (мова/сервіс агресора), у т.ч. як engine у SearXNG.
 
 ## Дефолти (затверджено: збалансовано)
 
