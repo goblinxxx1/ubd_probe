@@ -1,0 +1,20 @@
+# SearXNG — self-hosted metasearch for crawler discovery. JSON API on; only engines that
+# work from our single residential IP (NO google/bing → CAPTCHA; NO yandex → project rule).
+use_default_settings: true
+server:
+  secret_key: "change-me-searxng-secret"   # override in prod via env SEARXNG_SECRET
+  bind_address: "0.0.0.0"
+  port: 8080
+search:
+  formats:
+    - html
+    - json
+  autocomplete: ""
+  default_lang: "uk"
+engines:
+  - name: google
+    disabled: true
+  - name: bing
+    disabled: true
+  - name: yandex
+    disabled: true
