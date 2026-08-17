@@ -9,6 +9,8 @@ Run:  python -m app.dedup_queue          # dry-run
 """
 import argparse
 
+from sqlalchemy.orm import selectinload
+
 from app.core.config import settings
 from app.core.db import SessionLocal
 from app.crud.dedup import normalize_tokens, discount_magnitudes, is_duplicate_promo
@@ -23,6 +25,7 @@ def find_duplicates(db, threshold):
     pend = (db.query(Offer)
             .filter(Offer.created_by == CreatedBy.crawler,
                     Offer.status == OfferStatus.pending_review)
+            .options(selectinload(Offer.discounts))
             .order_by(Offer.id).all())
     kept = []
     pairs = []
@@ -30,6 +33,8 @@ def find_duplicates(db, threshold):
         host = _source_host(o.site_url) or _source_host(o.article_url)
         mags = discount_magnitudes(o.discounts, o.discount_type, o.discount_value)
         text = normalize_tokens(_promo_text(o))
+        if not host or not mags:
+            continue
         match = next((k for k in kept if k["host"] == host
                       and is_duplicate_promo(text, mags, k["text"], k["mags"], threshold)), None)
         if match is not None:

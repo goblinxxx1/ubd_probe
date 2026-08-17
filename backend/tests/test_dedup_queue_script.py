@@ -34,3 +34,20 @@ def test_find_duplicates_idempotent_after_reject(db_session):
     b.status = OfferStatus.rejected
     db_session.commit()
     assert find_duplicates(db_session, 0.6) == []
+
+
+def test_offers_without_host_are_not_paired(db_session):
+    def _hostless(desc):
+        o = Offer(type=OfferType.discount, title="T", description=desc, provider="P",
+                  discount_type=DiscountType.percent, discount_value=Decimal("15"),
+                  site_url=None, article_url=None,
+                  status=OfferStatus.pending_review, created_by=CreatedBy.crawler)
+        o.discounts = [OfferDiscount(label="x", discount_type=DiscountType.percent,
+                                     discount_value=Decimal("15"), sort_order=0)]
+        db_session.add(o)
+        db_session.commit()
+        db_session.refresh(o)
+        return o
+    a = _hostless("Знижка 15% військовим на послуги")
+    b = _hostless("Військовим знижка 15% на послуги")
+    assert find_duplicates(db_session, 0.6) == []
