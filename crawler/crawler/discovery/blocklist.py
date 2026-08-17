@@ -19,6 +19,9 @@ _MEDIA = {
     # well-known national news outlets (curated, confident — not businesses)
     "liga.net", "hromadske.ua", "suspilne.media", "ukrinform.ua",
     "korrespondent.net", "gordonua.com", "lb.ua", "zaxid.net",
+    # regional news outlets whose permalinks (numeric ids, not /YYYY/MM/) and
+    # missing og:type=article slip past the auto media-gate — curated by host
+    "dumka.media",
 }
 _STOCK = {"depositphotos.com", "shutterstock.com", "istockphoto.com", "freepik.com"}
 _SOCIAL = {

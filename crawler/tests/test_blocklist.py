@@ -101,6 +101,6 @@ def test_curated_news_hosts_are_blocked():
     for h in ["znaj.ua", "breaking.znaj.ua", "ukrainianwall.com",
               "week.ukrainianwall.com", "kosht.media", "epravda.com.ua",
               "protocol.ua", "focus.ua", "glavcom.ua", "thepage.ua",
-              "parlament.ua", "kharakter.media"]:
+              "parlament.ua", "kharakter.media", "dumka.media"]:
         assert blocklist.is_blocked_host(h) is True, h
     assert blocklist.is_blocked_host("rozetka.com.ua") is False
