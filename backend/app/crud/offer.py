@@ -1,7 +1,7 @@
 import logging
 from datetime import date, datetime, timedelta
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.core.errors import not_found, validation_error
 from app.core.urlnorm import canonicalize_target_url
@@ -236,7 +236,9 @@ def create_offer(db: Session, data: OfferCreate, created_by: CreatedBy,
     #     crawler offer from the SAME host already covers this offer's magnitudes and its
     #     promo text is similar enough. Shadows are INCLUDED as targets, so a new page's
     #     offer collapses onto an in-flight shadow of the same promo. Conservative: below the
-    #     threshold the offers stay distinct (two real same-% offers survive).
+    #     threshold the offers stay distinct (two real same-% offers survive). The candidate
+    #     query scans all same-host crawler offers in Python (magnitude-subset matching can't
+    #     be pushed to SQL); acceptable at current scale.
     if crawler and not blocked and data.discount_type is not None:
         host = _source_host(getattr(data, "site_url", None)) or _source_host(getattr(data, "article_url", None))
         new_text = normalize_tokens(_promo_text(data))
@@ -245,6 +247,7 @@ def create_offer(db: Session, data: OfferCreate, created_by: CreatedBy,
         if host and new_mags:
             threshold = settings.dedup_text_similarity_threshold
             cands = (db.query(Offer)
+                     .options(selectinload(Offer.discounts))
                      .filter(Offer.created_by == CreatedBy.crawler,
                              Offer.status != OfferStatus.expired)
                      .order_by(Offer.id).all())
@@ -253,7 +256,7 @@ def create_offer(db: Session, data: OfferCreate, created_by: CreatedBy,
                 if c_host != host:
                     continue
                 c_mags = discount_magnitudes(c.discounts, c.discount_type, c.discount_value)
-                if is_duplicate_promo(new_text, new_mags, c_text := normalize_tokens(_promo_text(c)),
+                if is_duplicate_promo(new_text, new_mags, normalize_tokens(_promo_text(c)),
                                       c_mags, threshold):
                     c.last_seen_at = datetime.utcnow()
                     db.commit()

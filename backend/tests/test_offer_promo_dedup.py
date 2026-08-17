@@ -64,6 +64,16 @@ def test_new_offer_collapses_onto_pending_shadow(db_session):
     assert dup.id == shadow.id
 
 
+def test_reworded_promo_near_threshold_collapses(db_session):
+    # real linguistic variance (reorder + one word swap), Jaccard ~0.75, above 0.6
+    a = _cr(db_session, _offer("/", host="shop.com.ua",
+            desc="Знижка 20% військовим на всі послуги та товари магазину", label="20% військовим"),
+            status=OfferStatus.published)
+    b = _cr(db_session, _offer("/pro-nas", host="shop.com.ua",
+            desc="Військовим знижка 20% на товари та послуги нашого магазину", label="20% військовим"),)
+    assert b.id == a.id
+
+
 def test_multi_discount_subset_collapses(db_session):
     src = _source(db_session, "https://tovpollar.org")
     pub = _cr(db_session, _offer("/aktsii", host="tovpollar.org",
