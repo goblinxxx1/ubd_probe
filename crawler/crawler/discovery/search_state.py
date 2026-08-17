@@ -81,16 +81,58 @@ class SearchState:
         return self._clock() >= b.get("cooldown_until", 0.0)
 
     def record_success(self, backend: str) -> None:
-        self._data["backends"][backend] = {"fails": 0, "cooldown_until": 0.0}
+        self._data["backends"][backend] = {
+            "fails": 0, "cooldown_until": 0.0,
+            "quarantined_until": 0.0, "next_reprobe_at": 0.0}
         self._save()
 
-    def record_block(self, backend: str, base: float, cap: float, jitter: float, rand) -> float:
+    def record_block(self, backend: str, base: float, cap: float, jitter: float, rand,
+                     *, quarantine_threshold: int = 0, quarantine_seconds: float = 0.0,
+                     reprobe_seconds: float = 0.0) -> float:
         b = self._data["backends"].get(backend) or {"fails": 0, "cooldown_until": 0.0}
         fails = int(b.get("fails", 0)) + 1
         delay = min(base * (2 ** (fails - 1)), cap) * (1 + rand() * jitter)
-        self._data["backends"][backend] = {"fails": fails, "cooldown_until": self._clock() + delay}
+        now = self._clock()
+        entry = {"fails": fails, "cooldown_until": now + delay,
+                 "quarantined_until": b.get("quarantined_until", 0.0),
+                 "next_reprobe_at": b.get("next_reprobe_at", 0.0)}
+        # Structurally-dead backend: quarantine it so it stops dragging the pool to all-cool.
+        # A failing re-probe re-enters here (fails already >= threshold) → quarantine re-extended
+        # and next re-probe pushed out. A success (record_success) is the only reset.
+        if quarantine_threshold and fails >= quarantine_threshold:
+            entry["quarantined_until"] = now + quarantine_seconds
+            entry["next_reprobe_at"] = now + reprobe_seconds
+        self._data["backends"][backend] = entry
         self._save()
         return delay
+
+    def is_quarantined(self, backend: str) -> bool:
+        b = self._data["backends"].get(backend)
+        return bool(b) and self._clock() < b.get("quarantined_until", 0.0)
+
+    def reprobe_due(self, backend: str) -> bool:
+        """Quarantined AND its single low-frequency trial window has arrived."""
+        b = self._data["backends"].get(backend)
+        if not b:
+            return False
+        now = self._clock()
+        return now < b.get("quarantined_until", 0.0) and now >= b.get("next_reprobe_at", 0.0)
+
+    def soonest_recovery(self, pool: list[str], floor: float) -> float:
+        """Seconds until the earliest backend becomes selectable again, clamped up to `floor`.
+        Quarantined-not-due backends contribute their next_reprobe_at; others their cooldown."""
+        now = self._clock()
+        remaining = []
+        for name in pool:
+            e = self._data["backends"].get(name)
+            if e is None:
+                continue
+            if now < e.get("quarantined_until", 0.0) and now < e.get("next_reprobe_at", 0.0):
+                remaining.append(e.get("next_reprobe_at", 0.0) - now)
+            else:
+                remaining.append(max(0.0, e.get("cooldown_until", 0.0) - now))
+        base = min(remaining) if remaining else floor
+        return max(floor, base)
 
     # --- global backoff ---
     def in_global_backoff(self) -> bool:

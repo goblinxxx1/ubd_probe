@@ -276,3 +276,46 @@ def test_unharvested_oldest_first(tmp_path):
     clk[0] = 2000.0
     st.cache_put("phrase-new", [_cand("https://new.ua")])
     assert [k for k, _ in st.unharvested(ttl_seconds=10_000)] == ["phrase-old", "phrase-new"]
+
+
+def test_record_block_quarantines_at_threshold(tmp_path):
+    clock = Clock(1000.0)
+    st = SearchState(str(tmp_path / "s.json"), clock=clock)
+    # 5 fails: not yet quarantined (threshold 6)
+    for _ in range(5):
+        st.record_block("google", 300.0, 21600.0, 0.0, lambda: 0.0,
+                        quarantine_threshold=6, quarantine_seconds=24*3600, reprobe_seconds=6*3600)
+    assert st.is_quarantined("google") is False
+    # 6th fail: quarantined for 24h, first re-probe in 6h
+    st.record_block("google", 300.0, 21600.0, 0.0, lambda: 0.0,
+                    quarantine_threshold=6, quarantine_seconds=24*3600, reprobe_seconds=6*3600)
+    assert st.is_quarantined("google") is True
+    assert st.reprobe_due("google") is False
+    clock.t += 6*3600            # 6h later → re-probe due
+    assert st.reprobe_due("google") is True
+
+
+def test_record_success_clears_quarantine(tmp_path):
+    clock = Clock(1000.0)
+    st = SearchState(str(tmp_path / "s.json"), clock=clock)
+    for _ in range(6):
+        st.record_block("google", 300.0, 21600.0, 0.0, lambda: 0.0,
+                        quarantine_threshold=6, quarantine_seconds=24*3600, reprobe_seconds=6*3600)
+    assert st.is_quarantined("google") is True
+    st.record_success("google")
+    assert st.is_quarantined("google") is False
+    assert st.reprobe_due("google") is False
+
+
+def test_soonest_recovery_min_over_nonquarantined_with_floor(tmp_path):
+    clock = Clock(1000.0)
+    st = SearchState(str(tmp_path / "s.json"), clock=clock)
+    # yahoo cooled 100s out, brave cooled 900s out; floor 300 → min(100,900) clamped to 300
+    st._data["backends"] = {
+        "yahoo": {"fails": 1, "cooldown_until": 1100.0, "quarantined_until": 0.0, "next_reprobe_at": 0.0},
+        "brave": {"fails": 2, "cooldown_until": 1900.0, "quarantined_until": 0.0, "next_reprobe_at": 0.0},
+    }
+    assert st.soonest_recovery(["yahoo", "brave"], floor=300.0) == 300.0
+    # raise yahoo cooldown above floor → min wins
+    st._data["backends"]["yahoo"]["cooldown_until"] = 1500.0  # 500s out
+    assert st.soonest_recovery(["yahoo", "brave"], floor=300.0) == 500.0

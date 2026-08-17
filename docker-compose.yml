@@ -78,6 +78,16 @@ services:
     volumes:
       - ./docker/fixture:/usr/share/nginx/html:ro
 
+  searxng:
+    image: searxng/searxng:latest
+    profiles: ["crawler"]
+    restart: unless-stopped
+    environment:
+      SEARXNG_BASE_URL: http://searxng:8080/
+      SEARXNG_SECRET: ${SEARXNG_SECRET:-change-me-searxng-secret}
+    volumes:
+      - ./docker/searxng/settings.yml:/etc/searxng/settings.yml:ro
+
   crawler:
     build: ./crawler
     profiles: ["crawler"]
@@ -99,6 +109,8 @@ services:
         condition: service_healthy
       fixture:
         condition: service_started
+      searxng:
+        condition: service_started
     volumes:
       - ubd-crawler-state:/data
     environment:
@@ -107,6 +119,8 @@ services:
       EXTRACTOR: heuristic
       SEARCH_STATE_PATH: /data/search_state.json
       CRAWL_INTERVAL_SECONDS: ${CRAWL_INTERVAL_SECONDS:-0}
+      SEARXNG_URL: http://searxng:8080
+      SEARCH_PROVIDERS: ${SEARCH_PROVIDERS:-duckduckgo,searxng}
 
 volumes:
   ubd-db-data:

@@ -41,7 +41,8 @@ def main(argv=None) -> int:
                  active_delay=config.active_loop_delay_seconds,
                  backoff_max_sleep=config.backoff_max_sleep_seconds,
                  hard_factor=config.passive_hard_overdue_factor,
-                 learn=_learn, learn_interval_seconds=config.learn_interval_seconds)
+                 learn=_learn, learn_interval_seconds=config.learn_interval_seconds,
+                 search_available=runner.search_available)
         return 0
 
     return 1

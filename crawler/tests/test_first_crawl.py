@@ -104,6 +104,8 @@ def test_run_active_first_crawls_before_harvest():
                                     url_or_handle="https://c.example")]
         def drain(self):
             return []
+        def provider_for_site_query(self):
+            return None
 
     class _OrderRunner(_RecordingRunner):
         def _crawl_source(self, source, cats, known, summary):

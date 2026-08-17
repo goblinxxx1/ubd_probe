@@ -17,17 +17,21 @@ class _RawSettings(BaseSettings):
     instagram_accounts: str = ""
     facebook_accounts: str = ""
     proxies: str = ""
-    search_providers: str = "duckduckgo"
+    search_providers: str = "duckduckgo,searxng"
     search_keywords: str = ""
     search_results_per_keyword: int = 7
     search_min_delay: float = 45.0
     search_backends: str = "google,startpage,duckduckgo,yahoo,brave"
     search_state_path: str = "/data/search_state.json"
-    search_cache_ttl_hours: int = 96
+    search_cache_ttl_hours: int = 168
     search_jitter: float = 0.5
     search_backend_cooldown_base_seconds: float = 300.0
     search_backend_cooldown_cap_seconds: float = 21600.0
     search_global_backoff_hours: float = 6.0
+    search_backend_quarantine_threshold: int = 6
+    search_backend_quarantine_hours: float = 24.0
+    search_backend_reprobe_hours: float = 6.0
+    search_backoff_floor_seconds: float = 300.0
     search_budget: int = 0  # 0 = process all keywords
     active_fetch_budget: int = 80
     first_crawl_budget: int = 10
@@ -113,6 +117,9 @@ class _RawSettings(BaseSettings):
     backoff_max_sleep_seconds: float = 1800.0
     passive_hard_overdue_factor: float = 3.0
     learn_interval_seconds: int = 86400   # 24h; in-loop self-learning tick (0 = off)
+    searxng_url: str = "http://searxng:8080"
+    searxng_engines: str = "google,bing,duckduckgo,brave,mojeek,qwant,marginalia,wikidata"  # NO yandex (project rule); google/bing verified live-working from our residential IP
+    searxng_min_delay: float = 4.0
 
 
 @dataclass
@@ -131,11 +138,15 @@ class Config:
     search_min_delay: float = 45.0
     search_backends: list[str] = field(default_factory=list)
     search_state_path: str = "/data/search_state.json"
-    search_cache_ttl_hours: int = 96
+    search_cache_ttl_hours: int = 168
     search_jitter: float = 0.5
     search_backend_cooldown_base_seconds: float = 300.0
     search_backend_cooldown_cap_seconds: float = 21600.0
     search_global_backoff_hours: float = 6.0
+    search_backend_quarantine_threshold: int = 6
+    search_backend_quarantine_hours: float = 24.0
+    search_backend_reprobe_hours: float = 6.0
+    search_backoff_floor_seconds: float = 300.0
     search_budget: int | None = None
     active_fetch_budget: int = 80
     first_crawl_budget: int = 10
@@ -221,6 +232,9 @@ class Config:
     backoff_max_sleep_seconds: float = 1800.0
     passive_hard_overdue_factor: float = 3.0
     learn_interval_seconds: int = 86400   # 24h; in-loop self-learning tick (0 = off)
+    searxng_url: str = "http://searxng:8080"
+    searxng_engines: str = "google,bing,duckduckgo,brave,mojeek,qwant,marginalia,wikidata"
+    searxng_min_delay: float = 4.0
 
 
 def _parse_accounts(platform: str, raw: str) -> list[BotCredential]:
@@ -243,8 +257,7 @@ def _parse_proxies(raw: str) -> dict[str, str]:
     return out
 
 
-def load_config() -> Config:
-    s = _RawSettings()
+def from_settings(s: _RawSettings) -> Config:
     accounts = (_parse_accounts("instagram", s.instagram_accounts)
                 + _parse_accounts("facebook", s.facebook_accounts))
     return Config(
@@ -267,6 +280,10 @@ def load_config() -> Config:
         search_backend_cooldown_base_seconds=s.search_backend_cooldown_base_seconds,
         search_backend_cooldown_cap_seconds=s.search_backend_cooldown_cap_seconds,
         search_global_backoff_hours=s.search_global_backoff_hours,
+        search_backend_quarantine_threshold=s.search_backend_quarantine_threshold,
+        search_backend_quarantine_hours=s.search_backend_quarantine_hours,
+        search_backend_reprobe_hours=s.search_backend_reprobe_hours,
+        search_backoff_floor_seconds=s.search_backoff_floor_seconds,
         search_budget=(s.search_budget or None),
         active_fetch_budget=s.active_fetch_budget,
         first_crawl_budget=s.first_crawl_budget,
@@ -352,4 +369,11 @@ def load_config() -> Config:
         backoff_max_sleep_seconds=s.backoff_max_sleep_seconds,
         passive_hard_overdue_factor=s.passive_hard_overdue_factor,
         learn_interval_seconds=s.learn_interval_seconds,
+        searxng_url=s.searxng_url,
+        searxng_engines=s.searxng_engines,
+        searxng_min_delay=s.searxng_min_delay,
     )
+
+
+def load_config() -> Config:
+    return from_settings(_RawSettings())

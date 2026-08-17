@@ -77,6 +77,12 @@ class Runner:
         bootstrap(config, self._api, recorder)          # mine → lexicon file + candidates
         self._search_pass.set_grid(build_query_grid(config))   # rebuild → go live
 
+    def search_available(self) -> bool:
+        """Whether ANY search provider (DDG or SearXNG) is currently healthy — used by the
+        scheduler to decide degraded-vs-full active pass. True when there's no search pass
+        at all (nothing to be unavailable)."""
+        return self._search_pass.any_provider_available() if self._search_pass is not None else True
+
     def run(self) -> dict:
         """Active-first orchestration: active discovery runs every loop; the passive
         source-crawl runs only when its (rare) cadence is due. With no passive_schedule
@@ -138,10 +144,14 @@ class Runner:
                 feeds.append(self._aggregator_feed.candidates(known))
             # round-robin interleave so no single feed starves the others under fetch_budget
             candidates = [c for group in zip_longest(*feeds) for c in group if c is not None]
+            # site: routes through whichever provider is currently healthy (DDG or SearXNG),
+            # so the site: leg survives DDG backoff too.
+            site_discovery = (self._search_pass.provider_for_site_query()
+                              if self._search_pass is not None else self._discovery)
             # site: only for productive-but-not-yet-approved domains (registry.top excludes
             # known_hosts). No approved-partner arm — passive re-confirms approved sources.
             if (ddg_allowed and self._site_planner is not None and self._site_state is not None
-                    and self._discovery is not None and self._domain_registry is not None):
+                    and site_discovery is not None and self._domain_registry is not None):
                 cur = self._site_state.site_cursor
                 reg = [h for h in self._domain_registry.top(
                            self._site_query_budget, known_hosts, self._revisit_cooldown)
@@ -149,7 +159,7 @@ class Runner:
                 site_queries, new_cur = self._site_planner.next_batch(
                     reg, self._site_query_budget, cur)
                 if site_queries:
-                    site_cands = self._discovery.run(site_queries, known)
+                    site_cands = site_discovery.run(site_queries, known)
                     for c in site_cands:
                         c.bypass_host_skip = True
                     candidates += site_cands
