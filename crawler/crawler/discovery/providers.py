@@ -65,6 +65,8 @@ class RotatingDdgProvider:
     def __init__(self, pool, state: SearchState, results_per_keyword: int = 7,
                  min_delay: float = 45.0, jitter: float = 0.5, cooldown_base: float = 300.0,
                  cooldown_cap: float = 21600.0, global_backoff_seconds: float = 21600.0,
+                 quarantine_threshold: int = 0, quarantine_hours: float = 0.0,
+                 reprobe_hours: float = 0.0, backoff_floor: float = 300.0,
                  ddgs_factory=DDGS, sleep=time.sleep, rand=random.random):
         self._pool = list(pool)
         self._state = state
@@ -74,6 +76,10 @@ class RotatingDdgProvider:
         self._base = cooldown_base
         self._cap = cooldown_cap
         self._global_backoff = global_backoff_seconds
+        self._q_threshold = quarantine_threshold
+        self._q_seconds = quarantine_hours * 3600
+        self._reprobe_seconds = reprobe_hours * 3600
+        self._backoff_floor = backoff_floor
         self._ddgs_factory = ddgs_factory
         self._sleep = sleep
         self._rand = rand
@@ -86,7 +92,9 @@ class RotatingDdgProvider:
         for _ in range(2):  # at most two healthy backends per keyword
             backend = self._take_next_healthy()
             if backend is None:
-                self._state.set_global_backoff(self._global_backoff)
+                # all non-quarantined backends cooled → sleep only until the soonest recovers
+                self._state.set_global_backoff(
+                    self._state.soonest_recovery(self._pool, self._backoff_floor))
                 self._state.mark_degraded()
                 return []
             self._sleep(self._delay * (1 + self._rand() * self._jitter))
@@ -94,12 +102,22 @@ class RotatingDdgProvider:
                 results = self._ddgs_factory().text(keyword, max_results=self._n, backend=backend)
             except Exception as exc:  # noqa: BLE001 — search is best-effort
                 log.warning("ddg backend %s failed for %r: %s", backend, keyword, exc)
-                self._state.record_block(backend, self._base, self._cap, self._jitter, self._rand)
+                self._state.record_block(backend, self._base, self._cap, self._jitter, self._rand,
+                                         quarantine_threshold=self._q_threshold,
+                                         quarantine_seconds=self._q_seconds,
+                                         reprobe_seconds=self._reprobe_seconds)
                 continue
             self._state.record_success(backend)
             return self._classify(results, backend, keyword)
         self._state.mark_degraded()
         return []
+
+    def _selectable(self, backend: str) -> bool:
+        if self._state.reprobe_due(backend):     # one low-frequency trial for a dead backend
+            return True
+        if self._state.is_quarantined(backend):  # quarantined & not due → skip
+            return False
+        return self._state.is_healthy(backend)   # normal transient cooldown check
 
     def _take_next_healthy(self) -> str | None:
         n = len(self._pool)
@@ -109,7 +127,7 @@ class RotatingDdgProvider:
         for offset in range(n):
             idx = (start + offset) % n
             backend = self._pool[idx]
-            if self._state.is_healthy(backend):
+            if self._selectable(backend):
                 self._state.set_cursor((idx + 1) % n)
                 return backend
         return None
