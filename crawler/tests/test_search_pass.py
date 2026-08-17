@@ -13,9 +13,11 @@ class _Disc:
 
 
 class _Plan:
-    def __init__(self, include_pins, ok):
+    def __init__(self, include_pins, ok, up=True):
         self.discovery = _Disc(); self.include_pins = include_pins; self._ok = ok
+        self._up = up
     def succeeded(self): return self._ok
+    def available(self): return self._up
 
 
 def _grid(): return QueryGrid([f"q{i}" for i in range(10)])
@@ -141,3 +143,58 @@ def test_drain_ttl_zero_is_empty(tmp_path):
     sp = SearchPass([_Plan(False, True)], st, QueryGrid(["q0"]),
                     block_size=1, ttl_seconds=0.0)
     assert sp.drain() == []                      # ttl<=0 => no drain (matches run())
+
+
+class _Grid:
+    def __init__(self, phrases): self._p = phrases
+    def __len__(self): return len(self._p)
+    def at(self, i): return self._p[i % len(self._p)]
+    def next_batch(self, bs, cursor): return (self._p[:bs], (cursor + bs) % len(self._p))
+
+
+class _State:
+    def __init__(self): self.grid_cursor = 0
+    def unharvested(self, ttl): return []
+    def is_fresh(self, kw, ttl): return False
+    def set_grid_cursor(self, v): self.grid_cursor = v
+
+
+class _MultiDisc:
+    def __init__(self, cands): self._c = cands
+    def run(self, keywords, known): return list(self._c)
+
+
+def _multi_plan(name, cands, available=True, succeeded=True):
+    from crawler.discovery.providers import SearchProviderPlan
+    return SearchProviderPlan(name=name, discovery=_MultiDisc(cands), include_pins=False,
+                              succeeded=(lambda: succeeded), available=(lambda: available))
+
+
+def _cand(url):
+    return SourceCandidate(name="x", type="website", url_or_handle=url,
+                           discovered_from_source_id=None, discovery_note=f"searxng: {url}")
+
+
+def test_run_iterates_all_available_plans():
+    ddg = _multi_plan("duckduckgo", [_cand("https://a.ua/1")], available=False)  # DDG backed off
+    sx = _multi_plan("searxng", [_cand("https://b.ua/2")], available=True)
+    sp = SearchPass([ddg, sx], _State(), _Grid(["знижка"]), block_size=1, ttl_seconds=0.0)
+    out = sp.run(known=set())
+    urls = {c.url_or_handle for c in out}
+    assert urls == {"https://b.ua/2"}          # only the available (searxng) plan ran
+    assert sp.any_provider_available() is True
+
+
+def test_site_query_provider_prefers_available():
+    ddg = _multi_plan("duckduckgo", [], available=False)
+    sx = _multi_plan("searxng", [], available=True)
+    sp = SearchPass([ddg, sx], _State(), _Grid(["x"]), block_size=1, ttl_seconds=0.0)
+    assert sp.provider_for_site_query() is sx.discovery   # DDG down → site: routes via searxng
+
+
+def test_no_provider_available():
+    ddg = _multi_plan("duckduckgo", [], available=False)
+    sx = _multi_plan("searxng", [], available=False)
+    sp = SearchPass([ddg, sx], _State(), _Grid(["x"]), block_size=1, ttl_seconds=0.0)
+    assert sp.any_provider_available() is False
+    assert sp.provider_for_site_query() is None

@@ -41,23 +41,30 @@ class SearchPass:
         size = len(self._grid)
         if size == 0 or not self._plans:
             return out
-        plan = self._plans[0]
-        # 1) DRAIN: re-surface cached-but-unharvested candidates (no DDG re-search).
+        # 1) DRAIN once (no re-search): re-surface cached-but-unharvested candidates.
         out.extend(self.drain())
-        # 2) SEARCH new due phrases (fresh phrases are skipped by _collect_due / cache).
+        # 2) Pick the due batch ONCE; every available provider searches the same phrases
+        #    (cross-provider redundancy raises recall).
         cursor = self._state.grid_cursor
         if self._ttl > 0:
             batch, new_cursor = self._collect_due(cursor, size)
         else:
             batch, new_cursor = self._grid.next_batch(self._bs, cursor)
-        pins = self._pins if plan.include_pins else []
-        keywords = merge_queries(batch, pins)
-        searched = plan.discovery.run(keywords, known)
-        for c in searched:
-            if c.origin_key is None and c.discovery_note and ": " in c.discovery_note:
-                c.origin_key = c.discovery_note.split(": ", 1)[1]
-        out.extend(searched)
-        if plan.succeeded():
+        any_success = False
+        for plan in self._plans:
+            if not plan.available():
+                continue
+            pins = self._pins if plan.include_pins else []
+            keywords = merge_queries(batch, pins)
+            searched = plan.discovery.run(keywords, known)
+            for c in searched:
+                if c.origin_key is None and c.discovery_note and ": " in c.discovery_note:
+                    c.origin_key = c.discovery_note.split(": ", 1)[1]
+            out.extend(searched)
+            if plan.succeeded():
+                any_success = True
+        # advance the cursor only if at least one provider covered this batch
+        if any_success:
             self._state.set_grid_cursor(new_cursor)
         return out
 
@@ -75,6 +82,13 @@ class SearchPass:
             scanned += 1
         return batch, cursor
 
+    def any_provider_available(self) -> bool:
+        return any(p.available() for p in self._plans)
+
     def provider_for_site_query(self):
-        """The single provider's ActiveDiscovery for `site:` queries."""
-        return self._plans[0].discovery if self._plans else None
+        """ActiveDiscovery of the first currently-available provider (health-aware), or None.
+        Under DDG backoff this returns the SearXNG discovery so the site: leg still runs."""
+        for plan in self._plans:
+            if plan.available():
+                return plan.discovery
+        return None
