@@ -16,7 +16,8 @@ class FakeApi:
 def test_block_calls_api_and_runtime_blocklist():
     blocklist.reload_learned(None)
     api = FakeApi()
-    MediaAutoBlocker(api).block("dumka.media", "https://dumka.media/x")
+    result = MediaAutoBlocker(api).block("dumka.media", "https://dumka.media/x")
+    assert result is True
     assert api.calls == [("dumka.media", "https://dumka.media/x")]
     assert blocklist.is_blocked_host("dumka.media") is True
     blocklist.reload_learned(None)
@@ -25,12 +26,14 @@ def test_block_calls_api_and_runtime_blocklist():
 def test_block_swallows_api_error_and_skips_runtime_add():
     blocklist.reload_learned(None)
     api = FakeApi(boom=True)
-    MediaAutoBlocker(api).block("flaky.example")     # must not raise
+    result = MediaAutoBlocker(api).block("flaky.example")     # must not raise
+    assert result is False
     assert blocklist.is_blocked_host("flaky.example") is False
     blocklist.reload_learned(None)
 
 
 def test_block_ignores_empty_host():
     api = FakeApi()
-    MediaAutoBlocker(api).block("")
+    result = MediaAutoBlocker(api).block("")
+    assert result is False
     assert api.calls == []

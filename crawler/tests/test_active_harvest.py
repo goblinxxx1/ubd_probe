@@ -534,7 +534,9 @@ from crawler.discovery import blocklist
 
 class FakeBlocker:
     def __init__(self): self.blocked = []
-    def block(self, host, sample_url=None): self.blocked.append(host)
+    def block(self, host, sample_url=None):
+        self.blocked.append(host)
+        return True
 
 
 def _schema_item(text, url, business=False, offer_schema=False):
@@ -568,6 +570,35 @@ def test_media_host_blocked_after_k_crawls(tmp_path):
         h.harvest([_cand(url="https://novadumka.press")], cats=None, known=set(),
                   summary=_summary())
     assert blocker.blocked == ["novadumka.press"]
+    blocklist.reload_learned(None)
+
+
+class FailingBlocker:
+    """Simulates a persistent backend/API failure: block() never confirms success,
+    so the registry must never latch and must keep retrying every crawl."""
+    def __init__(self): self.attempts = []
+    def block(self, host, sample_url=None):
+        self.attempts.append(host)
+        return False
+
+
+def test_failed_block_retries_next_crawl(tmp_path):
+    blocklist.reload_learned(None)
+    api = FakeApi()
+    reg = _reg(tmp_path)
+    blocker = FailingBlocker()
+    fetcher = FakeFetcher([_schema_item("Знижка 20% для військових",
+                                        "https://novadumka.press/ukr/a")])
+    h = ActiveHarvester(api, {"website": fetcher}, GateExtractor(), rate_limiter=None,
+                        fetch_budget=5, domain_registry=reg, media_blocker=blocker,
+                        media_autoblock_crawls=2)
+    for _ in range(4):
+        h.harvest([_cand(url="https://novadumka.press")], cats=None, known=set(),
+                  summary=_summary())
+    # a persistently-failing block must never latch — media_block_due keeps firing,
+    # so the blocker gets called again on every subsequent crawl (retry guarantee).
+    assert len(blocker.attempts) > 1
+    assert set(blocker.attempts) == {"novadumka.press"}
     blocklist.reload_learned(None)
 
 

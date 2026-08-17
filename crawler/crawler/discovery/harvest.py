@@ -99,7 +99,8 @@ class ActiveHarvester:
                                       structural_provider=structural)
                 if (self._media_blocker is not None
                         and self._registry.media_block_due(host, self._media_autoblock_crawls)):
-                    self._media_blocker.block(host, cand.url_or_handle)
+                    if self._media_blocker.block(host, cand.url_or_handle):
+                        self._registry.mark_media_blocked(host)
         return stop
 
     def _plan(self, cand):

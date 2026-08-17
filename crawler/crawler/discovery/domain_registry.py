@@ -76,15 +76,21 @@ class DomainRegistry:
         e["last_seen"] = now
 
     def media_block_due(self, host, k) -> bool:
-        """True exactly once, when the host has produced offers in >= k crawls without
-        ever showing structural provider-evidence. Sets media_blocked so it never re-fires."""
+        """Pure predicate: True whenever the host has produced offers in >= k crawls
+        without ever showing structural provider-evidence and has not already been
+        blocked. Does NOT mutate — the caller latches via mark_media_blocked() only
+        after the block is confirmed, so a failed block is retried next crawl."""
         e = self._data["domains"].get(_host(host))
         if not e or e.get("provider_ever") or e.get("media_blocked"):
             return False
-        if e.get("media_streak", 0) >= int(k):
+        return e.get("media_streak", 0) >= int(k)
+
+    def mark_media_blocked(self, host) -> None:
+        """Latch a host as blocked so media_block_due stops firing for it. Call ONLY
+        after MediaAutoBlocker.block() confirms success. No-op for an unknown host."""
+        e = self._data["domains"].get(_host(host))
+        if e is not None:
             e["media_blocked"] = True
-            return True
-        return False
 
     def take_skip(self, host) -> bool:
         """Empty-pass cooldown gate. If the host still owes skipped crawls, consume one and

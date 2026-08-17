@@ -267,6 +267,10 @@ class Runner:
             items, new_key = self._fetch_for(source, state.get("last_seen_key"))
             self._process_page(items, source, cats, known, summary)
             self._api.set_crawl_state(source["id"], new_key)
+        # Passive path intentionally omits structural_provider and never calls
+        # media_block_due: media auto-block is active-only. Relies on active
+        # harvest skipping known-source hosts, so a passively-inflated media_streak
+        # never reaches an active block decision.
         if host and self._domain_registry is not None:
             self._domain_registry.record(host, summary["offers"] - before_o,
                                          summary["errors"] - before_e)

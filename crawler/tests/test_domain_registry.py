@@ -200,8 +200,12 @@ def test_media_streak_blocks_after_k_offer_only_crawls(tmp_path):
     r = _reg(tmp_path)
     for _ in range(3):
         r.record("dumka.media", offers=1, errors=0, structural_provider=False)
+    # media_block_due is a pure predicate now — it does NOT latch itself, so it stays
+    # True across repeated calls until the caller explicitly confirms the block.
     assert r.media_block_due("dumka.media", k=3) is True
-    # flag set → not due again (no re-post)
+    assert r.media_block_due("dumka.media", k=3) is True
+    r.mark_media_blocked("dumka.media")
+    # latched → not due again (no re-post)
     assert r.media_block_due("dumka.media", k=3) is False
 
 
