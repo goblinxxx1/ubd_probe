@@ -22,7 +22,7 @@ class ActiveHarvester:
                  domain_registry=None, hardening_enabled=True,
                  aggregator_min_outbound=3, aggregator_store=None,
                  aggregator_max_domains=500, revisit_cooldown_seconds=0,
-                 geo_block_store=None, media_blocker=None, media_autoblock_crawls=3):
+                 geo_block_store=None, media_blocker=None, media_autoblock_crawls=2):
         self._api = api
         self._fetchers = fetchers
         self._extractor = extractor

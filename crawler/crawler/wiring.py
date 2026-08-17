@@ -204,6 +204,11 @@ def build_runner(config) -> Runner:
         except Exception as exc:  # noqa: BLE001 — snowball best-effort
             log.warning("snowball ingest failed: %s", exc)
 
+    media_blocker = None
+    if domain_registry is not None and config.media_autoblock_enabled:
+        from crawler.discovery.media_autoblock import MediaAutoBlocker
+        media_blocker = MediaAutoBlocker(api)
+
     if ((search_pass is not None or brand_feed is not None
          or osm_feed is not None or domain_feed is not None
          or aggregator_feed is not None)
@@ -218,7 +223,9 @@ def build_runner(config) -> Runner:
                                     aggregator_store=aggregator_store,
                                     aggregator_max_domains=config.aggregator_max_domains,
                                     revisit_cooldown_seconds=revisit_cooldown,
-                                    geo_block_store=geo_block_store)
+                                    geo_block_store=geo_block_store,
+                                    media_blocker=media_blocker,
+                                    media_autoblock_crawls=config.media_autoblock_crawls)
     return Runner(api, fetchers, extractor, rate_limiter,
                   discovery=discovery, search_pass=search_pass, harvester=harvester,
                   brand_feed=brand_feed, freshness_ttl_days=config.freshness_ttl_days,

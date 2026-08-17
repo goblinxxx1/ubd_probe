@@ -104,6 +104,8 @@ class _RawSettings(BaseSettings):
     aggregator_min_outbound: int = 3
     host_miner_min_support: int = 3
     host_miner_media_min: float = 0.5
+    media_autoblock_enabled: bool = True
+    media_autoblock_crawls: int = 2
     host_miner_aggregator_min: float = 0.5
     host_miner_max_candidates: int = 50
     require_discount: bool = True
@@ -210,6 +212,8 @@ class Config:
     aggregator_min_outbound: int = 3
     host_miner_min_support: int = 3
     host_miner_media_min: float = 0.5
+    media_autoblock_enabled: bool = True
+    media_autoblock_crawls: int = 2
     host_miner_aggregator_min: float = 0.5
     host_miner_max_candidates: int = 50
     require_discount: bool = True
@@ -339,6 +343,8 @@ def load_config() -> Config:
         aggregator_min_outbound=s.aggregator_min_outbound,
         host_miner_min_support=s.host_miner_min_support,
         host_miner_media_min=s.host_miner_media_min,
+        media_autoblock_enabled=s.media_autoblock_enabled,
+        media_autoblock_crawls=s.media_autoblock_crawls,
         host_miner_aggregator_min=s.host_miner_aggregator_min,
         host_miner_max_candidates=s.host_miner_max_candidates,
         require_discount=s.require_discount,
