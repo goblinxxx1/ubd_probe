@@ -17,6 +17,11 @@ class BlockedHostCreate(BaseModel):
     host: str
 
 
+class AutoBlockCreate(BaseModel):
+    host: str
+    sample_url: str | None = None
+
+
 class BlockedHostOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int

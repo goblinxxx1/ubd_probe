@@ -15,7 +15,7 @@ from app.crud import suggested_source as suggestion_crud
 from app.deps import get_db, require_api_key
 from app.models import OfferCategory
 from app.models.enums import CreatedBy, OfferStatus
-from app.schemas.blocked_host import BlockedHostOut, HostCandidateCreate
+from app.schemas.blocked_host import AutoBlockCreate, BlockedHostOut, HostCandidateCreate
 from app.schemas.bot_account import BotAccountOut, BotAccountStateUpdate
 from app.schemas.category import CategoryCreate, CategoryOut
 from app.schemas.crawl_state import CrawlStateOut, CrawlStateUpdate
@@ -152,3 +152,8 @@ def submit_host_candidate(data: HostCandidateCreate, db: Session = Depends(get_d
 @router.get("/blocked-hosts", response_model=list[str])
 def list_blocked_hosts(db: Session = Depends(get_db)):
     return blocked_host_crud.list_approved_hosts(db)
+
+
+@router.post("/blocked-hosts", response_model=BlockedHostOut)
+def auto_block_host(data: AutoBlockCreate, db: Session = Depends(get_db)):
+    return blocked_host_crud.auto_block(db, data.host, data.sample_url)

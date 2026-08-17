@@ -92,16 +92,18 @@ def add_manual(db: Session, host: str, reviewed_by: int) -> BlockedHost:
     return obj
 
 
-def auto_block(db: Session, host: str) -> BlockedHost:
+def auto_block(db: Session, host: str, sample_url: str | None = None) -> BlockedHost:
     """System (non-human) block: upsert host to approved with reviewed_by=None.
-    Idempotent — an existing row is promoted to approved."""
+    Idempotent — an existing row is promoted to approved. `sample_url`, if given,
+    is stored as evidence on first creation (existing rows keep their samples)."""
     h = bare_host(host)
     if not h:
         raise validation_error("host is required")
     obj = db.query(BlockedHost).filter(BlockedHost.host == h).first()
     if obj is None:
         obj = BlockedHost(host=h, status=BlockedHostStatus.approved, reviewed_by=None,
-                          reviewed_at=datetime.now(timezone.utc))
+                          reviewed_at=datetime.now(timezone.utc),
+                          sample_urls=[sample_url] if sample_url else None)
         db.add(obj)
     else:
         obj.status = BlockedHostStatus.approved

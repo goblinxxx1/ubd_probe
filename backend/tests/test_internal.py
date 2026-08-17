@@ -249,3 +249,22 @@ def test_rejected_offers_respects_since(client, db_session):
 
 def test_rejected_offers_requires_api_key(client):
     assert client.get("/api/internal/rejected-offers").status_code == 401
+
+
+def test_auto_block_host_creates_approved_row(client):
+    h = {"X-API-Key": settings.crawler_api_key}
+    r = client.post("/api/internal/blocked-hosts",
+                    json={"host": "dumka.media", "sample_url": "https://dumka.media/ukr/x"},
+                    headers=h)
+    assert r.status_code == 200
+    body = r.json()
+    assert body["host"] == "dumka.media"
+    assert body["status"] == "approved"
+    assert body["sample_urls"] == ["https://dumka.media/ukr/x"]
+
+    # idempotent: second call keeps it approved, no duplicate
+    r2 = client.post("/api/internal/blocked-hosts", json={"host": "dumka.media"}, headers=h)
+    assert r2.status_code == 200 and r2.json()["status"] == "approved"
+
+    listed = client.get("/api/internal/blocked-hosts", headers=h).json()
+    assert listed.count("dumka.media") == 1
