@@ -146,6 +146,18 @@ def test_quarantined_backend_excluded_from_pool(tmp_path):
     assert st.is_quarantined("google") is True
 
 
+def test_adaptive_delay_scales_with_unhealthy(tmp_path):
+    clock = Clock()
+    p, st = _provider(tmp_path, clock, FailingDDGS, min_delay=10.0, jitter=0.0)
+    # full health: multiplier 1.0
+    assert p._adaptive_delay() == 10.0
+    # quarantine 3 of 5 backends → 2 healthy → multiplier 5/2 = 2.5 → 25.0
+    for name in ("google", "startpage", "duckduckgo"):
+        st._data["backends"][name] = {"fails": 9, "cooldown_until": clock.t + 999,
+                                      "quarantined_until": clock.t + 999, "next_reprobe_at": clock.t + 999}
+    assert p._adaptive_delay() == 25.0
+
+
 def test_all_cool_sets_dynamic_backoff_not_fixed_6h(tmp_path):
     clock = Clock()
     # cap cooldowns low so soonest_recovery is small; floor makes it 300

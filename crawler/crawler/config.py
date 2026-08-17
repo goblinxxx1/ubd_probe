@@ -23,7 +23,7 @@ class _RawSettings(BaseSettings):
     search_min_delay: float = 45.0
     search_backends: str = "google,startpage,duckduckgo,yahoo,brave"
     search_state_path: str = "/data/search_state.json"
-    search_cache_ttl_hours: int = 96
+    search_cache_ttl_hours: int = 168
     search_jitter: float = 0.5
     search_backend_cooldown_base_seconds: float = 300.0
     search_backend_cooldown_cap_seconds: float = 21600.0
@@ -135,7 +135,7 @@ class Config:
     search_min_delay: float = 45.0
     search_backends: list[str] = field(default_factory=list)
     search_state_path: str = "/data/search_state.json"
-    search_cache_ttl_hours: int = 96
+    search_cache_ttl_hours: int = 168
     search_jitter: float = 0.5
     search_backend_cooldown_base_seconds: float = 300.0
     search_backend_cooldown_cap_seconds: float = 21600.0

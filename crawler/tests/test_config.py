@@ -39,7 +39,7 @@ def test_search_antithrottle_defaults(monkeypatch, tmp_path):
     cfg = load_config()
     assert cfg.search_backends == ["google", "startpage", "duckduckgo", "yahoo", "brave"]
     assert cfg.search_state_path == "/data/search_state.json"
-    assert cfg.search_cache_ttl_hours == 96
+    assert cfg.search_cache_ttl_hours == 168
     assert cfg.search_min_delay == 45.0
     assert cfg.search_jitter == 0.5
     assert cfg.search_backend_cooldown_base_seconds == 300.0

@@ -97,7 +97,7 @@ class RotatingDdgProvider:
                     self._state.soonest_recovery(self._pool, self._backoff_floor))
                 self._state.mark_degraded()
                 return []
-            self._sleep(self._delay * (1 + self._rand() * self._jitter))
+            self._sleep(self._adaptive_delay() * (1 + self._rand() * self._jitter))
             try:
                 results = self._ddgs_factory().text(keyword, max_results=self._n, backend=backend)
             except Exception as exc:  # noqa: BLE001 — search is best-effort
@@ -111,6 +111,14 @@ class RotatingDdgProvider:
             return self._classify(results, backend, keyword)
         self._state.mark_degraded()
         return []
+
+    def _adaptive_delay(self) -> float:
+        """Base min_delay scaled by pool_size / healthy_count: fewer selectable
+        backends → longer pause. At full health the multiplier is 1.0 (unchanged)."""
+        healthy = sum(1 for b in self._pool if self._selectable(b))
+        if healthy <= 0:
+            return self._delay
+        return self._delay * (len(self._pool) / healthy)
 
     def _selectable(self, backend: str) -> bool:
         if self._state.reprobe_due(backend):     # one low-frequency trial for a dead backend
