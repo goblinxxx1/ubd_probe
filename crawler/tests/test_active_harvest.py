@@ -527,3 +527,61 @@ def test_harvest_returns_len_when_all_processed():
                         rate_limiter=None, fetch_budget=10)
     cands = [_cand(url="https://biz.example")]
     assert h.harvest(cands, cats=None, known=set(), summary=_summary()) == 1
+
+
+from crawler.discovery import blocklist
+
+
+class FakeBlocker:
+    def __init__(self): self.blocked = []
+    def block(self, host, sample_url=None): self.blocked.append(host)
+
+
+def _schema_item(text, url, business=False, offer_schema=False):
+    # site_name is required so build_page_ctx() derives a non-None ctx.brand —
+    # otherwise attribute() has no first-party fallback and every page drops
+    # silently (no offer ever recorded, independent of the schema flags under test).
+    return RawItem(source_id=None, platform="website", key=text[:8], text=text,
+                   url=url, links=[], site_name="Site", has_business_schema=business,
+                   has_offer_schema=offer_schema)
+
+
+def _reg(tmp_path):
+    return DomainRegistry(str(tmp_path / "reg.json"))
+
+
+def test_media_host_blocked_after_k_crawls(tmp_path):
+    blocklist.reload_learned(None)
+    api = FakeApi()
+    reg = _reg(tmp_path)
+    blocker = FakeBlocker()
+    # produces an offer ('%'), zero business/offer schema → media behaviour.
+    # NOTE: dumka.media is intentionally avoided here — it's already in the SEED
+    # blocklist (blocklist.py), which would gate the candidate out before harvest
+    # ever runs and make this test pass for the wrong reason.
+    fetcher = FakeFetcher([_schema_item("Знижка 20% для військових",
+                                        "https://novadumka.press/ukr/a")])
+    h = ActiveHarvester(api, {"website": fetcher}, GateExtractor(), rate_limiter=None,
+                        fetch_budget=5, domain_registry=reg, media_blocker=blocker,
+                        media_autoblock_crawls=3)
+    for _ in range(3):
+        h.harvest([_cand(url="https://novadumka.press")], cats=None, known=set(),
+                  summary=_summary())
+    assert blocker.blocked == ["novadumka.press"]
+    blocklist.reload_learned(None)
+
+
+def test_business_with_schema_never_blocked(tmp_path):
+    blocklist.reload_learned(None)
+    api = FakeApi()
+    reg = _reg(tmp_path)
+    blocker = FakeBlocker()
+    fetcher = FakeFetcher([_schema_item("Знижка 20% для військових",
+                                        "https://shop.ua/sale", business=True)])
+    h = ActiveHarvester(api, {"website": fetcher}, GateExtractor(), rate_limiter=None,
+                        fetch_budget=5, domain_registry=reg, media_blocker=blocker,
+                        media_autoblock_crawls=3)
+    for _ in range(5):
+        h.harvest([_cand(url="https://shop.ua")], cats=None, known=set(), summary=_summary())
+    assert blocker.blocked == []
+    blocklist.reload_learned(None)

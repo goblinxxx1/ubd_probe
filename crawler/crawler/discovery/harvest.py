@@ -22,7 +22,7 @@ class ActiveHarvester:
                  domain_registry=None, hardening_enabled=True,
                  aggregator_min_outbound=3, aggregator_store=None,
                  aggregator_max_domains=500, revisit_cooldown_seconds=0,
-                 geo_block_store=None):
+                 geo_block_store=None, media_blocker=None, media_autoblock_crawls=3):
         self._api = api
         self._fetchers = fetchers
         self._extractor = extractor
@@ -38,6 +38,8 @@ class ActiveHarvester:
         self._aggregator_max_domains = aggregator_max_domains
         self._revisit_cooldown = revisit_cooldown_seconds
         self._geo_block_store = geo_block_store
+        self._media_blocker = media_blocker
+        self._media_autoblock_crawls = media_autoblock_crawls
 
     def harvest(self, candidates, cats, known, summary, known_hosts=None) -> int:
         known_hosts = known_hosts or set()
@@ -84,15 +86,20 @@ class ActiveHarvester:
                 continue
             used += 1
             before_o, before_e = summary["offers"], summary["errors"]
+            structural = False
             try:
-                self._harvest_one(cand, fetcher, cats, known, summary)
+                structural = self._harvest_one(cand, fetcher, cats, known, summary)
             except Exception as exc:  # noqa: BLE001 — isolate per candidate
                 summary["errors"] += 1
                 log.warning("active harvest failed for %s: %s", cand.url_or_handle, exc)
             if self._registry is not None and cand.type == "website":
-                self._registry.record(_host(cand.url_or_handle),
-                                      summary["offers"] - before_o,
-                                      summary["errors"] - before_e)
+                host = _host(cand.url_or_handle)
+                self._registry.record(host, summary["offers"] - before_o,
+                                      summary["errors"] - before_e,
+                                      structural_provider=structural)
+                if (self._media_blocker is not None
+                        and self._registry.media_block_due(host, self._media_autoblock_crawls)):
+                    self._media_blocker.block(host, cand.url_or_handle)
         return stop
 
     def _plan(self, cand):
@@ -111,19 +118,25 @@ class ActiveHarvester:
         elif self._rl is not None:
             self._rl.wait(cand_type)
 
-    def _harvest_one(self, cand, fetcher, cats, known, summary) -> None:
+    def _harvest_one(self, cand, fetcher, cats, known, summary) -> bool:
         urls, domain, delay = self._plan(cand)
+        structural = False
         for url in urls:
             self._wait(cand.type, domain, delay)
             src = {"id": None, "type": cand.type, "url_or_handle": url, "name": cand.name}
             try:
                 items, _ = fetcher.fetch(src, None)
-                self._process_page(cand, items, cats, known, summary)
+                if self._process_page(cand, items, cats, known, summary):
+                    structural = True
             except Exception as exc:  # noqa: BLE001 — one page must not sink the domain
                 summary["errors"] += 1
                 log.warning("harvest page failed for %s: %s", url, exc)
+        return structural
 
-    def _process_page(self, cand, items, cats, known, summary) -> None:
+    def _process_page(self, cand, items, cats, known, summary) -> bool:
+        structural_provider = any(
+            getattr(it, "has_offer_schema", False) or getattr(it, "has_business_schema", False)
+            for it in items)
         passing = []
         for it in items:
             is_offer = self._extractor.extract(it, "", cats) is not None
@@ -145,7 +158,7 @@ class ActiveHarvester:
             offer = self._extractor.extract(item, attr.provider, cats)
             collected.append((offer, attr))
         if not collected:
-            return
+            return structural_provider
         groups, order = {}, []
         for offer, attr in collected:
             key = offer.article_url
@@ -172,3 +185,4 @@ class ActiveHarvester:
                     })
                     known.add(s_ref)
                     summary["suggestions"] += 1
+        return structural_provider
