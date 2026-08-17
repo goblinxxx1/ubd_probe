@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Callable
 from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
 
+import httpx
 from ddgs import DDGS
 
 from crawler.discovery.active import ActiveDiscovery
@@ -176,6 +177,69 @@ class SearchCache:
             return []
         self._state.cache_put(keyword, results)
         return results
+
+
+class SearxngProvider:
+    """Callable (keyword) -> list[SourceCandidate] via a self-hosted SearXNG JSON API.
+    Independent of DDG: keeps its own consecutive-failure cooldown so a throttled SearXNG
+    self-suppresses without touching the DDG SearchState global backoff."""
+
+    def __init__(self, base_url: str, results_per_keyword: int = 7, min_delay: float = 4.0,
+                 client_factory=None, sleep=time.sleep, clock=time.time,
+                 fail_threshold: int = 3, cooldown_base: float = 300.0,
+                 cooldown_cap: float = 3600.0):
+        self._base = base_url.rstrip("/")
+        self._n = results_per_keyword
+        self._delay = min_delay
+        self._client_factory = client_factory or (lambda: httpx.Client(timeout=20))
+        self._sleep = sleep
+        self._clock = clock
+        self._fail_threshold = fail_threshold
+        self._cooldown_base = cooldown_base
+        self._cooldown_cap = cooldown_cap
+        self._fails = 0
+        self._cooldown_until = 0.0
+        self._slice_ok = False
+
+    def available(self) -> bool:
+        return self._clock() >= self._cooldown_until
+
+    def succeeded(self) -> bool:
+        return self._slice_ok
+
+    def __call__(self, keyword: str) -> list[SourceCandidate]:
+        self._slice_ok = False
+        if self._clock() < self._cooldown_until:
+            return []
+        if self._delay:
+            self._sleep(self._delay)
+        try:
+            with self._client_factory() as client:
+                resp = client.get(f"{self._base}/search",
+                                  params={"q": keyword, "format": "json"})
+                resp.raise_for_status()
+                data = resp.json()
+        except Exception as exc:  # noqa: BLE001 — search is best-effort
+            log.warning("searxng search failed for %r: %s", keyword, exc)
+            self._fails += 1
+            if self._fails >= self._fail_threshold:
+                over = self._fails - self._fail_threshold
+                self._cooldown_until = self._clock() + min(
+                    self._cooldown_base * (2 ** over), self._cooldown_cap)
+            return []
+        self._fails = 0
+        self._cooldown_until = 0.0
+        self._slice_ok = True
+        out: list[SourceCandidate] = []
+        for r in (data.get("results") or [])[:self._n]:
+            classified = classify_candidate(r.get("url", ""))
+            if classified is None:
+                continue
+            type_, url_or_handle = classified
+            out.append(SourceCandidate(
+                name=r.get("title") or url_or_handle, type=type_, url_or_handle=url_or_handle,
+                discovered_from_source_id=None, discovery_note=f"searxng: {keyword}"))
+        return out
 
 
 @dataclass
