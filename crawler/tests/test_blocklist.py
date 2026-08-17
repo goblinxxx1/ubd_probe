@@ -104,3 +104,14 @@ def test_curated_news_hosts_are_blocked():
               "parlament.ua", "kharakter.media", "dumka.media"]:
         assert blocklist.is_blocked_host(h) is True, h
     assert blocklist.is_blocked_host("rozetka.com.ua") is False
+
+
+def test_add_learned_blocks_host_immediately():
+    blocklist.reload_learned(None)                       # SEED-only
+    assert blocklist.is_blocked_host("newmedia.example") is False
+    blocklist.add_learned("https://www.newmedia.example/ukr/x")
+    assert blocklist.is_blocked_host("newmedia.example") is True
+    assert blocklist.is_blocked_host("sub.newmedia.example") is True
+    blocklist.add_learned("")                            # no-op, no crash
+    blocklist.add_learned(None)                           # no-op, no crash
+    blocklist.reload_learned(None)                       # cleanup for other tests

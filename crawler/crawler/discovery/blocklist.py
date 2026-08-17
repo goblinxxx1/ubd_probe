@@ -49,6 +49,15 @@ def reload_learned(hosts) -> None:
     _LEARNED = frozenset(n for n in norm if n)
 
 
+def add_learned(host) -> None:
+    """Incrementally union one host into the runtime learned set, so is_blocked_host
+    drops it immediately within the current run (persistence is backend-side)."""
+    global _LEARNED
+    h = bare_host(host) if host and host.strip() else ""
+    if h:
+        _LEARNED = _LEARNED | frozenset({h})
+
+
 def reload_geo_blocked(hosts) -> None:
     """Replace the RU/BY geo-blocked host set. None/empty ⇒ cleared."""
     global _GEO_BLOCKED
