@@ -43,7 +43,7 @@ class DomainRegistry:
             data = None
         return cls(path, data=data, clock=clock, **score_kw)
 
-    def record(self, host, offers, errors):
+    def record(self, host, offers, errors, structural_provider=False):
         host = _host(host)
         if not host:
             return
@@ -52,7 +52,8 @@ class DomainRegistry:
         if e is None:
             e = {"score": 0.0, "offers": 0, "errors": 0, "rejects": 0, "passes": 0,
                  "empty_passes": 0, "skip_left": 0, "first_seen": now, "last_seen": now,
-                 "last_offer": 0.0}
+                 "last_offer": 0.0, "media_streak": 0, "provider_ever": False,
+                 "media_blocked": False}
             self._data["domains"][host] = e
         e["score"] = max(0.0, e["score"] * self._decay
                          + offers * self._offer_w - errors * self._error_w)
@@ -65,7 +66,25 @@ class DomainRegistry:
         else:
             e["last_offer"] = now
             e["skip_left"] = 0                   # productive again → resume normal cadence
+        # media-streak: a host that keeps producing offers but never declares itself a
+        # business (no Offer/LocalBusiness schema) behaves like media/aggregator.
+        if structural_provider:
+            e["provider_ever"] = True
+            e["media_streak"] = 0
+        elif offers > 0:
+            e["media_streak"] = e.get("media_streak", 0) + 1
         e["last_seen"] = now
+
+    def media_block_due(self, host, k) -> bool:
+        """True exactly once, when the host has produced offers in >= k crawls without
+        ever showing structural provider-evidence. Sets media_blocked so it never re-fires."""
+        e = self._data["domains"].get(_host(host))
+        if not e or e.get("provider_ever") or e.get("media_blocked"):
+            return False
+        if e.get("media_streak", 0) >= int(k):
+            e["media_blocked"] = True
+            return True
+        return False
 
     def take_skip(self, host) -> bool:
         """Empty-pass cooldown gate. If the host still owes skipped crawls, consume one and

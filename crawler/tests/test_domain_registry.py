@@ -193,3 +193,40 @@ def test_default_empty_skip_is_five(tmp_path):
     r = _reg(tmp_path)                              # default empty_skip=5
     r.record("e.ua", offers=0, errors=0)
     assert sum(1 for _ in range(6) if r.take_skip("e.ua")) == 5   # 5 skips then allow
+
+
+# --- media-streak: offers with no structural provider-evidence -> auto-block ---
+def test_media_streak_blocks_after_k_offer_only_crawls(tmp_path):
+    r = _reg(tmp_path)
+    for _ in range(3):
+        r.record("dumka.media", offers=1, errors=0, structural_provider=False)
+    assert r.media_block_due("dumka.media", k=3) is True
+    # flag set → not due again (no re-post)
+    assert r.media_block_due("dumka.media", k=3) is False
+
+
+def test_structural_provider_resets_and_vetoes(tmp_path):
+    r = _reg(tmp_path)
+    r.record("shop.ua", offers=1, errors=0, structural_provider=False)
+    r.record("shop.ua", offers=1, errors=0, structural_provider=True)   # business schema seen
+    r.record("shop.ua", offers=1, errors=0, structural_provider=False)
+    r.record("shop.ua", offers=1, errors=0, structural_provider=False)
+    assert r.media_block_due("shop.ua", k=3) is False                   # provider_ever vetoes
+
+
+def test_empty_crawls_do_not_grow_media_streak(tmp_path):
+    r = _reg(tmp_path)
+    for _ in range(5):
+        r.record("quiet.ua", offers=0, errors=0, structural_provider=False)
+    assert r.media_block_due("quiet.ua", k=3) is False
+
+
+def test_media_block_due_unknown_host_false(tmp_path):
+    r = _reg(tmp_path)
+    assert r.media_block_due("nope.ua", k=3) is False
+
+
+def test_record_back_compat_positional(tmp_path):
+    r = _reg(tmp_path)
+    r.record("x.ua", 1, 0)                       # old 3-arg call still works
+    assert r.score("x.ua") == 1.0
