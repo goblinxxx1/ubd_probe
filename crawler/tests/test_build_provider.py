@@ -25,3 +25,17 @@ def test_plans_for_known_provider(tmp_path):
 def test_no_plans_for_unknown_or_empty(tmp_path):
     assert build_search_plans(_cfg(tmp_path, search_providers=[])) == []
     assert build_search_plans(_cfg(tmp_path, search_providers=["unknown"])) == []
+
+
+def test_build_plans_includes_searxng_when_enabled():
+    from crawler.config import _RawSettings, from_settings
+    from crawler.discovery.providers import build_search_plans
+    cfg = from_settings(_RawSettings(search_providers="duckduckgo,searxng",
+                                     active_discovery=True))
+    plans = build_search_plans(cfg)
+    names = [p.name for p in plans]
+    assert names == ["duckduckgo", "searxng"]
+    assert all(callable(p.available) for p in plans)
+    # searxng plan is independent of DDG global backoff
+    searxng = [p for p in plans if p.name == "searxng"][0]
+    assert searxng.available() is True

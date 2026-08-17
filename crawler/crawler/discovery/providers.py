@@ -187,7 +187,7 @@ class SearxngProvider:
     def __init__(self, base_url: str, results_per_keyword: int = 7, min_delay: float = 4.0,
                  client_factory=None, sleep=time.sleep, clock=time.time,
                  fail_threshold: int = 3, cooldown_base: float = 300.0,
-                 cooldown_cap: float = 3600.0):
+                 cooldown_cap: float = 3600.0, engines: str = ""):
         self._base = base_url.rstrip("/")
         self._n = results_per_keyword
         self._delay = min_delay
@@ -197,6 +197,7 @@ class SearxngProvider:
         self._fail_threshold = fail_threshold
         self._cooldown_base = cooldown_base
         self._cooldown_cap = cooldown_cap
+        self._engines = engines
         self._fails = 0
         self._cooldown_until = 0.0
         self._slice_ok = False
@@ -215,8 +216,10 @@ class SearxngProvider:
             self._sleep(self._delay)
         try:
             with self._client_factory() as client:
-                resp = client.get(f"{self._base}/search",
-                                  params={"q": keyword, "format": "json"})
+                params = {"q": keyword, "format": "json"}
+                if self._engines:
+                    params["engines"] = self._engines
+                resp = client.get(f"{self._base}/search", params=params)
                 resp.raise_for_status()
                 data = resp.json()
         except Exception as exc:  # noqa: BLE001 — search is best-effort
@@ -244,12 +247,13 @@ class SearxngProvider:
 
 @dataclass
 class SearchProviderPlan:
-    """One search provider bound to its own ActiveDiscovery and per-pass success
-    check. Consumed by SearchPass."""
+    """One search provider bound to its own ActiveDiscovery, per-pass success check,
+    and forward-looking availability (health) predicate. Consumed by SearchPass."""
     name: str
     discovery: ActiveDiscovery
     include_pins: bool
     succeeded: Callable[[], bool]
+    available: Callable[[], bool]
 
 
 def build_search_plans(config, state=None) -> list[SearchProviderPlan]:
@@ -276,7 +280,19 @@ def build_search_plans(config, state=None) -> list[SearchProviderPlan]:
                 name="duckduckgo",
                 discovery=ActiveDiscovery(budget=budget, search_provider=provider),
                 include_pins=True,
-                succeeded=(lambda st=state: not st.in_global_backoff())))
+                succeeded=(lambda st=state: not st.in_global_backoff()),
+                available=(lambda st=state: not st.in_global_backoff())))
+        elif name == "searxng":
+            sx = SearxngProvider(config.searxng_url,
+                                 results_per_keyword=config.search_results_per_keyword,
+                                 min_delay=config.searxng_min_delay,
+                                 engines=config.searxng_engines)
+            plans.append(SearchProviderPlan(
+                name="searxng",
+                discovery=ActiveDiscovery(budget=budget, search_provider=sx),
+                include_pins=True,
+                succeeded=sx.succeeded,
+                available=sx.available))
         else:
             log.warning("unknown search provider %r, ignoring", name)
     return plans

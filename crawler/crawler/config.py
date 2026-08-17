@@ -17,7 +17,7 @@ class _RawSettings(BaseSettings):
     instagram_accounts: str = ""
     facebook_accounts: str = ""
     proxies: str = ""
-    search_providers: str = "duckduckgo"
+    search_providers: str = "duckduckgo,searxng"
     search_keywords: str = ""
     search_results_per_keyword: int = 7
     search_min_delay: float = 45.0
@@ -117,6 +117,9 @@ class _RawSettings(BaseSettings):
     backoff_max_sleep_seconds: float = 1800.0
     passive_hard_overdue_factor: float = 3.0
     learn_interval_seconds: int = 86400   # 24h; in-loop self-learning tick (0 = off)
+    searxng_url: str = "http://searxng:8080"
+    searxng_engines: str = "duckduckgo,brave,mojeek,qwant,marginalia,wikidata"  # no google/bing/yandex
+    searxng_min_delay: float = 4.0
 
 
 @dataclass
@@ -229,6 +232,9 @@ class Config:
     backoff_max_sleep_seconds: float = 1800.0
     passive_hard_overdue_factor: float = 3.0
     learn_interval_seconds: int = 86400   # 24h; in-loop self-learning tick (0 = off)
+    searxng_url: str = "http://searxng:8080"
+    searxng_engines: str = "duckduckgo,brave,mojeek,qwant,marginalia,wikidata"
+    searxng_min_delay: float = 4.0
 
 
 def _parse_accounts(platform: str, raw: str) -> list[BotCredential]:
@@ -363,6 +369,9 @@ def from_settings(s: _RawSettings) -> Config:
         backoff_max_sleep_seconds=s.backoff_max_sleep_seconds,
         passive_hard_overdue_factor=s.passive_hard_overdue_factor,
         learn_interval_seconds=s.learn_interval_seconds,
+        searxng_url=s.searxng_url,
+        searxng_engines=s.searxng_engines,
+        searxng_min_delay=s.searxng_min_delay,
     )
 
 
