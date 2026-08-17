@@ -79,3 +79,22 @@ def test_list_uncrawled_sources_sends_limit_and_key():
     assert out[0]["id"] == 2
     assert captured[0].headers["X-API-Key"] == "secret"
     assert captured[0].url.params.get("limit") == "7"
+
+
+def test_auto_block_host_posts_host():
+    captured = []
+    def handle(request: httpx.Request) -> httpx.Response:
+        captured.append(request)
+        if request.url.path == "/api/internal/blocked-hosts" and request.method == "POST":
+            return httpx.Response(200, json={"id": 1, "host": "dumka.media",
+                "status": "approved", "media_ratio": 0.0, "aggregator_ratio": 0.0,
+                "support": 0, "sample_urls": None, "reviewed_at": None,
+                "created_at": "2026-08-17T00:00:00"})
+        return httpx.Response(404, json={"code": "not_found", "detail": "x"})
+    client = ApiClient("http://api", "secret", 10.0,
+                       transport=httpx.MockTransport(handle))
+    out = client.auto_block_host("dumka.media", "https://dumka.media/x")
+    assert out["host"] == "dumka.media"
+    sent = json.loads(captured[0].content)
+    assert sent == {"host": "dumka.media", "sample_url": "https://dumka.media/x"}
+    assert captured[0].headers["X-API-Key"] == "secret"
