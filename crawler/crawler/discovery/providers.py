@@ -194,7 +194,11 @@ def build_search_plans(config, state=None) -> list[SearchProviderPlan]:
                 min_delay=config.search_min_delay, jitter=config.search_jitter,
                 cooldown_base=config.search_backend_cooldown_base_seconds,
                 cooldown_cap=config.search_backend_cooldown_cap_seconds,
-                global_backoff_seconds=config.search_global_backoff_hours * 3600)
+                global_backoff_seconds=config.search_global_backoff_hours * 3600,
+                quarantine_threshold=config.search_backend_quarantine_threshold,
+                quarantine_hours=config.search_backend_quarantine_hours,
+                reprobe_hours=config.search_backend_reprobe_hours,
+                backoff_floor=config.search_backoff_floor_seconds)
             provider = SearchCache(rotating, state, config.search_cache_ttl_hours * 3600)
             plans.append(SearchProviderPlan(
                 name="duckduckgo",

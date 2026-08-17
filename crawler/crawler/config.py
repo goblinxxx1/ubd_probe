@@ -28,6 +28,10 @@ class _RawSettings(BaseSettings):
     search_backend_cooldown_base_seconds: float = 300.0
     search_backend_cooldown_cap_seconds: float = 21600.0
     search_global_backoff_hours: float = 6.0
+    search_backend_quarantine_threshold: int = 6
+    search_backend_quarantine_hours: float = 24.0
+    search_backend_reprobe_hours: float = 6.0
+    search_backoff_floor_seconds: float = 300.0
     search_budget: int = 0  # 0 = process all keywords
     active_fetch_budget: int = 80
     first_crawl_budget: int = 10
@@ -136,6 +140,10 @@ class Config:
     search_backend_cooldown_base_seconds: float = 300.0
     search_backend_cooldown_cap_seconds: float = 21600.0
     search_global_backoff_hours: float = 6.0
+    search_backend_quarantine_threshold: int = 6
+    search_backend_quarantine_hours: float = 24.0
+    search_backend_reprobe_hours: float = 6.0
+    search_backoff_floor_seconds: float = 300.0
     search_budget: int | None = None
     active_fetch_budget: int = 80
     first_crawl_budget: int = 10
@@ -243,8 +251,7 @@ def _parse_proxies(raw: str) -> dict[str, str]:
     return out
 
 
-def load_config() -> Config:
-    s = _RawSettings()
+def from_settings(s: _RawSettings) -> Config:
     accounts = (_parse_accounts("instagram", s.instagram_accounts)
                 + _parse_accounts("facebook", s.facebook_accounts))
     return Config(
@@ -267,6 +274,10 @@ def load_config() -> Config:
         search_backend_cooldown_base_seconds=s.search_backend_cooldown_base_seconds,
         search_backend_cooldown_cap_seconds=s.search_backend_cooldown_cap_seconds,
         search_global_backoff_hours=s.search_global_backoff_hours,
+        search_backend_quarantine_threshold=s.search_backend_quarantine_threshold,
+        search_backend_quarantine_hours=s.search_backend_quarantine_hours,
+        search_backend_reprobe_hours=s.search_backend_reprobe_hours,
+        search_backoff_floor_seconds=s.search_backoff_floor_seconds,
         search_budget=(s.search_budget or None),
         active_fetch_budget=s.active_fetch_budget,
         first_crawl_budget=s.first_crawl_budget,
@@ -353,3 +364,7 @@ def load_config() -> Config:
         passive_hard_overdue_factor=s.passive_hard_overdue_factor,
         learn_interval_seconds=s.learn_interval_seconds,
     )
+
+
+def load_config() -> Config:
+    return from_settings(_RawSettings())
