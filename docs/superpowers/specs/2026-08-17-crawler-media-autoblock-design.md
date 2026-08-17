@@ -38,14 +38,14 @@ Per host, per crawl (один виклик `DomainRegistry.record` = один о
 - `produced_offers AND NOT structural_provider` → `media_streak += 1`.
 - будь-який краул зі `structural_provider` → `media_streak = 0` (і назавжди знімає кандидатуру: `provider_ever = True`).
 - краул із 0 оферів → streak не чіпаємо (це порожній прогін, ним керує наявний `empty_skip`).
-- `media_streak >= K` (config `media_autoblock_crawls`, дефолт **3**) і `not provider_ever`
+- `media_streak >= K` (config `media_autoblock_crawls`, дефолт **2** — блок на 2-му офер-краулі) і `not provider_ever`
   → **авто-блок хоста**.
 
 **Чому це ловить `dumka.media`:** новинний сайт виробляє «офери» (леджені), але не має
 `Offer`/`LocalBusiness` schema.org → structural_provider завжди False → streak росте → блок.
 
 **Прийнятий залишковий ризик:** малий реальний бізнес **без** schema.org, що само-декларує
-знижку лише текстом, може бути заблокований після K прогонів. Пом'якшення: (а) K=3;
+знижку лише текстом, може бути заблокований після K прогонів. Пом'якшення: (а) K=2;
 (б) видимість у адмінці + миттєвий `reject`(розблок); (в) курований seed лишається
 для миттєвих відомих кейсів. `dumka.media` уже додано в seed окремо — цей трек ловить
 **майбутні невідомі** медіа.

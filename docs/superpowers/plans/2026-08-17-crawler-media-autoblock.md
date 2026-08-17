@@ -14,7 +14,7 @@
 - Backend tests need the MySQL `ubd_test` container running (`docker ps`; `docker start mysql-container` if needed).
 - `is_article` MUST NOT influence the media-block decision (it fires on legit discount sites too).
 - Provider-evidence = STRUCTURAL schema only (`has_offer_schema` OR `has_business_schema`), never the text-heuristic first-party attribution.
-- All new config defaults keep prior behaviour reproducible: `media_autoblock_enabled=True`, `media_autoblock_crawls=3`.
+- All new config defaults: `media_autoblock_enabled=True`, `media_autoblock_crawls=2` (block on the 2nd offer-only crawl).
 - Work on branch `track-media-autoblock` (already created). Conventional-commit messages; end each with the `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>` trailer.
 - Ukrainian for user-facing prose; code/comments follow the file's existing language.
 
@@ -679,7 +679,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 
 **Interfaces:**
 - Consumes: `MediaAutoBlocker` (Task 5); `ActiveHarvester(media_blocker=, media_autoblock_crawls=)` (Task 6).
-- Produces: config `media_autoblock_enabled: bool = True`, `media_autoblock_crawls: int = 3`.
+- Produces: config `media_autoblock_enabled: bool = True`, `media_autoblock_crawls: int = 2`.
 
 - [ ] **Step 1: Add config fields (all three sites)**
 
@@ -687,7 +687,7 @@ In `crawler/crawler/config.py`, add after the `host_miner_media_min` line in **`
 
 ```python
     media_autoblock_enabled: bool = True
-    media_autoblock_crawls: int = 3
+    media_autoblock_crawls: int = 2
 ```
 
 Add the identical two lines after `host_miner_media_min` in the dataclass **`Config`** (~line 212).
@@ -718,6 +718,12 @@ Then in the `ActiveHarvester(...)` call, add two kwargs after `geo_block_store=g
                                     media_autoblock_crawls=config.media_autoblock_crawls)
 ```
 
+- [ ] **Step 2b: Align the ActiveHarvester default to 2**
+
+Task 6 left the `ActiveHarvester.__init__` fallback default as `media_autoblock_crawls=3`. Change that single default to `2` so the never-overridden fallback matches the config default (production always passes `config.media_autoblock_crawls`, so this is a consistency fix, not a behaviour change):
+
+In `crawler/crawler/discovery/harvest.py`, in `ActiveHarvester.__init__`, change `media_autoblock_crawls=3` → `media_autoblock_crawls=2`. Do NOT change the Task-6 integration test that passes `media_autoblock_crawls=3` explicitly and loops 3× — that is a valid explicit-K mechanism test and stays as-is.
+
 - [ ] **Step 3: Run the full crawler suite (no regressions, wiring imports resolve)**
 
 Run: `/d/ubd_probe/crawler/.venv/Scripts/python.exe -m pytest -q` (from `crawler/`)
@@ -731,8 +737,8 @@ Expected: prints `wiring import ok` with no ImportError.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add crawler/crawler/config.py crawler/crawler/wiring.py
-git commit -m "feat(crawler): wire MediaAutoBlocker + media_autoblock config
+git add crawler/crawler/config.py crawler/crawler/wiring.py crawler/crawler/discovery/harvest.py
+git commit -m "feat(crawler): wire MediaAutoBlocker + media_autoblock config (K=2)
 
 Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ```
@@ -752,7 +758,7 @@ In `crawler/.env.example`, add near the other tuning knobs:
 # Media host auto-block: after this many crawls that produced offers but never carried
 # Offer/LocalBusiness schema, block the whole host from further crawling. 0/false to disable.
 MEDIA_AUTOBLOCK_ENABLED=true
-MEDIA_AUTOBLOCK_CRAWLS=3
+MEDIA_AUTOBLOCK_CRAWLS=2
 ```
 
 - [ ] **Step 2: Run both full suites**
