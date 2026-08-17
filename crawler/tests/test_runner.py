@@ -548,6 +548,7 @@ def test_run_active_marks_only_fully_consumed_search_phrases():
             return [SourceCandidate(name="a1", type="website", url_or_handle="https://a1.ua", origin_key="phraseA"),
                     SourceCandidate(name="a2", type="website", url_or_handle="https://a2.ua", origin_key="phraseA"),
                     SourceCandidate(name="b1", type="website", url_or_handle="https://b1.ua", origin_key="phraseB")]
+        def provider_for_site_query(self): return None
     class _Harv:
         def harvest(self, candidates, cats, known, summary, known_hosts=None):
             return 2                      # examined first 2 (both phraseA); stopped before phraseB

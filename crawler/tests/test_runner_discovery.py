@@ -14,9 +14,10 @@ class FakeApi:
 
 
 class FakeSearchPass:
-    def __init__(self, cands, drain_cands=None):
+    def __init__(self, cands, drain_cands=None, site_discovery=None):
         self._cands = cands
         self._drain = drain_cands or []
+        self._site_discovery = site_discovery
         self.called_with = None
         self.ran = False
     def run(self, known):
@@ -25,7 +26,7 @@ class FakeSearchPass:
         return self._cands
     def drain(self):
         return list(self._drain)
-    def provider_for_site_query(self): return None
+    def provider_for_site_query(self): return self._site_discovery
 
 
 class FakeDiscovery:
@@ -120,6 +121,8 @@ def test_run_active_backoff_skips_site_queries():
 
 def test_run_active_ddg_allowed_runs_site_queries():
     disc = FakeDiscovery()
-    _runner_with_site(FakeApi(), FakeSearchPass([], drain_cands=[]),
+    # site: leg now takes its discovery from the healthy search_pass provider, not the
+    # static self._discovery — so the fake search_pass must report `disc` as that provider.
+    _runner_with_site(FakeApi(), FakeSearchPass([], drain_cands=[], site_discovery=disc),
                       FakeHarvester(), disc).run_active(ddg_allowed=True)
     assert disc.ran is True

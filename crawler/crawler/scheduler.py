@@ -6,7 +6,8 @@ log = logging.getLogger(__name__)
 MIN_ACTIVE_DELAY = 5.0   # floor so an instantly-returning active pass can't busy-loop
 
 
-def step(runner, state, passive_schedule, *, active_delay, backoff_max_sleep, hard_factor):
+def step(runner, state, passive_schedule, *, active_delay, backoff_max_sleep, hard_factor,
+         search_available=None):
     """One scheduling decision: run exactly one pass, return the sleep (seconds).
 
     - Global backoff active: DDG is unusable, so run the DDG-INDEPENDENT part of the active
@@ -14,8 +15,16 @@ def step(runner, state, passive_schedule, *, active_delay, backoff_max_sleep, ha
       cadence is due), then sleep until the backoff lifts (capped).
     - Otherwise: run the DDG active pass (new-offer discovery). Passive runs in
       DDG-available time ONLY as a freshness safety net when it is hard-overdue.
-    """
-    if state is not None and state.in_global_backoff():
+
+    `search_available()`, when given, decides degraded-vs-full: it reports whether ANY
+    search provider (DDG or SearXNG) is currently healthy, so the active pass only
+    degrades when every provider is down. Without it, falls back to DDG-only
+    state.in_global_backoff() (back-compat)."""
+    if search_available is not None:
+        backed_off = not search_available()
+    else:
+        backed_off = state is not None and state.in_global_backoff()
+    if state is not None and backed_off:
         runner.run_active(ddg_allowed=False)      # DDG-independent discovery survives backoff
         if passive_schedule is None or passive_schedule.due():
             runner.run_passive()
@@ -32,7 +41,8 @@ def step(runner, state, passive_schedule, *, active_delay, backoff_max_sleep, ha
 
 def run_loop(runner, state_loader, passive_schedule, *, active_delay, backoff_max_sleep,
              hard_factor, sleep=time.sleep, iterations=None,
-             learn=None, learn_interval_seconds=0, now=time.monotonic):
+             learn=None, learn_interval_seconds=0, now=time.monotonic,
+             search_available=None):
     """Drive step() forever (or `iterations` times in tests), reloading search state each
     pass so a freshly-persisted next_allowed_at is always seen. A failing pass is logged
     and skipped — it must never kill the loop.
@@ -55,7 +65,8 @@ def run_loop(runner, state_loader, passive_schedule, *, active_delay, backoff_ma
         try:
             state = state_loader()
             secs = step(runner, state, passive_schedule, active_delay=active_delay,
-                        backoff_max_sleep=backoff_max_sleep, hard_factor=hard_factor)
+                        backoff_max_sleep=backoff_max_sleep, hard_factor=hard_factor,
+                        search_available=search_available)
         except Exception as exc:  # noqa: BLE001 — a bad pass must not kill the loop
             log.warning("scheduler iteration failed: %s", exc)
             secs = max(active_delay, MIN_ACTIVE_DELAY)

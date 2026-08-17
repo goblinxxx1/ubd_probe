@@ -138,3 +138,28 @@ def test_run_loop_survives_pass_error():
     run_loop(Boom(), lambda: _State(False), _Passive(),
              sleep=slept.append, iterations=1, **_kw())
     assert slept == [60]   # error swallowed, slept active_delay
+
+
+def test_step_full_pass_when_any_provider_available():
+    r = _Runner()
+    # DDG in global backoff, but search_available() True (searxng alive)
+    secs = step(r, _State(True, secs=120.0), None, active_delay=60, backoff_max_sleep=1800,
+                hard_factor=3, search_available=lambda: True)
+    assert r.ddg_flags == [True]        # full active pass, NOT degraded
+    assert secs == 60                    # short sleep, not long backoff sleep
+
+
+def test_step_degraded_when_no_provider_available():
+    r = _Runner()
+    secs = step(r, _State(True, secs=200.0), None, active_delay=60,
+                backoff_max_sleep=1800, hard_factor=3, search_available=lambda: False)
+    assert r.ddg_flags == [False]       # degraded (drain-only) pass
+    assert secs == 200.0                 # sleep until soonest recovery
+
+
+def test_step_backcompat_without_search_available():
+    r = _Runner()
+    # no search_available → falls back to state.in_global_backoff() (existing behavior)
+    step(r, _State(True, secs=200.0), None, active_delay=60,
+         backoff_max_sleep=1800, hard_factor=3)
+    assert r.ddg_flags == [False]
