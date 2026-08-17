@@ -67,25 +67,6 @@ def _discount_rows(data):
     return []
 
 
-def _norm_label(s) -> str:
-    return " ".join((s or "").lower().split())
-
-
-def _primary_disc_sig(discounts, dt, dv):
-    """Page-independent identity of the PRIMARY discount: (type, value, normalized label).
-    A site-wide banner has the same identity on every page it appears on, so this collapses
-    the N-pages-one-banner duplicates; the label keeps two genuinely different same-percent
-    offers (e.g. '-10% lunch' vs '-10% dinner') distinct. None when there is no discount."""
-    if dt is None:
-        return None
-    label = ""
-    if discounts:
-        primary = min(discounts, key=lambda d: getattr(d, "sort_order", 0) or 0)
-        label = _norm_label(getattr(primary, "label", None))
-    # Raw type/value (enum + Decimal) so 15 == 15.00; label normalized. Compared with ==.
-    return (dt, dv, label)
-
-
 def _promo_text(obj) -> str:
     """Text identifying a promo: its discount paragraph plus all discount labels.
     Excludes title (business tagline, identical across a host's pages)."""

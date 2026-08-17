@@ -30,11 +30,14 @@ def _cr(db, data, status=OfferStatus.pending_review, source_id=None):
 
 
 def test_reworded_same_promo_on_other_page_collapses(db_session):
+    # realistic site-wide banner: near-identical promo sentence, reordered / one word apart
     a = _cr(db_session, _offer("/", host="edclinic.com.ua",
-            desc="Знижка 15% військовим на всі медичні послуги клініки", label="15% військовим"),
+            desc="Військовим та ветеранам знижка 15% на всі медичні послуги клініки",
+            label="15% військовим"),
             status=OfferStatus.published)
     b = _cr(db_session, _offer("/pro-nas", host="edclinic.com.ua",
-            desc="Військовим знижка 15% на послуги нашої медичної клініки", label="для захисників"))
+            desc="Знижка 15% військовим та ветеранам на медичні послуги клініки",
+            label="знижка військовим"))
     assert b.id == a.id
 
 
