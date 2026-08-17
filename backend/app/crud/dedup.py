@@ -16,7 +16,7 @@ _STOPWORDS = frozenset({
 _TOKEN_RE = re.compile(r"[^\w]+", re.UNICODE)
 
 
-def normalize_tokens(text):
+def normalize_tokens(text: str | None) -> frozenset[str]:
     """Lowercase, strip punctuation, drop stopwords -> a set of content tokens."""
     if not text:
         return frozenset()
@@ -24,15 +24,15 @@ def normalize_tokens(text):
                      if w and w not in _STOPWORDS)
 
 
-def text_similarity(a, b):
+def text_similarity(a: frozenset, b: frozenset) -> float:
     """Jaccard similarity of two token sets. Empty-vs-anything -> 0.0 (not a match)."""
     if not a or not b:
         return 0.0
     union = len(a | b)
-    return len(a & b) / union if union else 0.0
+    return len(a & b) / union
 
 
-def discount_magnitudes(discounts, dt, dv):
+def discount_magnitudes(discounts, dt, dv) -> frozenset[tuple]:
     """Set of (discount_type, discount_value) across all of an offer's discounts.
     Falls back to the single top-level (dt, dv) when the discount list is empty."""
     mags = set()
@@ -45,7 +45,7 @@ def discount_magnitudes(discounts, dt, dv):
     return frozenset(mags)
 
 
-def is_duplicate_promo(a_text, a_mags, b_text, b_mags, threshold):
+def is_duplicate_promo(a_text, a_mags, b_text, b_mags, threshold: float) -> bool:
     """True when b already covers a's discounts (a_mags subset of b_mags) AND the two
     promo texts are similar enough. Subset because the candidate must cover everything
     the new offer proposes; text is the decisive guard against collapsing two genuinely

@@ -61,3 +61,14 @@ def test_is_duplicate_promo_superset_false():
     b = normalize_tokens("військовим знижка 30% на все")
     # a offers extra 50% not in b -> not a duplicate of b
     assert is_duplicate_promo(a, both, b, p, 0.6) is False
+
+
+def test_text_similarity_empty_sets():
+    assert text_similarity(frozenset(), normalize_tokens("x")) == 0.0
+    assert text_similarity(frozenset(), frozenset()) == 0.0
+
+
+def test_discount_magnitudes_decimal_precision_collapses():
+    d1 = SimpleNamespace(discount_type=DiscountType.percent, discount_value=Decimal("15"))
+    d2 = SimpleNamespace(discount_type=DiscountType.percent, discount_value=Decimal("15.00"))
+    assert discount_magnitudes([d1, d2], None, None) == frozenset({(DiscountType.percent, Decimal("15"))})
