@@ -144,7 +144,9 @@ def build_runner(config) -> Runner:
             search_pass = SearchPass(plans, state, grid,
                                      config.search_block_size, config.search_keywords,
                                      ttl_seconds=config.search_cache_ttl_hours * 3600)
-            discovery = search_pass.provider_for_site_query()   # DDG discovery for site: queries
+            # Static fallback for the site: leg's discovery (used only when search_pass is None);
+            # run_active recomputes the live provider each pass via provider_for_site_query().
+            discovery = search_pass.provider_for_site_query()   # first available provider (DDG at wiring time)
     if config.brand_feed_enabled:
         brand_feed = _build_brand_feed(config)
     osm_feed = None
