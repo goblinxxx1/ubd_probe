@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 720
     crawler_api_key: str = "change-me-crawler-key"
+    dedup_text_similarity_threshold: float = 0.6
     seed_admin_email: str = "admin@example.com"
     seed_admin_password: str = "change-me-admin-password"
 

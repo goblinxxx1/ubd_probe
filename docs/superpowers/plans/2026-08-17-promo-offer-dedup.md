@@ -548,3 +548,9 @@ Expected: `pending_review` count dropped by the number rejected; `rejected` rose
 **Placeholder scan:** none — every step has concrete code/commands.
 
 **Type consistency:** `normalize_tokens`/`text_similarity`/`discount_magnitudes`/`is_duplicate_promo` signatures identical across Tasks 1-3; `_promo_text`/`_source_host` used consistently; `find_duplicates(db, threshold) -> list[(int,int)]` matches its test.
+
+---
+
+## Known follow-ups (post-merge, not blocking)
+
+- **Candidate-scan scale ceiling (final-review Important #1).** Branch 3c loads every non-expired crawler offer per `create_offer` call, then filters host/magnitude/text in Python (magnitude-SUBSET matching can't be pushed to SQL as an equality filter). Negligible at current volume (hundreds of offers), but O(N) on the ingestion hot path. Fast-follow when offer volume grows: add a NECESSARY-condition SQL pre-filter — a candidate must contain the new offer's primary `(discount_type, discount_value)` among its `offer_discounts` (EXISTS subquery) — to shrink the scan without changing subset semantics. Top-level `discount_value` alone is unsafe for multi-discount offers (it mirrors only the primary), hence the subquery.
