@@ -40,6 +40,21 @@ _LEARNED: frozenset[str] = frozenset()
 # fetched/walked/re-fed again. Kept separate from _LEARNED (media/aggregator audit).
 _GEO_BLOCKED: frozenset[str] = frozenset()
 
+# Hosts pinned as non-Ukrainian by the language gate (homepage content + hreflang) —
+# persisted crawler-side (LangBlockStore) and pushed here so the WHOLE host is never
+# fetched/walked/re-fed again. Separate slot from _GEO_BLOCKED and _LEARNED.
+_LANG_BLOCKED: frozenset[str] = frozenset()
+
+
+def reload_lang_blocked(hosts) -> None:
+    """Replace the language-blocked host set. None/empty ⇒ cleared."""
+    global _LANG_BLOCKED
+    if not hosts:
+        _LANG_BLOCKED = frozenset()
+        return
+    norm = {bare_host(h) for h in hosts if h and h.strip()}
+    _LANG_BLOCKED = frozenset(n for n in norm if n)
+
 
 def reload_learned(hosts) -> None:
     """Replace the learned media/aggregator host set (approved via the Vue audit).
@@ -82,6 +97,8 @@ def is_blocked_host(host: str | None) -> bool:
     if any(host == d or host.endswith("." + d) for d in _BLOCKED):
         return True
     if any(host == d or host.endswith("." + d) for d in _GEO_BLOCKED):
+        return True
+    if any(host == d or host.endswith("." + d) for d in _LANG_BLOCKED):
         return True
     return any(host == d or host.endswith("." + d) for d in _LEARNED)
 

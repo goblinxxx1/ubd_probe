@@ -273,3 +273,19 @@ def test_reject_feedback_defaults_and_override(monkeypatch, tmp_path):
     monkeypatch.setenv("DOMAIN_REJECT_WEIGHT", "1.5")
     assert load_config().rejection_feedback_enabled is False
     assert load_config().domain_reject_weight == 1.5
+
+
+def test_lang_gate_defaults_on(monkeypatch, tmp_path):
+    from crawler.config import load_config
+    monkeypatch.chdir(tmp_path)      # no .env -> env overrides apply cleanly
+    monkeypatch.delenv("LANG_GATE_ENABLED", raising=False)
+    cfg = load_config()
+    assert cfg.lang_gate_enabled is True
+    assert cfg.lang_blocked_hosts_path.endswith("lang_blocked_hosts.json")
+
+
+def test_lang_gate_can_be_disabled(monkeypatch, tmp_path):
+    from crawler.config import load_config
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("LANG_GATE_ENABLED", "false")
+    assert load_config().lang_gate_enabled is False

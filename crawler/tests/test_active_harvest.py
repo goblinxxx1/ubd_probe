@@ -650,3 +650,62 @@ def test_business_with_schema_never_blocked(tmp_path):
         h.harvest([_cand(url="https://shop.ua")], cats=None, known=set(), summary=_summary())
     assert blocker.blocked == []
     blocklist.reload_learned(None)
+
+
+class _LangStore:
+    """Fake LangBlockStore recording pinned hosts."""
+    def __init__(self): self.added = []
+    def add(self, host_or_url):
+        from crawler.util.hosts import bare_host
+        self.added.append(bare_host(host_or_url)); return True
+
+
+def test_foreign_plan_pins_host_and_skips_processing():
+    from crawler.discovery.walker import WalkPlan
+
+    class ForeignWalker:
+        def walk(self, cand):
+            return WalkPlan("justcolor.net", [], 0.0, foreign=True)
+
+    fetcher = _Fetcher()
+    store = _LangStore()
+    h = ActiveHarvester(_Api(), {"website": fetcher}, _Extractor(), rate_limiter=None,
+                        walker=ForeignWalker(), lang_block_store=store)
+    h.harvest([SourceCandidate(name="JC", type="website",
+                               url_or_handle="https://www.justcolor.net")],
+              cats=object(), known=set(), summary=_summary())
+    assert fetcher.urls == []                     # no page fetched
+    assert store.added == ["justcolor.net"]       # whole host pinned (A)
+
+
+def test_content_gate_pins_host_during_walk():
+    from crawler.discovery.walker import WalkPlan
+    en_url = "https://blog.rottenwifi.com/"
+
+    class W:
+        def walk(self, cand):
+            return WalkPlan("blog.rottenwifi.com", [en_url], 0.0)
+
+    fetcher = FakeFetcher([_item("Rotten Wifi speed test blog about internet plans reviews")])
+    store = _LangStore()
+    h = ActiveHarvester(FakeApi(), {"website": fetcher}, GateExtractor(),
+                        rate_limiter=None, fetch_budget=5, walker=W(), lang_block_store=store)
+    h.harvest([_cand(url=en_url)], cats=None, known=set(), summary=_summary())
+    assert store.added == ["blog.rottenwifi.com"]  # pinned by content gate (B)
+
+
+def test_no_lang_store_is_byte_equivalent():
+    # foreign plan without a store must not crash and must still skip processing
+    from crawler.discovery.walker import WalkPlan
+
+    class ForeignWalker:
+        def walk(self, cand):
+            return WalkPlan("justcolor.net", [], 0.0, foreign=True)
+
+    fetcher = _Fetcher()
+    h = ActiveHarvester(_Api(), {"website": fetcher}, _Extractor(), rate_limiter=None,
+                        walker=ForeignWalker())      # no lang_block_store
+    h.harvest([SourceCandidate(name="JC", type="website",
+                               url_or_handle="https://justcolor.net")],
+              cats=object(), known=set(), summary=_summary())
+    assert fetcher.urls == []
