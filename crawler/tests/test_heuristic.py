@@ -54,6 +54,33 @@ def test_percent_discount_parsed():
     assert len(cand.content_hash) == 64
 
 
+def test_percent_beats_free_consultation():
+    # site banner with BOTH "5% for military" and "free consultation" — the price
+    # reduction (5%) is the real discount, not the complementary free consultation
+    ex = get_extractor("heuristic", require_discount=True)
+    cand = ex.extract(_item(
+        "Знижка для військових УБД, ЗСУ від 5% до 100%. Безкоштовна консультація і підбір обладнання."),
+        "Магазин", CATS)
+    assert cand is not None
+    assert cand.discount_type == "percent"
+    assert cand.discount_value == "5"
+
+
+def test_free_service_only_is_not_an_offer():
+    # a free complementary service (consultation) with no price reduction is not an offer
+    ex = get_extractor("heuristic", require_discount=True)
+    assert ex.extract(_item("Безкоштовна консультація для військових з підбору обладнання"),
+                      "Магазин", CATS) is None
+
+
+def test_real_free_offer_still_free():
+    # a genuinely free offer (free training) stays free — «навчання» is not a distractor
+    ex = get_extractor("heuristic", require_discount=True)
+    cand = ex.extract(_item("Безоплатне навчання для ветеранів та ветеранок"), "Академія", CATS)
+    assert cand is not None
+    assert cand.discount_type == "free"
+
+
 def test_free_offer_parsed():
     ex = get_extractor("heuristic")
     cand = ex.extract(_item("Безкоштовно для військових!"), "Музей", CATS)

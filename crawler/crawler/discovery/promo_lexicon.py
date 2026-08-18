@@ -40,6 +40,13 @@ FREE = re.compile(
     re.IGNORECASE)
 INCREASE = re.compile(
     r"зростан|подорожч|підвищенн\w*\s+варт|дорожч|буде\s+[\d\s]+грн", re.IGNORECASE)
+# Complementary free SERVICES — a free consultation/delivery is NOT a price discount
+# (web: it's a supplementary service). Masked out before the FREE check so
+# «безкоштовна консультація» alone isn't an offer, while «безкоштовне навчання/вхід/
+# освіта» (a genuine free offer) still counts.
+FREE_SERVICE = re.compile(
+    r"(?:безкоштовн|безплатн|безоплатн)\w*\s+(?:консультаці|доставк|замір|підбір|оцінк|парковк)",
+    re.IGNORECASE)
 # Price RANGE "від X ₴ до Y ₴" — a shop catalog's from-to span, never a single fixed
 # discount. Gates the FIXED branch so «Одяг ЗСУ від 125 ₴ до 9156 ₴» isn't read as a
 # «125 грн» offer. A single «від X грн» (no «до») is a real discount and NOT matched here.

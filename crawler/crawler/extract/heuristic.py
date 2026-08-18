@@ -97,14 +97,19 @@ class HeuristicExtractor:
 
         discount_type = None
         discount_value = None
-        if pl.FREE.search(low) and _has_audience_in_text(text):
-            discount_type = "free"
-        elif (m := _PERCENT.search(text)) and pl.DISCOUNT_CTX.search(low):
+        # A price reduction (percent/fixed) is the real discount and wins over «free»:
+        # the same audience banner must not read as free on one page and percent on
+        # another (that split blocks dedup against an already-published offer).
+        if (m := _PERCENT.search(text)) and pl.DISCOUNT_CTX.search(low):
             discount_type, discount_value = "percent", m.group(1)
         elif (m := _FIXED.search(text)) and pl.DISCOUNT_CTX.search(low) \
                 and not pl.PRICE_RANGE.search(low):
             # A catalog "від X ₴ до Y ₴" span is not a fixed discount — skip it.
             discount_type, discount_value = "fixed", re.sub(r"\s", "", m.group(1))
+        elif pl.FREE.search(pl.FREE_SERVICE.sub(" ", low)) and _has_audience_in_text(text):
+            # FREE only when it's not merely a complementary free service (consultation/
+            # delivery), which is masked out above.
+            discount_type = "free"
 
         if self._require_discount and discount_type is None:
             return None
