@@ -20,6 +20,12 @@ def test_www_prefix_ignored():
     assert is_blocked_host("www.tiktok.com")
 
 
+def test_findglocal_directory_blocked():
+    # global business-directory aggregator — observed active-search leak
+    assert is_blocked_host("www.findglocal.com")
+    assert is_blocked_host("https://www.findglocal.com/UA/Lutsk/x")
+
+
 def test_business_host_not_blocked():
     assert not is_blocked_host("yourburger.example")
 

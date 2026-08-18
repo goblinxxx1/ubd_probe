@@ -12,6 +12,9 @@ _MEDIA = {
     "ukr.net", "dnipro.media", "fakty.com.ua", "blog.ipay.ua",
     # aggregators/portals/NGO write-ups — not the actual provider of the discount
     "veteranam.info", "engage.org.ua", "goncharenkocentre.com.ua",
+    # global business-directory aggregator (per-business listing pages carry the
+    # listed business's schema, so the behavioural media-autoblock never fires)
+    "findglocal.com",
     # curated UA news/media that leaked as "productive" providers (Track A)
     "znaj.ua", "ukrainianwall.com", "kosht.media", "epravda.com.ua",
     "protocol.ua", "focus.ua", "glavcom.ua", "thepage.ua", "parlament.ua",
