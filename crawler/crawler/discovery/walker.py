@@ -61,8 +61,8 @@ class DomainWalker:
         try:
             robots = self._robots.get(domain)
             delay = min(max(self._floor, robots.crawl_delay() or 0.0), self._cap)
-            if self._lang_gate is not None and self._lang_gate.is_foreign(
-                    homepage, domain, delay):
+            if (self._lang_gate is not None and robots.can_fetch(homepage)
+                    and self._lang_gate.is_foreign(homepage, domain, delay)):
                 return WalkPlan(domain, [], delay, foreign=True)
             sm_urls = robots.sitemaps() or [f"https://{domain}/sitemap.xml"]
             found = collect_sitemap_urls(

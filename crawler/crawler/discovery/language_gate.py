@@ -36,7 +36,7 @@ class LanguageGate:
         self._min_ratio = min_ratio
         self._min_alpha = min_alpha
 
-    def is_foreign(self, homepage: str, domain: str, delay) -> bool:
+    def is_foreign(self, homepage: str, domain: str, delay: float | None) -> bool:
         try:
             if self._rl is not None:
                 self._rl.wait(domain, delay)
