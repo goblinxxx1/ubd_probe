@@ -11,6 +11,8 @@ from crawler.discovery.brand_feed import (
 from crawler.discovery.domain_feed import DomainFeed
 from crawler.discovery.domain_registry import DomainRegistry
 from crawler.discovery.geo_block import GeoBlockStore
+from crawler.discovery.lang_block import LangBlockStore
+from crawler.discovery.language_gate import LanguageGate
 from crawler.discovery.harvest import ActiveHarvester
 from crawler.discovery.osm_feed import OsmDomainFeed, OsmEnumerator
 from crawler.discovery.providers import build_search_plans
@@ -71,6 +73,8 @@ def _build_walker(config, web_client):
     domain_rl = DomainRateLimiter(config.domain_min_delay_seconds)
     robots = RobotsPolicy(web_client, domain_rl, config.robots_cache_path,
                           config.robots_cache_ttl_hours * 3600)
+    language_gate = (LanguageGate(web_client, domain_rl)
+                     if config.lang_gate_enabled else None)
     walker = DomainWalker(
         web_client, robots, domain_rl,
         domain_page_cap=config.domain_page_cap,
@@ -79,7 +83,8 @@ def _build_walker(config, web_client):
         bfs_max_pages=config.bfs_max_pages,
         bfs_trigger_min=config.bfs_trigger_min,
         domain_min_delay=config.domain_min_delay_seconds,
-        crawl_delay_cap=config.crawl_delay_cap_seconds)
+        crawl_delay_cap=config.crawl_delay_cap_seconds,
+        language_gate=language_gate)
     return walker, domain_rl
 
 
@@ -113,6 +118,8 @@ def build_runner(config) -> Runner:
     # Persistent RU/BY geo-block (path/subdomain signal → whole host). load() pushes the
     # set into blocklist so is_blocked_host drops these hosts everywhere from the start.
     geo_block_store = GeoBlockStore(config.geo_blocked_hosts_path).load()
+    lang_block_store = (LangBlockStore(config.lang_blocked_hosts_path).load()
+                        if config.lang_gate_enabled else None)
 
     web_client = _http_client(config.request_timeout)
     ig_creds = [c for c in config.bot_accounts if c.platform == "instagram"]
@@ -227,7 +234,8 @@ def build_runner(config) -> Runner:
                                     revisit_cooldown_seconds=revisit_cooldown,
                                     geo_block_store=geo_block_store,
                                     media_blocker=media_blocker,
-                                    media_autoblock_crawls=config.media_autoblock_crawls)
+                                    media_autoblock_crawls=config.media_autoblock_crawls,
+                                    lang_block_store=lang_block_store)
     return Runner(api, fetchers, extractor, rate_limiter,
                   discovery=discovery, search_pass=search_pass, harvester=harvester,
                   brand_feed=brand_feed, freshness_ttl_days=config.freshness_ttl_days,
