@@ -6,6 +6,19 @@ def test_split_csv_trims_and_drops_empty():
     assert _split_csv("") == []
 
 
+def test_default_search_backends_are_valid_ddgs_engines():
+    # Guard against ddgs upgrades silently invalidating a backend name: an unknown
+    # name resolves to >1 engine (the "auto" fallback) and logs
+    # "backend is not set. Using 'auto'". A valid single engine resolves to exactly 1.
+    import logging
+    from ddgs import DDGS
+    from crawler.config import _RawSettings, from_settings
+    logging.disable(logging.CRITICAL)
+    ddgs = DDGS()
+    for name in from_settings(_RawSettings()).search_backends:
+        assert len(ddgs._get_engines("text", name)) == 1, f"{name!r} is not a valid ddgs engine"
+
+
 def test_backoff_hygiene_defaults():
     from crawler.config import _RawSettings, from_settings
     cfg = from_settings(_RawSettings())

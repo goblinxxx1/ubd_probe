@@ -37,7 +37,7 @@ def test_scheduler_config_defaults(monkeypatch, tmp_path):
 def test_search_antithrottle_defaults(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)      # no .env -> defaults apply
     cfg = load_config()
-    assert cfg.search_backends == ["google", "startpage", "duckduckgo", "yahoo", "brave"]
+    assert cfg.search_backends == ["startpage", "duckduckgo", "yahoo", "brave", "mojeek"]
     assert cfg.search_state_path == "/data/search_state.json"
     assert cfg.search_cache_ttl_hours == 168
     assert cfg.search_min_delay == 45.0
@@ -49,8 +49,8 @@ def test_search_antithrottle_defaults(monkeypatch, tmp_path):
 
 def test_search_backends_env_override(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("SEARCH_BACKENDS", "google, brave")
-    assert load_config().search_backends == ["google", "brave"]
+    monkeypatch.setenv("SEARCH_BACKENDS", "brave, mojeek")
+    assert load_config().search_backends == ["brave", "mojeek"]
 
 
 def test_freshness_ttl_days_default_and_override(monkeypatch):

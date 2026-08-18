@@ -21,7 +21,7 @@ class _RawSettings(BaseSettings):
     search_keywords: str = ""
     search_results_per_keyword: int = 7
     search_min_delay: float = 45.0
-    search_backends: str = "google,startpage,duckduckgo,yahoo,brave"
+    search_backends: str = "startpage,duckduckgo,yahoo,brave,mojeek"
     search_state_path: str = "/data/search_state.json"
     search_cache_ttl_hours: int = 168
     search_jitter: float = 0.5
