@@ -1,4 +1,20 @@
-from crawler.discovery.host_quality import is_low_value_host
+from crawler.discovery.host_quality import is_low_value_host, is_news_host
+
+
+def test_news_hosts_flagged():
+    assert is_news_host("https://www.groza-news.info/korinnyj-uzhgorodecz/") is True
+    assert is_news_host("rivnenews.com.ua") is True          # <city>news concatenated
+    assert is_news_host("novyny.live") is True
+    assert is_news_host("epravda.com.ua") is True            # pravda
+    assert is_news_host("kyiv.news") is True                 # .news tld label
+
+
+def test_news_gate_leaves_business_hosts():
+    for h in ("edclinic.com.ua", "smartlab.ua", "mate.academy",
+              "https://rozetka.com.ua/", "comfy.ua", "silpo.ua"):
+        assert is_news_host(h) is False
+    assert is_news_host("") is False
+    assert is_news_host(None) is False
 
 
 def test_institutional_tlds_are_low_value():

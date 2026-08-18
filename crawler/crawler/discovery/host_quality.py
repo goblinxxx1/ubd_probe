@@ -37,3 +37,19 @@ def is_low_value_host(value: str | None) -> bool:
     if len(labels) >= 2 and labels[-2] in _INSTITUTIONAL_SECOND_LEVEL:
         return True     # *.edu.ua / *.gov.ua / *.mil.ua
     return any(host == p or host.endswith("." + p) for p in _GLOBAL_PLATFORMS)
+
+
+# Новинні/медіа токени в мітці хоста — новинний сайт ніколи не дає знижку УБД.
+# Підрядок (домени — ASCII-транслітом), бо патерн у дикому полі часто злитий:
+# <місто/слово>news (rivnenews/lvivnews), <слово>-news (groza-news), або мітка news.
+# Виміряно на живому корпусі (196 хостів): 0 бізнес-хостів зачеплено, 11 матчів —
+# усі справжні новини. `zmi` НЕ беремо (колізить зі «zmina/зміни»).
+_NEWS_TOKENS = ("news", "novyny", "gazeta", "visti", "pravda")
+
+
+def is_news_host(value: str | None) -> bool:
+    """True, якщо мітка хоста містить новинний токен — медіа, не джерело офера УБД."""
+    host = bare_host(value)
+    if not host:
+        return False
+    return any(tok in label for label in host.split(".") for tok in _NEWS_TOKENS)

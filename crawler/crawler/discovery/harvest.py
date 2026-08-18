@@ -2,7 +2,7 @@ import logging
 
 from crawler.discovery.attribution import attribute, build_page_ctx, _outbound_hosts
 from crawler.discovery.blocklist import is_blocked_host
-from crawler.discovery.host_quality import is_low_value_host
+from crawler.discovery.host_quality import is_low_value_host, is_news_host
 from crawler.util.text_lang import is_non_ukrainian
 from crawler.discovery.brand_feed import _host
 from crawler.discovery.passive import normalize_ref
@@ -67,6 +67,10 @@ class ActiveHarvester:
             # Low-value: інституційні (gov/edu/mil/int) та глобальні платформи ніколи не
             # джерело офера — гейт ДО обходу, щоб не палити бюджет на 88% сміття з видачі.
             if cand.type == "website" and is_low_value_host(cand.url_or_handle):
+                continue
+            # Новинний хост (news/novyny/gazeta/… у мітці) — медіа, не джерело офера;
+            # гейт ДО обходу, щоб не краулити новини (groza-news.info тощо).
+            if cand.type == "website" and is_news_host(cand.url_or_handle):
                 continue
             # Блокліст = не краулити взагалі: заблокований хост ніколи не фетчиться/
             # не обходиться (не лише «не приписувати як провайдера»).
