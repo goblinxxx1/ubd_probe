@@ -52,6 +52,40 @@ def test_valid_first_party_offer_and_suggestion():
     assert summary["offers"] == 1 and summary["suggestions"] == 1
 
 
+def test_english_first_page_aborts_domain_walk():
+    # English .com resource (rottenwifi) — the language gate abandons the whole domain on
+    # the first non-Ukrainian page, so the remaining planned pages are never fetched.
+    from crawler.discovery.walker import WalkPlan
+
+    en_url = "https://blog.rottenwifi.com/"
+    ua_url = "https://blog.rottenwifi.com/promo"
+
+    class PerUrlFetcher:
+        def __init__(self, mapping):
+            self._m = mapping
+            self.fetched = []
+
+        def fetch(self, source, k):
+            u = source["url_or_handle"]
+            self.fetched.append(u)
+            return list(self._m.get(u, [])), None
+
+    class FakeWalker:
+        def walk(self, cand):
+            return WalkPlan("blog.rottenwifi.com", [en_url, ua_url], 0.0)
+
+    fetcher = PerUrlFetcher({
+        en_url: [_item("Rotten Wifi speed test blog about internet quality plans reviews")],
+        ua_url: [_item("Знижка 20% для військових у нашому кафе", site_name="Кафе")],
+    })
+    api = FakeApi()
+    h = ActiveHarvester(api, {"website": fetcher}, GateExtractor(),
+                        rate_limiter=None, fetch_budget=10, walker=FakeWalker())
+    h.harvest([_cand(url=en_url)], cats=None, known=set(), summary=_summary())
+    assert fetcher.fetched == [en_url]          # domain abandoned; UA page never fetched
+    assert api.offers == []
+
+
 def test_generic_info_rejected():
     api = FakeApi()
     h = ActiveHarvester(api, {"website": FakeFetcher([_item("Для УБД існують знижки 10%")])},

@@ -3,6 +3,7 @@ import logging
 from crawler.discovery.attribution import attribute, build_page_ctx, _outbound_hosts
 from crawler.discovery.blocklist import is_blocked_host
 from crawler.discovery.host_quality import is_low_value_host
+from crawler.util.text_lang import is_non_ukrainian
 from crawler.discovery.brand_feed import _host
 from crawler.discovery.passive import normalize_ref
 from crawler.discovery.promo_lexicon import seed_is_target
@@ -127,6 +128,10 @@ class ActiveHarvester:
             src = {"id": None, "type": cand.type, "url_or_handle": url, "name": cand.name}
             try:
                 items, _ = fetcher.fetch(src, None)
+                if is_non_ukrainian(" ".join(it.text or "" for it in items)):
+                    # Non-Ukrainian (e.g. English) resource — we crawl Ukraine only.
+                    # Abandon the whole domain rather than walk its remaining pages.
+                    break
                 if self._process_page(cand, items, cats, known, summary):
                     structural = True
             except Exception as exc:  # noqa: BLE001 — one page must not sink the domain
