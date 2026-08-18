@@ -44,3 +44,40 @@ def test_target_lexicon_covers_dsns_and_police():
     assert "dsns" in got
     got2 = {slug for _, slug in classify("акція для поліцейських", TARGET_LEXICON)}
     assert "police" in got2
+
+
+# --- precision: stems must not fire on word-initial homographs ---
+
+def test_zsu_acronym_matches_but_not_zsuv():
+    assert "ubd" in {s for _, s in classify("знижка для ЗСУ", TARGET_LEXICON)}
+    assert "ubd" not in {s for _, s in classify("зсув грунту та зсунути меблі", TARGET_LEXICON)}
+
+
+def test_vpo_acronym_matches_but_not_vporyadkuvaty():
+    assert "idp" in {s for _, s in classify("пільга для ВПО", TARGET_LEXICON)}
+    assert "idp" not in {s for _, s in classify("треба впорядкувати та впоратися", TARGET_LEXICON)}
+
+
+def test_vdova_matches_but_not_vdovolennia():
+    assert "fallen-family" in {s for _, s in classify("спеціальна пропозиція вдовам", TARGET_LEXICON)}
+    assert "fallen-family" not in {s for _, s in classify("повне вдоволення клієнта", TARGET_LEXICON)}
+
+
+def test_voin_matches_but_not_voinskyi_oblik():
+    assert "ubd" in {s for _, s in classify("знижка воїнам", TARGET_LEXICON)}
+    assert classify("воїнський облік у місті", TARGET_LEXICON) == []
+
+
+def test_vsu_russian_abbrev_is_not_an_audience():
+    # ВСУ is the russian-language abbreviation — must not be a target token at all
+    assert classify("акція для ВСУ", TARGET_LEXICON) == []
+
+
+def test_kafe_matches_but_not_kafedra():
+    assert "food" in {s for _, s in classify("знижка у кафе", OFFER_LEXICON)}
+    assert "food" not in {s for _, s in classify("кафедра університету", OFFER_LEXICON)}
+
+
+def test_sushi_matches_but_not_sushinnia():
+    assert "food" in {s for _, s in classify("замовити суші", OFFER_LEXICON)}
+    assert "food" not in {s for _, s in classify("сушіння білизни надворі", OFFER_LEXICON)}

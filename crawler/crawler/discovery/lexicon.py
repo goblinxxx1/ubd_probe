@@ -9,7 +9,15 @@ import re
 
 
 def _compile(stems):
-    return [re.compile(r"(?<!\w)" + re.escape(s)) for s in stems]
+    r"""Word-start stems. An item may be a bare stem, or a (stem, tail) pair where
+    `tail` is raw regex appended after the escaped stem — used to block word-initial
+    homographs (e.g. ("зсу", r"(?!\w)") matches ЗСУ but not «зсув»; ("вдов", r"(?!ол)")
+    matches «вдова» but not «вдоволення») while inflected suffixes still survive."""
+    out = []
+    for s in stems:
+        stem, tail = s if isinstance(s, tuple) else (s, "")
+        out.append(re.compile(r"(?<!\w)" + re.escape(stem) + tail))
+    return out
 
 
 # (name, slug, compiled stem patterns). Order is stable => classify() is deterministic.
@@ -20,7 +28,8 @@ OFFER_LEXICON = [
     ("Музеї", "museums", _compile((
         "музе", "галере", "виставк", "експозиц"))),
     ("Кафе/ресторани", "food", _compile((
-        "кав'ярн", "кафе", "ресторан", "бариста", "піцер", "суші", "паб ",
+        "кав'ярн", ("кафе", r"(?!др)"), "ресторан", "бариста", "піцер",
+        ("суші", r"(?!нн)"), "паб ",
         "їдальн", "бістро", "кондитер", "пекарн"))),
     ("Спорт", "sport", _compile((
         "спорт", "фітнес", "тренаж", "качалк", "єдиноборст", "басейн", "йога",
@@ -55,15 +64,15 @@ OFFER_LEXICON = [
 
 TARGET_LEXICON = [
     ("УБД", "ubd", _compile((
-        "убд", "учасник бойов", "бойових дій", "воїн", "військов", "захисник",
-        "зсу", "всу", "тероборон"))),
+        "убд", "учасник бойов", "бойових дій", ("воїн", r"(?!ськ)"), "військов",
+        "захисник", ("зсу", r"(?!\w)"), "тероборон"))),
     ("Ветеран", "veteran", _compile(("ветеран",))),
     ("Особа з інвалідністю внаслідок війни", "war-disability", _compile((
         "інвалід", "інвалідніст"))),
     ("Сім'я загиблого", "fallen-family", _compile((
-        "загибл", "полегл", "родин загибл", "вдов"))),
+        "загибл", "полегл", "родин загибл", ("вдов", r"(?!ол)")))),
     ("Внутрішньо переміщена особа", "idp", _compile((
-        "переселен", "впо", "переміщен особ"))),
+        "переселен", ("впо", r"(?!\w)"), "переміщен особ"))),
     ("Працівник ДСНС", "dsns", _compile((
         "дснс", "рятувальник", "надзвичайних ситуац", "пожежник"))),
     ("Поліцейський", "police", _compile((
