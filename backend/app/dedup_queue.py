@@ -20,16 +20,25 @@ from app.models.enums import CreatedBy, OfferStatus
 
 
 def find_duplicates(db, threshold):
-    """Return [(dup_id, keep_id)] for pending crawler offers that duplicate an older kept
-    offer on the same host. The oldest row of each promo group is kept."""
-    pend = (db.query(Offer)
-            .filter(Offer.created_by == CreatedBy.crawler,
-                    Offer.status == OfferStatus.pending_review)
-            .options(selectinload(Offer.discounts))
-            .order_by(Offer.id).all())
+    """Return [(dup_id, keep_id)] for pending crawler offers that duplicate an already-decided
+    offer on the same host, mirroring create_offer branch 3c.
+
+    Representatives ("kept") are seeded from ALL non-expired crawler offers -- published,
+    pending, and rejected alike -- walked in id (creation) order. Published and rejected rows
+    always become representatives (they're already decided; never a match target for removal,
+    never rejected here). A pending offer that matches an earlier representative is recorded as
+    a duplicate to be rejected; otherwise it becomes a representative itself, so the oldest
+    pending row of a still-undecided group stands in for the group. Only pending offers are
+    ever produced as dup_id -- published/rejected offers are never rejected by this script.
+    """
+    offers = (db.query(Offer)
+              .filter(Offer.created_by == CreatedBy.crawler,
+                      Offer.status != OfferStatus.expired)
+              .options(selectinload(Offer.discounts))
+              .order_by(Offer.id).all())
     kept = []
     pairs = []
-    for o in pend:
+    for o in offers:
         host = _source_host(o.site_url) or _source_host(o.article_url)
         mags = discount_magnitudes(o.discounts, o.discount_type, o.discount_value)
         text = normalize_tokens(_promo_text(o))
@@ -37,7 +46,7 @@ def find_duplicates(db, threshold):
             continue
         match = next((k for k in kept if k["host"] == host
                       and is_duplicate_promo(text, mags, k["text"], k["mags"], threshold)), None)
-        if match is not None:
+        if match is not None and o.status == OfferStatus.pending_review:
             pairs.append((o.id, match["id"]))
         else:
             kept.append({"id": o.id, "host": host, "mags": mags, "text": text})

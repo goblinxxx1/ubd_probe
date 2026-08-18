@@ -5,11 +5,11 @@ from app.models import Offer, OfferDiscount
 from app.models.enums import CreatedBy, OfferStatus, DiscountType, OfferType
 
 
-def _raw(db, article, host, desc, val="15", label="x"):
+def _raw(db, article, host, desc, val="15", label="x", status=OfferStatus.pending_review):
     o = Offer(type=OfferType.discount, title="T", description=desc, provider="P",
               discount_type=DiscountType.percent, discount_value=Decimal(val),
               site_url=f"https://{host}", article_url=f"https://{host}{article}",
-              status=OfferStatus.pending_review, created_by=CreatedBy.crawler)
+              status=status, created_by=CreatedBy.crawler)
     o.discounts = [OfferDiscount(label=label, discount_type=DiscountType.percent,
                                  discount_value=Decimal(val), sort_order=0)]
     db.add(o)
@@ -34,6 +34,17 @@ def test_find_duplicates_idempotent_after_reject(db_session):
     b.status = OfferStatus.rejected
     db_session.commit()
     assert find_duplicates(db_session, 0.6) == []
+
+
+def test_pending_duplicate_of_published_is_rejected(db_session):
+    pub = _raw(db_session, "/aktsiyi", "clinicpub.com.ua",
+               "Знижка 15% військовим на всі послуги клініки",
+               status=OfferStatus.published)
+    pend = _raw(db_session, "/pro-nas", "clinicpub.com.ua",
+                "Військовим знижка 15% на послуги клініки")
+    pairs = find_duplicates(db_session, 0.6)
+    assert (pend.id, pub.id) in pairs          # pending collapses onto the published one
+    assert all(p[0] != pub.id for p in pairs)  # a published offer is NEVER rejected
 
 
 def test_offers_without_host_are_not_paired(db_session):
