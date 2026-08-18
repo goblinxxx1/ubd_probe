@@ -232,9 +232,12 @@ def create_offer(db: Session, data: OfferCreate, created_by: CreatedBy,
 
     # 3c) Same-promo dedup (host + discount-magnitude subset + text similarity). One promo
     #     appears on many pages worded differently (apex, /pro-nas, /category, /promotions);
-    #     exact-label matching missed the reworded copies. Collapse when an existing live
-    #     crawler offer from the SAME host already covers this offer's magnitudes and its
-    #     promo text is similar enough. Shadows are INCLUDED as targets, so a new page's
+    #     exact-label matching missed the reworded copies. Candidates are crawler offers on the
+    #     SAME host with status != expired, which includes published, pending, AND rejected
+    #     rows. This is intentional: collapsing a re-discovered, similarly-worded promo onto a
+    #     previously rejected row keeps it rejected rather than re-flooding the moderation
+    #     queue with the same rejected promo under a new URL — mirroring the "rejected stays
+    #     final" behavior of branches 1 and 3b. Shadows are INCLUDED as targets, so a new page's
     #     offer collapses onto an in-flight shadow of the same promo. Conservative: below the
     #     threshold the offers stay distinct (two real same-% offers survive). The candidate
     #     query scans all same-host crawler offers in Python (magnitude-subset matching can't

@@ -64,7 +64,7 @@ def test_new_offer_collapses_onto_pending_shadow(db_session):
     assert dup.id == shadow.id
 
 
-def test_reworded_promo_near_threshold_collapses(db_session):
+def test_reworded_promo_above_threshold_collapses(db_session):
     # real linguistic variance (reorder + one word swap), Jaccard ~0.75, above 0.6
     a = _cr(db_session, _offer("/", host="shop.com.ua",
             desc="Знижка 20% військовим на всі послуги та товари магазину", label="20% військовим"),
@@ -72,6 +72,17 @@ def test_reworded_promo_near_threshold_collapses(db_session):
     b = _cr(db_session, _offer("/pro-nas", host="shop.com.ua",
             desc="Військовим знижка 20% на товари та послуги нашого магазину", label="20% військовим"),)
     assert b.id == a.id
+
+
+def test_same_magnitude_midrange_similarity_stays_separate(db_session):
+    from app.crud.dedup import normalize_tokens, text_similarity
+    ta = "Знижка 10% військовим на всі послуги клініки Львова"
+    tb = "Знижка 10% військовим на послуги клініки ремонту авто"
+    assert 0.5 < text_similarity(normalize_tokens(ta), normalize_tokens(tb)) < 0.6
+    a = _cr(db_session, _offer("/klinika", host="midrange.com.ua", val="10", desc=ta, label="10%"),
+            status=OfferStatus.published)
+    b = _cr(db_session, _offer("/remont", host="midrange.com.ua", val="10", desc=tb, label="10%"),)
+    assert a.id != b.id
 
 
 def test_multi_discount_subset_collapses(db_session):

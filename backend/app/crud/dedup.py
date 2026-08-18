@@ -24,7 +24,7 @@ def normalize_tokens(text: str | None) -> frozenset[str]:
                      if w and w not in _STOPWORDS)
 
 
-def text_similarity(a: frozenset, b: frozenset) -> float:
+def text_similarity(a: frozenset[str], b: frozenset[str]) -> float:
     """Jaccard similarity of two token sets. Empty-vs-anything -> 0.0 (not a match)."""
     if not a or not b:
         return 0.0

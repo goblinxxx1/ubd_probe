@@ -51,13 +51,15 @@ def main():
     db = SessionLocal()
     try:
         pairs = find_duplicates(db, settings.dedup_text_similarity_threshold)
-        for dup_id, keep_id in pairs:
-            tag = "[REJECTED]" if args.apply else "[dry-run]"
-            print(f"offer {dup_id} -> duplicate of {keep_id}  {tag}")
         if args.apply:
             for dup_id, _ in pairs:
                 db.get(Offer, dup_id).status = OfferStatus.rejected
             db.commit()
+        # Print after the commit above, so an [REJECTED] tag only appears once the status
+        # change has actually been written -- not merely intended.
+        for dup_id, keep_id in pairs:
+            tag = "[REJECTED]" if args.apply else "[dry-run]"
+            print(f"offer {dup_id} -> duplicate of {keep_id}  {tag}")
         verb = "rejected" if args.apply else "found (dry-run)"
         print(f"{len(pairs)} duplicate(s) {verb}.")
     finally:
