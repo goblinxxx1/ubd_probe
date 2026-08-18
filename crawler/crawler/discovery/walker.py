@@ -31,12 +31,14 @@ class WalkPlan:
     domain: str
     urls: list[str]
     crawl_delay: float | None
+    foreign: bool = False
 
 
 class DomainWalker:
     def __init__(self, client, robots, rate_limiter, *, domain_page_cap=10,
                  sitemap_max_docs=20, bfs_max_depth=2, bfs_max_pages=8,
-                 bfs_trigger_min=3, domain_min_delay=3.0, crawl_delay_cap=30.0):
+                 bfs_trigger_min=3, domain_min_delay=3.0, crawl_delay_cap=30.0,
+                 language_gate=None):
         self._client = client
         self._robots = robots
         self._rl = rate_limiter
@@ -51,6 +53,7 @@ class DomainWalker:
         # ahead of generic page-type targets BEFORE the page_cap is applied (a site can list
         # dozens of info pages before its offer pages in sitemap order).
         self._collect_cap = max(domain_page_cap * 6, 60)
+        self._lang_gate = language_gate
 
     def walk(self, cand) -> WalkPlan:
         homepage = cand.url_or_handle
@@ -58,6 +61,9 @@ class DomainWalker:
         try:
             robots = self._robots.get(domain)
             delay = min(max(self._floor, robots.crawl_delay() or 0.0), self._cap)
+            if self._lang_gate is not None and self._lang_gate.is_foreign(
+                    homepage, domain, delay):
+                return WalkPlan(domain, [], delay, foreign=True)
             sm_urls = robots.sitemaps() or [f"https://{domain}/sitemap.xml"]
             found = collect_sitemap_urls(
                 sm_urls, self._client, self._rl, domain, delay, self._sitemap_max_docs,

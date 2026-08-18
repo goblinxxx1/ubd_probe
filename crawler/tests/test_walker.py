@@ -207,3 +207,41 @@ def test_seed_gate_product_candidate_url_is_dropped(monkeypatch):
     plan = w.walk(_cand("https://shop.ua/product/12"))      # active non-target candidate
     assert "https://shop.ua/product/12" not in plan.urls    # candidate URL not fetched
     assert "https://shop.ua/akcii" in plan.urls              # domain still walked
+
+
+class _ForeignGate:
+    def __init__(self, foreign): self._foreign = foreign; self.calls = []
+    def is_foreign(self, homepage, domain, delay):
+        self.calls.append((homepage, domain)); return self._foreign
+
+
+def test_foreign_root_abandons_domain_before_sitemap(monkeypatch):
+    calls = {"sitemap": 0}
+    def spy(*a, **k):
+        calls["sitemap"] += 1
+        return ["https://justcolor.net/akcii"]
+    monkeypatch.setattr(walker_mod, "collect_sitemap_urls", spy)
+    policy = FakePolicy(FakeRobots(sitemaps=["https://justcolor.net/s.xml"]))
+    gate = _ForeignGate(True)
+    w = DomainWalker(client=object(), robots=policy, rate_limiter=NoWait(),
+                     domain_page_cap=10, bfs_trigger_min=1, language_gate=gate)
+    plan = w.walk(_cand("https://justcolor.net"))
+    assert plan.foreign is True
+    assert plan.urls == []                  # nothing to fetch
+    assert calls["sitemap"] == 0            # sitemap never enumerated
+    assert gate.calls == [("https://justcolor.net", "justcolor.net")]
+
+
+def test_non_foreign_root_walks_normally(monkeypatch):
+    monkeypatch.setattr(walker_mod, "collect_sitemap_urls",
+                        lambda *a, **k: ["https://shop.ua/akcii"])
+    policy = FakePolicy(FakeRobots(sitemaps=["https://shop.ua/s.xml"]))
+    w = DomainWalker(client=object(), robots=policy, rate_limiter=NoWait(),
+                     domain_page_cap=10, bfs_trigger_min=1, language_gate=_ForeignGate(False))
+    plan = w.walk(_cand("https://shop.ua"))
+    assert plan.foreign is False
+    assert "https://shop.ua/akcii" in plan.urls
+
+
+def test_walkplan_foreign_defaults_false():
+    assert WalkPlan("shop.ua", [], 0.0).foreign is False
