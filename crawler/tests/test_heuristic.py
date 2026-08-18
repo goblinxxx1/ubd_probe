@@ -17,6 +17,30 @@ def test_non_offer_returns_none():
     assert ex.extract(_item("Просто новина без пропозицій"), "Shop", CATS) is None
 
 
+def test_fixed_not_extracted_from_price_range():
+    # messer-style catalog: "від X ₴ до Y ₴" is a price range, not a fixed discount
+    ex = get_extractor("heuristic", require_discount=True)
+    text = "Одяг ЗСУ по кращій ціні від 125 ₴ до 9156 ₴. Слідкуйте за знижками магазину."
+    assert ex.extract(_item(text), "MESSER", CATS) is None
+
+
+def test_fixed_from_single_vid_price_survives():
+    # single 'від X грн' is a real discount ("знижка від 100 грн"), NOT a range — must stay
+    ex = get_extractor("heuristic", require_discount=True)
+    cand = ex.extract(_item("Знижка від 100 грн ветеранам на всі послуги"), "Салон", CATS)
+    assert cand is not None
+    assert cand.discount_type == "fixed"
+    assert cand.discount_value == "100"
+
+
+def test_plain_fixed_discount_survives():
+    ex = get_extractor("heuristic", require_discount=True)
+    cand = ex.extract(_item("Знижка 100 грн для ветеранів на всі послуги"), "Барбершоп", CATS)
+    assert cand is not None
+    assert cand.discount_type == "fixed"
+    assert cand.discount_value == "100"
+
+
 def test_percent_discount_parsed():
     ex = get_extractor("heuristic")
     cand = ex.extract(_item("Знижка 20% для ветеранів у нашому кафе"), "Кафе Львів", CATS)

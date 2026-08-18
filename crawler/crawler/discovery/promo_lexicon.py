@@ -40,6 +40,12 @@ FREE = re.compile(
     re.IGNORECASE)
 INCREASE = re.compile(
     r"зростан|подорожч|підвищенн\w*\s+варт|дорожч|буде\s+[\d\s]+грн", re.IGNORECASE)
+# Price RANGE "від X ₴ до Y ₴" — a shop catalog's from-to span, never a single fixed
+# discount. Gates the FIXED branch so «Одяг ЗСУ від 125 ₴ до 9156 ₴» isn't read as a
+# «125 грн» offer. A single «від X грн» (no «до») is a real discount and NOT matched here.
+PRICE_RANGE = re.compile(
+    r"від\s*\d[\d\s]*(?:₴|грн|гривень|uah)?\s*до\s*\d[\d\s]*\s*(?:₴|грн|гривень|uah)",
+    re.IGNORECASE)
 
 _learned_terms: tuple[str, ...] = ()
 

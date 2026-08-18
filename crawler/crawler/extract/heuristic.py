@@ -101,7 +101,9 @@ class HeuristicExtractor:
             discount_type = "free"
         elif (m := _PERCENT.search(text)) and pl.DISCOUNT_CTX.search(low):
             discount_type, discount_value = "percent", m.group(1)
-        elif (m := _FIXED.search(text)) and pl.DISCOUNT_CTX.search(low):
+        elif (m := _FIXED.search(text)) and pl.DISCOUNT_CTX.search(low) \
+                and not pl.PRICE_RANGE.search(low):
+            # A catalog "від X ₴ до Y ₴" span is not a fixed discount — skip it.
             discount_type, discount_value = "fixed", re.sub(r"\s", "", m.group(1))
 
         if self._require_discount and discount_type is None:
