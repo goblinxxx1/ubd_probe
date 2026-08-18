@@ -23,9 +23,20 @@ def test_offer_none_and_empty():
     assert classify("", OFFER_LEXICON) == []
 
 
-def test_target_maps_military_to_ubd_slug():
+def test_target_maps_serving_military_to_warrior_slug():
     slugs = [s for _, s in classify("Знижка для військових і захисників", TARGET_LEXICON)]
+    assert "warrior" in slugs           # serving military -> warrior, its own audience
+    assert "ubd" not in slugs           # NOT the UBD (combat-participant status) slug
+
+
+def test_target_ubd_is_explicit_status_only():
+    slugs = [s for _, s in classify("Знижка для УБД та учасників бойових дій", TARGET_LEXICON)]
     assert "ubd" in slugs
+
+
+def test_target_ngu_national_guard():
+    slugs = [s for _, s in classify("Акція для нацгвардійців НГУ", TARGET_LEXICON)]
+    assert "ngu" in slugs
 
 
 def test_target_maps_idp():
@@ -49,8 +60,8 @@ def test_target_lexicon_covers_dsns_and_police():
 # --- precision: stems must not fire on word-initial homographs ---
 
 def test_zsu_acronym_matches_but_not_zsuv():
-    assert "ubd" in {s for _, s in classify("знижка для ЗСУ", TARGET_LEXICON)}
-    assert "ubd" not in {s for _, s in classify("зсув грунту та зсунути меблі", TARGET_LEXICON)}
+    assert "warrior" in {s for _, s in classify("знижка для ЗСУ", TARGET_LEXICON)}
+    assert "warrior" not in {s for _, s in classify("зсув грунту та зсунути меблі", TARGET_LEXICON)}
 
 
 def test_vpo_acronym_matches_but_not_vporyadkuvaty():
@@ -64,7 +75,7 @@ def test_vdova_matches_but_not_vdovolennia():
 
 
 def test_voin_matches_but_not_voinskyi_oblik():
-    assert "ubd" in {s for _, s in classify("знижка воїнам", TARGET_LEXICON)}
+    assert "warrior" in {s for _, s in classify("знижка воїнам", TARGET_LEXICON)}
     assert classify("воїнський облік у місті", TARGET_LEXICON) == []
 
 

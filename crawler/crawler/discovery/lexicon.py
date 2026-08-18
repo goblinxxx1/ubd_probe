@@ -62,21 +62,31 @@ OFFER_LEXICON = [
     ("Оптика", "optics", _compile(("оптик", "окуляр", "лінз"))),
 ]
 
+# Slugs REUSE the DB target_categories seed slugs (resolver maps crawler slug -> DB id).
+# `ubd` (combat-participant status) and `warrior` (serving military) are kept SEPARATE —
+# sites write both, so each is classified to what the page actually says. `warrior-family`
+# is intentionally NOT auto-classified: a substring stem cannot cleanly separate it from
+# `warrior` («сім'ям військовослужбовців» matches both), and it is rare — the moderator
+# refines those from the `warrior` tag.
 TARGET_LEXICON = [
     ("УБД", "ubd", _compile((
-        "убд", "учасник бойов", "бойових дій", ("воїн", r"(?!ськ)"), "військов",
-        "захисник", ("зсу", r"(?!\w)"), "тероборон"))),
+        "убд", "учасник бойов", "бойових дій"))),
+    ("Військовий", "warrior", _compile((
+        "військов", ("воїн", r"(?!ськ)"), "захисник", ("зсу", r"(?!\w)"),
+        "тероборон", "територіальн"))),
     ("Ветеран", "veteran", _compile(("ветеран",))),
     ("Особа з інвалідністю внаслідок війни", "war-disability", _compile((
         "інвалід", "інвалідніст"))),
     ("Сім'я загиблого", "fallen-family", _compile((
-        "загибл", "полегл", "родин загибл", ("вдов", r"(?!ол)")))),
+        "загибл", "полегл", ("вдов", r"(?!ол)")))),
     ("Внутрішньо переміщена особа", "idp", _compile((
-        "переселен", ("впо", r"(?!\w)"), "переміщен особ"))),
+        "переселен", ("впо", r"(?!\w)"), "переміщен"))),
+    ("НГУ", "ngu", _compile((
+        "нацгвард", ("нгу", r"(?!\w)")))),
     ("Працівник ДСНС", "dsns", _compile((
-        "дснс", "рятувальник", "надзвичайних ситуац", "пожежник"))),
+        "дснс", "рятувальник", "пожежник"))),
     ("Поліцейський", "police", _compile((
-        "поліц", "нацполіц", "національної поліції"))),
+        "поліц", "нацполіц"))),
 ]
 
 
