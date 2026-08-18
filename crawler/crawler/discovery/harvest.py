@@ -23,7 +23,8 @@ class ActiveHarvester:
                  domain_registry=None, hardening_enabled=True,
                  aggregator_min_outbound=3, aggregator_store=None,
                  aggregator_max_domains=500, revisit_cooldown_seconds=0,
-                 geo_block_store=None, media_blocker=None, media_autoblock_crawls=2):
+                 geo_block_store=None, media_blocker=None, media_autoblock_crawls=2,
+                 lang_block_store=None):
         self._api = api
         self._fetchers = fetchers
         self._extractor = extractor
@@ -41,6 +42,7 @@ class ActiveHarvester:
         self._geo_block_store = geo_block_store
         self._media_blocker = media_blocker
         self._media_autoblock_crawls = media_autoblock_crawls
+        self._lang_block_store = lang_block_store
 
     def harvest(self, candidates, cats, known, summary, known_hosts=None) -> int:
         known_hosts = known_hosts or set()
@@ -109,14 +111,14 @@ class ActiveHarvester:
         return stop
 
     def _plan(self, cand):
-        """(urls, domain, delay) for a candidate. Website candidates expand via the walker;
-        without a walker, a website candidate is fetched only if root-or-target (seed gate)."""
+        """(urls, domain, delay, foreign) for a candidate. Website candidates expand via
+        the walker; without a walker, a website candidate is fetched only if root-or-target."""
         if self._walker is not None and cand.type == "website":
             plan = self._walker.walk(cand)
-            return plan.urls, plan.domain, plan.crawl_delay
+            return plan.urls, plan.domain, plan.crawl_delay, plan.foreign
         if cand.type == "website" and not seed_is_target(cand.url_or_handle):
-            return [], None, None
-        return [cand.url_or_handle], None, None
+            return [], None, None, False
+        return [cand.url_or_handle], None, None, False
 
     def _wait(self, cand_type, domain, delay) -> None:
         if domain is not None and self._domain_rl is not None:
@@ -125,7 +127,13 @@ class ActiveHarvester:
             self._rl.wait(cand_type)
 
     def _harvest_one(self, cand, fetcher, cats, known, summary) -> bool:
-        urls, domain, delay = self._plan(cand)
+        urls, domain, delay, foreign = self._plan(cand)
+        if foreign:
+            # Foreign-language domain judged at the homepage (A): pin the whole host so it
+            # is never re-walked, and skip its pages entirely.
+            if self._lang_block_store is not None:
+                self._lang_block_store.add(cand.url_or_handle)
+            return False
         structural = False
         for url in urls:
             self._wait(cand.type, domain, delay)
@@ -133,8 +141,10 @@ class ActiveHarvester:
             try:
                 items, _ = fetcher.fetch(src, None)
                 if is_non_ukrainian(" ".join(it.text or "" for it in items)):
-                    # Non-Ukrainian (e.g. English) resource — we crawl Ukraine only.
-                    # Abandon the whole domain rather than walk its remaining pages.
+                    # Non-Ukrainian content reached during the walk (B): pin the host, then
+                    # abandon the whole domain rather than walk its remaining pages.
+                    if self._lang_block_store is not None:
+                        self._lang_block_store.add(cand.url_or_handle)
                     break
                 if self._process_page(cand, items, cats, known, summary):
                     structural = True
