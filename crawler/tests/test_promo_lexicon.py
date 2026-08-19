@@ -44,3 +44,16 @@ def test_learned_terms_augment_offer_triggers(tmp_path):
     assert "рібейт" in pl.offer_triggers()
     pl.reload_learned(None)  # reset for other tests
     assert "рібейт" not in pl.offer_triggers()
+
+
+from crawler.discovery import promo_lexicon as _pl
+
+
+def test_discount_ctx_excludes_shareholder_homograph():
+    assert _pl.DISCOUNT_CTX.search("консультація юриста по акціонерні товариства") is None
+    assert _pl.DISCOUNT_CTX.search("права акціонера") is None
+    # real promo words still match
+    assert _pl.DISCOUNT_CTX.search("акція для військових") is not None
+    assert _pl.DISCOUNT_CTX.search("акційна ціна на все") is not None
+    assert _pl.DISCOUNT_CTX.search("наші акції та знижки") is not None
+    assert _pl.DISCOUNT_CTX.search("знижка 20%") is not None
