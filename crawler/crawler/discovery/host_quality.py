@@ -46,10 +46,18 @@ def is_low_value_host(value: str | None) -> bool:
 # усі справжні новини. `zmi` НЕ беремо (колізить зі «zmina/зміни»).
 _NEWS_TOKENS = ("news", "novyny", "gazeta", "visti", "pravda")
 
+# TLD, що позначає медійний ресурс незалежно від мітки (новинні портали, журнали).
+# .media — практично завжди медіа; перевірено 0 published-оферів на .media.
+_MEDIA_TLDS = {"media"}
+
 
 def is_news_host(value: str | None) -> bool:
-    """True, якщо мітка хоста містить новинний токен — медіа, не джерело офера УБД."""
+    """True, якщо хост — новинний/медійний ресурс (не джерело офера УБД): новинний
+    токен у мітці АБО медійний TLD (.media)."""
     host = bare_host(value)
     if not host:
         return False
-    return any(tok in label for label in host.split(".") for tok in _NEWS_TOKENS)
+    labels = host.split(".")
+    if labels[-1] in _MEDIA_TLDS:
+        return True
+    return any(tok in label for label in labels for tok in _NEWS_TOKENS)

@@ -51,3 +51,20 @@ def test_real_ua_businesses_are_not_low_value():
 def test_empty_or_hostless_is_not_low_value():
     assert is_low_value_host("") is False
     assert is_low_value_host(None) is False
+
+
+def test_media_tld_is_news_host():
+    assert is_news_host("moreliudei.media") is True
+    assert is_news_host("https://suspilne.media/news/123") is True   # public broadcaster
+    assert is_news_host("x.media") is True
+    # existing token behavior still holds
+    assert is_news_host("https://www.groza-news.info/x") is True
+    assert is_news_host("kyiv.news") is True
+
+
+def test_media_gate_does_not_block_cinemas_or_business():
+    # cinemas are legitimate veteran-discount businesses (planetakino.ua is published)
+    assert is_news_host("planetakino.ua") is False
+    assert is_news_host("https://planetakino.ua/discounts") is False
+    assert is_news_host("uaserials.com") is False       # .com — caught by seed, not this gate
+    assert is_news_host("shop.ua") is False
