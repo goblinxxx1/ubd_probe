@@ -138,14 +138,25 @@ _LOGO_IMG_SELECTORS = (
 )
 # Generic alts that are not a business name — never use them as the provider.
 _GENERIC_ALTS = {"logo", "лого", "image", "img", "banner", "банер", "home", "головна"}
+# Structural page-scaffold tokens: an alt containing any of these as a WHOLE token is a
+# template/layout label ("footer-logo", "wezom-starter-template"), not a business name.
+_STRUCTURAL_ALT_TOKENS = {"logo", "лого", "footer", "header", "template", "starter",
+                          "placeholder", "default", "icon", "menu", "nav"}
+_ALT_TOKEN_RE = re.compile(r"[^0-9a-zA-Zа-яА-ЯіїєґІЇЄҐ]+")
 
 
 def _extract_logo_alt(tree) -> str | None:
     for css in _LOGO_IMG_SELECTORS:
         for node in tree.css(css):
             alt = (node.attributes.get("alt") or "").strip()
-            if alt and alt.lower() not in _GENERIC_ALTS:
-                return _cap_tagline(alt)
+            if not alt:
+                continue
+            low = alt.lower()
+            if low in _GENERIC_ALTS:
+                continue
+            if {t for t in _ALT_TOKEN_RE.split(low) if t} & _STRUCTURAL_ALT_TOKENS:
+                continue                                   # structural/template label
+            return _cap_tagline(alt)
     return None
 
 
