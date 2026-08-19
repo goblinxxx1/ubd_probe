@@ -7,6 +7,7 @@ from crawler.util.text_lang import is_non_ukrainian
 from crawler.discovery.brand_feed import _host
 from crawler.discovery.passive import normalize_ref
 from crawler.discovery.promo_lexicon import seed_is_target
+from crawler.discovery.source_hint import business_domains_from_page
 from crawler.extract.aggregate import aggregate_page
 from crawler.extract.categories import resolve_offer_categories
 from crawler.payloads import offer_payload
@@ -34,7 +35,8 @@ class ActiveHarvester:
                  aggregator_min_outbound=3, aggregator_store=None,
                  aggregator_max_domains=500, revisit_cooldown_seconds=0,
                  geo_block_store=None, media_blocker=None, media_autoblock_crawls=2,
-                 lang_block_store=None, editorial_gate_enabled=True):
+                 lang_block_store=None, editorial_gate_enabled=True,
+                 source_hint_enabled=True):
         self._api = api
         self._fetchers = fetchers
         self._extractor = extractor
@@ -54,6 +56,7 @@ class ActiveHarvester:
         self._media_autoblock_crawls = media_autoblock_crawls
         self._lang_block_store = lang_block_store
         self._editorial_gate_enabled = editorial_gate_enabled
+        self._source_hint_enabled = source_hint_enabled
 
     def harvest(self, candidates, cats, known, summary, known_hosts=None) -> int:
         known_hosts = known_hosts or set()
@@ -220,5 +223,20 @@ class ActiveHarvester:
                         "discovery_note": f"active-search offer from {cand.url_or_handle}",
                     })
                     known.add(s_ref)
+                    summary["suggestions"] += 1
+        if self._source_hint_enabled:
+            # An afisha/listing page re-posts a business's offer; mine the business's own
+            # domain from its contact email and suggest it as a source so the real business
+            # is crawled directly (rather than attributing the offer to the listing).
+            for hint in business_domains_from_page(items, ctx.host):
+                ref = normalize_ref("website", hint)
+                if ref not in known:
+                    self._api.submit_suggestion({
+                        "name": hint, "type": "website",
+                        "url_or_handle": f"https://{hint}",
+                        "discovered_from_source_id": None,
+                        "discovery_note": f"business email domain on {cand.url_or_handle}",
+                    })
+                    known.add(ref)
                     summary["suggestions"] += 1
         return structural_provider

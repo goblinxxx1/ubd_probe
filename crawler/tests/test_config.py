@@ -303,3 +303,10 @@ def test_editorial_gate_can_be_disabled(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("EDITORIAL_GATE_ENABLED", "false")
     assert load_config().editorial_gate_enabled is False
+
+
+def test_source_hint_defaults_on(monkeypatch, tmp_path):
+    from crawler.config import load_config
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("SOURCE_HINT_ENABLED", raising=False)
+    assert load_config().source_hint_enabled is True

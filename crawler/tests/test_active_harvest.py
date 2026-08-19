@@ -802,3 +802,40 @@ def test_editorial_gate_disabled_does_not_abandon():
                         editorial_gate_enabled=False)
     h.harvest([_cand(url=p1)], cats=None, known=set(), summary=_summary())
     assert fetcher.fetched == [p1, p2]       # gate off -> not abandoned -> both fetched
+
+
+def test_source_hint_suggests_external_business_email_domain(monkeypatch):
+    import crawler.discovery.harvest as h
+    monkeypatch.setattr(h, "resolve_offer_categories", lambda *a, **k: [])
+    monkeypatch.setattr(h, "attribute",
+                        lambda item, ctx, **kw: type("A", (), {
+                            "provider": "Afisha", "suggest_url_or_handle": None,
+                            "suggest_type": "website", "suggest_name": "Afisha"})())
+    api = FakeApi()
+    item = RawItem(source_id=None, platform="website", key="k",
+                   text="Знижка 20% для військових. Пошта: reservation@optimahotels.com.ua",
+                   url="https://visitlviv.com.ua/promo", links=[], site_name="Afisha")
+    harv = ActiveHarvester(api, {"website": FakeFetcher([item])}, GateExtractor(),
+                           rate_limiter=None, fetch_budget=5)
+    harv.harvest([_cand(url="https://visitlviv.com.ua/promo")], cats=None, known=set(),
+                 summary=_summary())
+    hinted = [s["url_or_handle"] for s in api.suggested]
+    assert "https://optimahotels.com.ua" in hinted
+
+
+def test_source_hint_disabled(monkeypatch):
+    import crawler.discovery.harvest as h
+    monkeypatch.setattr(h, "resolve_offer_categories", lambda *a, **k: [])
+    monkeypatch.setattr(h, "attribute",
+                        lambda item, ctx, **kw: type("A", (), {
+                            "provider": "Afisha", "suggest_url_or_handle": None,
+                            "suggest_type": "website", "suggest_name": "Afisha"})())
+    api = FakeApi()
+    item = RawItem(source_id=None, platform="website", key="k",
+                   text="Знижка 20% для військових. reservation@optimahotels.com.ua",
+                   url="https://visitlviv.com.ua/promo", links=[], site_name="Afisha")
+    harv = ActiveHarvester(api, {"website": FakeFetcher([item])}, GateExtractor(),
+                           rate_limiter=None, fetch_budget=5, source_hint_enabled=False)
+    harv.harvest([_cand(url="https://visitlviv.com.ua/promo")], cats=None, known=set(),
+                 summary=_summary())
+    assert all("optimahotels" not in s["url_or_handle"] for s in api.suggested)

@@ -105,6 +105,7 @@ class _RawSettings(BaseSettings):
     geo_blocked_hosts_path: str = "/data/geo_blocked_hosts.json"
     lang_gate_enabled: bool = True
     editorial_gate_enabled: bool = True
+    source_hint_enabled: bool = True
     lang_blocked_hosts_path: str = "/data/lang_blocked_hosts.json"
     attribution_hardening_enabled: bool = True
     blocked_hosts_fetch_enabled: bool = True
@@ -223,6 +224,7 @@ class Config:
     geo_blocked_hosts_path: str = "/data/geo_blocked_hosts.json"
     lang_gate_enabled: bool = True
     editorial_gate_enabled: bool = True
+    source_hint_enabled: bool = True
     lang_blocked_hosts_path: str = "/data/lang_blocked_hosts.json"
     attribution_hardening_enabled: bool = True
     blocked_hosts_fetch_enabled: bool = True
@@ -363,6 +365,7 @@ def from_settings(s: _RawSettings) -> Config:
         geo_blocked_hosts_path=s.geo_blocked_hosts_path,
         lang_gate_enabled=s.lang_gate_enabled,
         editorial_gate_enabled=s.editorial_gate_enabled,
+        source_hint_enabled=s.source_hint_enabled,
         lang_blocked_hosts_path=s.lang_blocked_hosts_path,
         attribution_hardening_enabled=s.attribution_hardening_enabled,
         blocked_hosts_fetch_enabled=s.blocked_hosts_fetch_enabled,
