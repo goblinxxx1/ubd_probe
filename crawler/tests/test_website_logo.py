@@ -71,3 +71,15 @@ def test_safe_url_rejects_non_http_schemes():
     assert _safe_url("https://x.com/", "data:image/svg+xml;base64,PHN2Zz4=") is None
     assert _safe_url("https://x.com/", "") is None
     assert _safe_url("https://x.com/", None) is None
+
+
+from crawler.fetchers.website import _extract_logo_alt
+
+
+def test_logo_alt_skips_structural_and_template_labels():
+    assert _extract_logo_alt(_p('<img class="logo" alt="Footer-logo">')) is None
+    assert _extract_logo_alt(_p('<img class="logo" alt="wezom-starter-template">')) is None
+    assert _extract_logo_alt(_p('<img class="logo" alt="logo">')) is None          # bare generic
+    # real brand names survive (whole-token match, not substring)
+    assert _extract_logo_alt(_p('<img class="logo" alt="Смартлаб">')) == "Смартлаб"
+    assert _extract_logo_alt(_p('<img class="logo" alt="Home Comfort">')) == "Home Comfort"

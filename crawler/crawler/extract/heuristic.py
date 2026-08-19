@@ -82,6 +82,17 @@ def _has_audience_in_text(text: str) -> bool:
     return bool(classify(text or "", TARGET_LEXICON))
 
 
+# About/info pages: their mission prose ("ми надаємо безкоштовну допомогу … ветеранам")
+# trips the loose free-word signal though they carry no actual offer. Suppress FREE there;
+# percent/fixed (which require a discount context) stay.
+_INFO_PAGE_TOKENS = ("about", "pro-nas", "pro-proekt", "pro-kompani", "o-nas",
+                     "o-kompani", "про-нас", "про-проєкт")
+
+
+def _is_info_page(url) -> bool:
+    return bool(url) and any(tok in url.lower() for tok in _INFO_PAGE_TOKENS)
+
+
 class HeuristicExtractor:
     def __init__(self, require_discount: bool = False):
         self._require_discount = require_discount
@@ -106,9 +117,11 @@ class HeuristicExtractor:
                 and not pl.PRICE_RANGE.search(low):
             # A catalog "від X ₴ до Y ₴" span is not a fixed discount — skip it.
             discount_type, discount_value = "fixed", re.sub(r"\s", "", m.group(1))
-        elif pl.FREE.search(pl.FREE_SERVICE.sub(" ", low)) and _has_audience_in_text(text):
+        elif (pl.FREE.search(pl.FREE_SERVICE.sub(" ", low)) and _has_audience_in_text(text)
+              and not _is_info_page(item.url)):
             # FREE only when it's not merely a complementary free service (consultation/
-            # delivery), which is masked out above.
+            # delivery, masked out above) and not an about/info page (mission text trips
+            # the weak free-word signal without a real offer).
             discount_type = "free"
 
         if self._require_discount and discount_type is None:
