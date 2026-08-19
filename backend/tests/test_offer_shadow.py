@@ -136,3 +136,51 @@ def test_revert_remoderation_can_be_approved(db_session):
     db_session.refresh(revert); db_session.refresh(shadow)
     assert revert.status == OfferStatus.published         # discount 10 live again
     assert shadow.status == OfferStatus.expired           # the 20 offer expired
+
+
+def test_same_discount_noisy_rewalk_creates_no_shadow(db_session):
+    # #334 class: re-crawl of a published offer whose 30% discount is still fully present,
+    # differing only in extraction noise (reworded title, provider drift, a spurious free
+    # footnote, a new content_hash) must NOT spawn a re-moderation shadow.
+    from app.models import Offer
+    s = _source(db_session)
+    p = _published(db_session, s.id, "h1", value="30")
+    again = offer_crud.create_offer(
+        db_session,
+        _offer(discount_value="30", title="Знижка (турбобонус) 30%", provider="Footer-logo",
+               discounts=[{"discount_type": "percent", "discount_value": "30", "label": "x"},
+                          {"discount_type": "free", "discount_value": None, "label": "умова"}]),
+        CreatedBy.crawler, OfferStatus.pending_review, source_id=s.id, content_hash="h2")
+    assert again.id == p.id                                     # collapsed onto parent
+    assert again.supersedes_offer_id is None
+    assert db_session.query(Offer).filter(Offer.supersedes_offer_id == p.id).count() == 0
+
+
+def test_changed_magnitude_still_creates_shadow(db_session):
+    s = _source(db_session)
+    p = _published(db_session, s.id, "h1", value="30")
+    shadow = offer_crud.create_offer(db_session, _offer(discount_value="40"), CreatedBy.crawler,
+                                     OfferStatus.pending_review, source_id=s.id, content_hash="h2")
+    assert shadow.id != p.id and shadow.supersedes_offer_id == p.id   # 30 -> 40 is a real change
+
+
+def test_withdrawn_discount_to_free_creates_shadow(db_session):
+    s = _source(db_session)
+    p = _published(db_session, s.id, "h1", value="30")
+    shadow = offer_crud.create_offer(db_session, _offer(discount_type="free", discount_value=None),
+                                     CreatedBy.crawler, OfferStatus.pending_review,
+                                     source_id=s.id, content_hash="h2")
+    assert shadow.supersedes_offer_id == p.id                  # 30% -> free-only is a real change
+
+
+def test_dropped_tier_creates_shadow(db_session):
+    s = _source(db_session)
+    p = offer_crud.create_offer(
+        db_session,
+        _offer(discount_value="30",
+               discounts=[{"discount_type": "percent", "discount_value": "30", "label": "a"},
+                          {"discount_type": "percent", "discount_value": "20", "label": "b"}]),
+        CreatedBy.crawler, OfferStatus.published, source_id=s.id, content_hash="h1")
+    shadow = offer_crud.create_offer(db_session, _offer(discount_value="30"), CreatedBy.crawler,
+                                     OfferStatus.pending_review, source_id=s.id, content_hash="h2")
+    assert shadow.supersedes_offer_id == p.id                  # {30,20} not subset of {30} -> shadow

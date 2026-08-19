@@ -162,6 +162,20 @@ def create_offer(db: Session, data: OfferCreate, created_by: CreatedBy,
                           Offer.status == OfferStatus.published)
                   .order_by(Offer.id).first())
         if parent is not None:
+            # Re-moderate only on a MEANINGFUL discount change. If the published offer's
+            # discount magnitudes are still fully present in the re-crawl, the difference is
+            # extraction noise (relabeled text, provider drift, spurious free footnotes, dup
+            # rows) — not a merchant change — so bump last_seen and keep the published row
+            # instead of spawning a shadow that floods the moderation queue every re-crawl.
+            new_mags = discount_magnitudes(getattr(data, "discounts", None),
+                                           data.discount_type, data.discount_value)
+            parent_mags = discount_magnitudes(parent.discounts, parent.discount_type,
+                                              parent.discount_value)
+            if parent_mags and parent_mags <= new_mags:
+                parent.last_seen_at = datetime.utcnow()
+                db.commit()
+                db.refresh(parent)
+                return parent
             targets, offers = _load_categories(db, data.target_category_ids, data.offer_category_ids)
             # The shadow row is uniquely keyed by (source_id, content_hash). If a physical row with
             # this exact content already exists it can only be an expired one (branch 1 caught any
