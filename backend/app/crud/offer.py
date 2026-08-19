@@ -266,6 +266,44 @@ def create_offer(db: Session, data: OfferCreate, created_by: CreatedBy,
                     db.refresh(c)
                     return c
 
+    # 3d) Apex-homepage dedup: a homepage/source crawl surfaces a promo banner on the
+    #     bare apex host (canon_article has no path). Its generic homepage text defeats
+    #     3c's text gate, yet it is the same promo as a deep offer page on the same host
+    #     sharing a discount magnitude. Collapse the apex offer onto an existing same-host
+    #     non-shadow non-expired offer (deep pages preferred), bump last_seen, and never
+    #     insert the duplicate. One-directional (incoming apex only); a magnitude overlap
+    #     is required, so distinct-magnitude same-host offers stay separate.
+    if (crawler and not blocked and canon_article and "/" not in canon_article
+            and data.discount_type is not None):
+        host = (_source_host(getattr(data, "site_url", None))
+                or _source_host(getattr(data, "article_url", None)))
+        new_mags = discount_magnitudes(getattr(data, "discounts", None),
+                                       data.discount_type, data.discount_value)
+        if host and new_mags:
+            cands = (db.query(Offer)
+                     .options(selectinload(Offer.discounts))
+                     .filter(Offer.created_by == CreatedBy.crawler,
+                             Offer.status != OfferStatus.expired,
+                             Offer.supersedes_offer_id.is_(None))
+                     .all())
+
+            def _rank(c):
+                ca = c.article_url_canonical or ""
+                return (0 if "/" in ca else 1, c.id)   # deep peers first, then lowest id
+
+            for c in sorted(cands, key=_rank):
+                if (c.article_url_canonical or "") == canon_article:
+                    continue                            # same apex page → branches 1/3b own it
+                c_host = _source_host(c.site_url) or _source_host(c.article_url)
+                if c_host != host:
+                    continue
+                c_mags = discount_magnitudes(c.discounts, c.discount_type, c.discount_value)
+                if new_mags & c_mags:
+                    c.last_seen_at = datetime.utcnow()
+                    db.commit()
+                    db.refresh(c)
+                    return c
+
     # 4) Cross-source canonical merge (aggregator / cross-platform) — existing behavior.
     if crawler and canon and not blocked:
         existing = (db.query(Offer).filter(Offer.target_url_canonical == canon)
