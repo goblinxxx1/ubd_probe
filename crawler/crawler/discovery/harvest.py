@@ -17,6 +17,16 @@ log = logging.getLogger(__name__)
 _FETCHABLE = ("website", "telegram")
 
 
+def _is_editorial_page(items) -> bool:
+    """A news/blog page: declares article/blog markup (schema.org NewsArticle/BlogPosting/
+    Article or og:type=article) AND carries no commercial schema (Offer/LocalBusiness/
+    Organization). Such a page is never an offer source."""
+    if not any(getattr(it, "is_article", False) for it in items):
+        return False
+    return not any(getattr(it, "has_offer_schema", False)
+                   or getattr(it, "has_business_schema", False) for it in items)
+
+
 class ActiveHarvester:
     def __init__(self, api, fetchers, extractor, rate_limiter, fetch_budget=20,
                  walker=None, domain_rate_limiter=None, corpus_recorder=None,
@@ -24,7 +34,7 @@ class ActiveHarvester:
                  aggregator_min_outbound=3, aggregator_store=None,
                  aggregator_max_domains=500, revisit_cooldown_seconds=0,
                  geo_block_store=None, media_blocker=None, media_autoblock_crawls=2,
-                 lang_block_store=None):
+                 lang_block_store=None, editorial_gate_enabled=True):
         self._api = api
         self._fetchers = fetchers
         self._extractor = extractor
@@ -43,6 +53,7 @@ class ActiveHarvester:
         self._media_blocker = media_blocker
         self._media_autoblock_crawls = media_autoblock_crawls
         self._lang_block_store = lang_block_store
+        self._editorial_gate_enabled = editorial_gate_enabled
 
     def harvest(self, candidates, cats, known, summary, known_hosts=None) -> int:
         known_hosts = known_hosts or set()
@@ -145,6 +156,11 @@ class ActiveHarvester:
                     # abandon the whole domain rather than walk its remaining pages.
                     if self._lang_block_store is not None:
                         self._lang_block_store.add(cand.url_or_handle)
+                    break
+                if (self._editorial_gate_enabled and not structural
+                        and _is_editorial_page(items)):
+                    # News/blog portal page with no commercial schema — abandon the whole
+                    # domain rather than walk its remaining (all-editorial) pages.
                     break
                 if self._process_page(cand, items, cats, known, summary):
                     structural = True

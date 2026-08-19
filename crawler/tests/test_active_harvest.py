@@ -709,3 +709,96 @@ def test_no_lang_store_is_byte_equivalent():
                                url_or_handle="https://justcolor.net")],
               cats=object(), known=set(), summary=_summary())
     assert fetcher.urls == []
+
+
+def _art_item(text, url="https://news.example/a", article=True, offer=False, business=False):
+    return RawItem(source_id=None, platform="website", key="k", text=text, url=url,
+                   links=[], site_name="News", has_offer_schema=offer,
+                   has_business_schema=business, is_article=article)
+
+
+def test_editorial_first_page_abandons_domain():
+    from crawler.discovery.walker import WalkPlan
+    a_url, b_url = "https://izmacity.com/articles/1", "https://izmacity.com/articles/2"
+
+    class PerUrl:
+        def __init__(self): self.fetched = []
+        def fetch(self, source, k):
+            u = source["url_or_handle"]; self.fetched.append(u)
+            return [_art_item("Загинув захисник, громада прощається", url=u)], None
+
+    class W:
+        def walk(self, cand): return WalkPlan("izmacity.com", [a_url, b_url], 0.0)
+
+    fetcher = PerUrl()
+    h = ActiveHarvester(FakeApi(), {"website": fetcher}, GateExtractor(),
+                        rate_limiter=None, fetch_budget=10, walker=W())
+    h.harvest([_cand(url=a_url)], cats=None, known=set(), summary=_summary())
+    assert fetcher.fetched == [a_url]        # abandoned after the first editorial page
+
+
+def test_editorial_page_after_structural_does_not_discard_offer():
+    from crawler.discovery.walker import WalkPlan
+    shop, blog = "https://shop.ua/sale", "https://shop.ua/blog/post"
+
+    class PerUrl:
+        def __init__(self): self.fetched = []
+        def fetch(self, source, k):
+            u = source["url_or_handle"]; self.fetched.append(u)
+            if u == shop:
+                return [_art_item("Знижка 20% для військових", url=u,
+                                  article=False, business=True)], None
+            return [_art_item("Новина блогу про захисників", url=u)], None
+
+    class W:
+        def walk(self, cand): return WalkPlan("shop.ua", [shop, blog], 0.0)
+
+    api = FakeApi()
+    h = ActiveHarvester(api, {"website": PerUrl()}, GateExtractor(),
+                        rate_limiter=None, fetch_budget=10, walker=W())
+    h.harvest([_cand(url=shop)], cats=None, known=set(), summary=_summary())
+    assert len(api.offers) == 1              # structural page's offer kept; not discarded
+
+
+def test_article_with_commercial_schema_is_not_editorial():
+    # a page with article markup BUT commercial schema (business/offer) is not editorial:
+    # the domain must not be abandoned. Asserted via walk behavior (fetch count), which
+    # isolates the gate from attribution's independent is_media offer-drop.
+    from crawler.discovery.walker import WalkPlan
+    p1, p2 = "https://shop.ua/a1", "https://shop.ua/a2"
+
+    class PerUrl:
+        def __init__(self): self.fetched = []
+        def fetch(self, source, k):
+            u = source["url_or_handle"]; self.fetched.append(u)
+            return [_art_item("текст", url=u, business=True)], None   # article + business
+
+    class W:
+        def walk(self, cand): return WalkPlan("shop.ua", [p1, p2], 0.0)
+
+    fetcher = PerUrl()
+    h = ActiveHarvester(FakeApi(), {"website": fetcher}, GateExtractor(),
+                        rate_limiter=None, fetch_budget=10, walker=W())
+    h.harvest([_cand(url=p1)], cats=None, known=set(), summary=_summary())
+    assert fetcher.fetched == [p1, p2]       # commercial schema -> not editorial -> not abandoned
+
+
+def test_editorial_gate_disabled_does_not_abandon():
+    from crawler.discovery.walker import WalkPlan
+    p1, p2 = "https://izmacity.com/articles/1", "https://izmacity.com/articles/2"
+
+    class PerUrl:
+        def __init__(self): self.fetched = []
+        def fetch(self, source, k):
+            u = source["url_or_handle"]; self.fetched.append(u)
+            return [_art_item("Новина", url=u)], None
+
+    class W:
+        def walk(self, cand): return WalkPlan("izmacity.com", [p1, p2], 0.0)
+
+    fetcher = PerUrl()
+    h = ActiveHarvester(FakeApi(), {"website": fetcher}, GateExtractor(),
+                        rate_limiter=None, fetch_budget=10, walker=W(),
+                        editorial_gate_enabled=False)
+    h.harvest([_cand(url=p1)], cats=None, known=set(), summary=_summary())
+    assert fetcher.fetched == [p1, p2]       # gate off -> not abandoned -> both fetched
