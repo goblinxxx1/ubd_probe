@@ -289,3 +289,17 @@ def test_lang_gate_can_be_disabled(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("LANG_GATE_ENABLED", "false")
     assert load_config().lang_gate_enabled is False
+
+
+def test_editorial_gate_defaults_on(monkeypatch, tmp_path):
+    from crawler.config import load_config
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("EDITORIAL_GATE_ENABLED", raising=False)
+    assert load_config().editorial_gate_enabled is True
+
+
+def test_editorial_gate_can_be_disabled(monkeypatch, tmp_path):
+    from crawler.config import load_config
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("EDITORIAL_GATE_ENABLED", "false")
+    assert load_config().editorial_gate_enabled is False

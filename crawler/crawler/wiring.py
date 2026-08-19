@@ -235,7 +235,8 @@ def build_runner(config) -> Runner:
                                     geo_block_store=geo_block_store,
                                     media_blocker=media_blocker,
                                     media_autoblock_crawls=config.media_autoblock_crawls,
-                                    lang_block_store=lang_block_store)
+                                    lang_block_store=lang_block_store,
+                                    editorial_gate_enabled=config.editorial_gate_enabled)
     return Runner(api, fetchers, extractor, rate_limiter,
                   discovery=discovery, search_pass=search_pass, harvester=harvester,
                   brand_feed=brand_feed, freshness_ttl_days=config.freshness_ttl_days,
