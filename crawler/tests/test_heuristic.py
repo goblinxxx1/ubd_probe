@@ -412,3 +412,20 @@ def test_provider_falls_back_to_site_name_without_logo_alt():
                  text="Знижка 20% для ветеранів", site_name="og-name")
     cand = get_extractor("heuristic").extract(it, "arg-provider", CATS)
     assert cand.provider == "og-name"
+
+
+def _item_url(text, url):
+    return RawItem(source_id=1, platform="website", key="k", text=text, url=url)
+
+
+def test_free_suppressed_on_about_page():
+    ex = get_extractor("heuristic", require_discount=True)
+    text = "Ми надаємо безкоштовну допомогу ветеранам та військовим"
+    assert ex.extract(_item_url(text, "https://x.org/about-us"), "Shop", CATS) is None
+
+
+def test_free_kept_on_offer_page():
+    ex = get_extractor("heuristic", require_discount=True)
+    text = "Ми надаємо безкоштовну допомогу ветеранам та військовим"
+    cand = ex.extract(_item_url(text, "https://x.org/promo"), "Shop", CATS)
+    assert cand is not None and cand.discount_type == "free"
