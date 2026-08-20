@@ -318,3 +318,11 @@ def test_query_miner_min_logodds_default_lowered():
     cfg = Config(internal_api_url="x", crawler_api_key="k", extractor="heuristic",
                  active_discovery=False, request_timeout=1.0, min_delay_seconds=0.0)
     assert cfg.query_miner_min_logodds == 0.9
+
+
+def test_query_terms_refresh_interval_default():
+    from crawler.config import _RawSettings, Config
+    assert _RawSettings().query_terms_refresh_interval_seconds == 21600
+    cfg = Config(internal_api_url="x", crawler_api_key="k", extractor="heuristic",
+                 active_discovery=False, request_timeout=1.0, min_delay_seconds=0.0)
+    assert cfg.query_terms_refresh_interval_seconds == 21600

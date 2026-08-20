@@ -121,6 +121,7 @@ class _RawSettings(BaseSettings):
     backoff_max_sleep_seconds: float = 1800.0
     passive_hard_overdue_factor: float = 3.0
     learn_interval_seconds: int = 86400   # 24h; in-loop self-learning tick (0 = off)
+    query_terms_refresh_interval_seconds: int = 21600   # 6h; pull moderator-approved terms → grid
     searxng_url: str = "http://searxng:8080"
     searxng_engines: str = "google,bing,duckduckgo,brave,mojeek,qwant,marginalia,wikidata"  # NO yandex (project rule); google/bing verified live-working from our residential IP
     searxng_min_delay: float = 4.0
@@ -240,6 +241,7 @@ class Config:
     backoff_max_sleep_seconds: float = 1800.0
     passive_hard_overdue_factor: float = 3.0
     learn_interval_seconds: int = 86400   # 24h; in-loop self-learning tick (0 = off)
+    query_terms_refresh_interval_seconds: int = 21600   # 6h; pull moderator-approved terms → grid
     searxng_url: str = "http://searxng:8080"
     searxng_engines: str = "google,bing,duckduckgo,brave,mojeek,qwant,marginalia,wikidata"
     searxng_min_delay: float = 4.0
@@ -381,6 +383,7 @@ def from_settings(s: _RawSettings) -> Config:
         backoff_max_sleep_seconds=s.backoff_max_sleep_seconds,
         passive_hard_overdue_factor=s.passive_hard_overdue_factor,
         learn_interval_seconds=s.learn_interval_seconds,
+        query_terms_refresh_interval_seconds=s.query_terms_refresh_interval_seconds,
         searxng_url=s.searxng_url,
         searxng_engines=s.searxng_engines,
         searxng_min_delay=s.searxng_min_delay,

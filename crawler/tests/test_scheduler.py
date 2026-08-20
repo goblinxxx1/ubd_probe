@@ -163,3 +163,11 @@ def test_step_backcompat_without_search_available():
     step(r, _State(True, secs=200.0), None, active_delay=60,
          backoff_max_sleep=1800, hard_factor=3)
     assert r.ddg_flags == [False]
+
+
+def test_run_loop_refresh_fires_on_first_iteration():
+    r, refreshed = _Runner(), []
+    run_loop(r, lambda: _State(False), _Passive(), sleep=lambda _s: None,
+             iterations=1, refresh=lambda: refreshed.append(1),
+             refresh_interval_seconds=1000, now=lambda: 0.0, **_kw())
+    assert refreshed == [1]

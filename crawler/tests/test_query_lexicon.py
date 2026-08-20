@@ -87,3 +87,15 @@ def test_reload_wrong_shape_object_or_null_is_empty(tmp_path):
     p2.write_text(json.dumps({"term": "кава"}), encoding="utf-8")
     ql.reload_learned(str(p2))
     assert ql.learned_services() == ()
+
+
+from crawler.discovery import query_lexicon as _ql
+
+
+def test_backend_approved_terms_appear_in_grid_vocab():
+    _ql.reload_learned(None)                     # clear cats/mined
+    _ql.reload_backend_terms(["імплантація", "окуляри"])
+    out = _ql.compose_service_terms(seed=["автошкола"], cap=0)
+    assert "імплантація" in out and "окуляри" in out and "автошкола" in out
+    _ql.reload_backend_terms(None)               # cleared -> gone
+    assert "імплантація" not in _ql.compose_service_terms(seed=[], cap=0)
