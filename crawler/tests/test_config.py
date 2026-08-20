@@ -310,3 +310,11 @@ def test_source_hint_defaults_on(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("SOURCE_HINT_ENABLED", raising=False)
     assert load_config().source_hint_enabled is True
+
+
+def test_query_miner_min_logodds_default_lowered():
+    from crawler.config import _RawSettings, Config
+    assert _RawSettings().query_miner_min_logodds == 0.9
+    cfg = Config(internal_api_url="x", crawler_api_key="k", extractor="heuristic",
+                 active_discovery=False, request_timeout=1.0, min_delay_seconds=0.0)
+    assert cfg.query_miner_min_logodds == 0.9

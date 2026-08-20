@@ -87,7 +87,7 @@ class _RawSettings(BaseSettings):
     query_lexicon_max_terms: int = 0   # miner grid-feed cap; 0 = unlimited (bounded by audit quality). Seed/categories never capped.
     query_lexicon_resurface_factor: float = 2.0
     query_miner_min_domain_support: int = 3
-    query_miner_min_logodds: float = 1.5
+    query_miner_min_logodds: float = 0.9
     query_miner_max_candidates_per_run: int = 50
     domain_rating_enabled: bool = True
     domain_registry_path: str = "/data/domain_registry.json"
@@ -206,7 +206,7 @@ class Config:
     query_lexicon_max_terms: int = 0   # miner grid-feed cap; 0 = unlimited (bounded by audit quality). Seed/categories never capped.
     query_lexicon_resurface_factor: float = 2.0
     query_miner_min_domain_support: int = 3
-    query_miner_min_logodds: float = 1.5
+    query_miner_min_logodds: float = 0.9
     query_miner_max_candidates_per_run: int = 50
     domain_rating_enabled: bool = True
     domain_registry_path: str = "/data/domain_registry.json"
