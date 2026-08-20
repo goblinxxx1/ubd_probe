@@ -53,3 +53,21 @@ def test_run_query_miner_respects_soft_stoplist(tmp_path):
     run_query_miner(cfg)
     cand = json.loads(open(cfg.query_candidates_path, encoding="utf-8").read())
     assert "стоматологія" not in [c["term"] for c in cand]
+
+
+def test_run_query_miner_vetoes_audience_and_intent(tmp_path):
+    import json as _json
+    corpus = tmp_path / "corpus.jsonl"
+    rows = [
+        {"text": "стоматологія знижка ветеран", "label": "pass", "host": "a.com", "snowball": True},
+        {"text": "стоматологія акція ветеран", "label": "pass", "host": "b.com", "snowball": True},
+        {"text": "стоматологія клініка ветеран", "label": "pass", "host": "c.com", "snowball": True},
+        {"text": "новини політика", "label": "fail", "host": "n.com"},
+    ]
+    corpus.write_text("\n".join(_json.dumps(r, ensure_ascii=False) for r in rows), encoding="utf-8")
+    cfg = _cfg(tmp_path, corpus_path=str(corpus))
+    run_query_miner(cfg)
+    terms = [c["term"] for c in _json.loads(open(cfg.query_candidates_path, encoding="utf-8").read())]
+    assert "стоматологія" in terms       # real service survives
+    assert "ветеран" not in terms        # audience axis vetoed
+    assert "знижка" not in terms         # intent axis vetoed

@@ -3,6 +3,7 @@ candidate queue for human audit. Mirror of run_miner, for the query lexicon."""
 
 from crawler.discovery import query_lexicon as ql
 from crawler.learn.audit import write_candidates
+from crawler.learn.axis_veto import axis_veto_terms, is_axis_or_noise
 from crawler.learn.corpus import read_corpus
 from crawler.learn.miner import mine
 from crawler.learn.tokenize import service_terms
@@ -15,6 +16,10 @@ def run_query_miner(config) -> int:
     rows = read_corpus(config.corpus_path)
     known = tuple(s.casefold() for s in ql.learned_services())
     scores = mine(rows, known_stems=known, stoplist=(), tokenizer=service_terms)
+    # Axis-veto: drop grid-axis (audience/intent/city) and generic/geo words — they are
+    # distinctive to our offers so log-odds ranks them high, but they are NOT services.
+    veto = axis_veto_terms()
+    scores = [s for s in scores if not is_axis_or_noise(s.term, veto)]
     blocked = load_blocked(config.query_stoplist_path)
     factor = config.query_lexicon_resurface_factor
     scores = [s for s in scores if not is_suppressed(s.term, s.z, blocked, factor)]
