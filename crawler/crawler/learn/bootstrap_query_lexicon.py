@@ -56,7 +56,13 @@ def bootstrap(config, api, recorder) -> tuple[int, int]:
                 cats.append(c)
     n_cat = _seed_categories(config.query_lexicon_learned_path,
                              config.query_stoplist_path, cats)
-    n_cand = run_query_miner(config)
+    # Pull the moderator-rejected terms so the miner hard-excludes them (best-effort:
+    # a backend hiccup must not sink learning — falls back to no exclusion). (v2)
+    try:
+        rejected = api.list_rejected_query_terms()
+    except Exception:  # noqa: BLE001 — reject-exclude is best-effort
+        rejected = ()
+    n_cand = run_query_miner(config, rejected_terms=rejected)
     return n_cat, n_cand
 
 

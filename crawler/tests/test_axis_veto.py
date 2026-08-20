@@ -17,6 +17,16 @@ def test_veto_excludes_real_services():
         assert _lemma(svc) not in v, svc
 
 
+def test_veto_covers_v2_generics_and_boilerplate():
+    v = axis_veto_terms()
+    for noise in ("ветеранка", "грн", "день", "рік", "форма", "статус",
+                  "мужність", "відданість", "службовець", "воїн"):
+        assert _lemma(noise) in v, noise
+    # eager-recall guard: borderline service-ish nouns must NOT be vetoed
+    for keep in ("консультація", "діагностика", "обстеження", "чистка", "курс"):
+        assert _lemma(keep) not in v, keep
+
+
 def test_is_axis_or_noise():
     v = axis_veto_terms()
     assert is_axis_or_noise(_lemma("ветеран"), v) is True

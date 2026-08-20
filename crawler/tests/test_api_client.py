@@ -71,6 +71,19 @@ def test_list_rejected_offers_calls_endpoint():
     assert "since=2026-08-01" in seen["url"]
 
 
+def test_list_rejected_query_terms_calls_endpoint():
+    seen = {}
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        seen["url"] = str(request.url)
+        return httpx.Response(200, json=["грн", "день"])
+
+    client = ApiClient("http://api", "secret", 10.0, transport=httpx.MockTransport(handle))
+    terms = client.list_rejected_query_terms()
+    assert terms == ["грн", "день"]
+    assert "/api/internal/query-terms/rejected" in seen["url"]
+
+
 def test_list_uncrawled_sources_sends_limit_and_key():
     captured = []
     client = ApiClient("http://api", "secret", 10.0,

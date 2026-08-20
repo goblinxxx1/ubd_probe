@@ -16,12 +16,14 @@ class TermScore:
     fail_count: int
     domains: set = field(default_factory=set)
     in_neg_anchor: bool = False
+    doc_count: int = 0          # raw (unweighted) count of PASS docs containing the term
 
 
 def mine(rows, known_stems=(), stoplist=(), snowball_weight: int = 3, alpha: float = 0.5,
          pos_weight: float = 2.0, tokenizer=tokenize):
     y_pass, y_fail = defaultdict(float), defaultdict(float)
     domains = defaultdict(set)
+    docs = defaultdict(int)          # raw PASS-doc frequency (unweighted)
     neg = defaultdict(bool)
     for r in rows:
         w = snowball_weight if r.get("snowball") else 1
@@ -32,6 +34,7 @@ def mine(rows, known_stems=(), stoplist=(), snowball_weight: int = 3, alpha: flo
             if r.get("label") == "pass":
                 y_pass[t] += w
                 domains[t].add(r.get("host", ""))
+                docs[t] += 1
             else:
                 y_fail[t] += w
             if r.get("neg_anchor"):
@@ -56,6 +59,6 @@ def mine(rows, known_stems=(), stoplist=(), snowball_weight: int = 3, alpha: flo
         z = delta / math.sqrt(var)
         out.append(TermScore(term=t, z=z, pass_count=int(y_pass[t]),
                              fail_count=int(y_fail[t]), domains=domains[t],
-                             in_neg_anchor=neg[t]))
+                             in_neg_anchor=neg[t], doc_count=docs[t]))
     out.sort(key=lambda s: (-s.z, s.term))
     return out

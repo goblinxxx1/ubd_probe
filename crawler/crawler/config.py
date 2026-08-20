@@ -86,9 +86,10 @@ class _RawSettings(BaseSettings):
     query_stoplist_path: str = "/data/query_stoplist.json"
     query_lexicon_max_terms: int = 0   # miner grid-feed cap; 0 = unlimited (bounded by audit quality). Seed/categories never capped.
     query_lexicon_resurface_factor: float = 2.0
-    query_miner_min_domain_support: int = 3
-    query_miner_min_logodds: float = 0.9
-    query_miner_max_candidates_per_run: int = 50
+    query_miner_min_domain_support: int = 1   # v2: floor→1 surfaces single-host category terms at once
+    query_miner_min_logodds: float = 0.9      # legacy; v2 query miner no longer gates on z (degenerate on all-pass corpus)
+    query_miner_min_pass_docs: int = 2        # v2: anti-typo hapax guard on raw PASS-doc frequency
+    query_miner_max_candidates_per_run: int = 0   # v2: 0 = unlimited ("все зразу"); safety ceiling applied in run_query_miner
     domain_rating_enabled: bool = True
     domain_registry_path: str = "/data/domain_registry.json"
     domain_feed_per_pass: int = 8
@@ -206,9 +207,10 @@ class Config:
     query_stoplist_path: str = "/data/query_stoplist.json"
     query_lexicon_max_terms: int = 0   # miner grid-feed cap; 0 = unlimited (bounded by audit quality). Seed/categories never capped.
     query_lexicon_resurface_factor: float = 2.0
-    query_miner_min_domain_support: int = 3
-    query_miner_min_logodds: float = 0.9
-    query_miner_max_candidates_per_run: int = 50
+    query_miner_min_domain_support: int = 1   # v2: floor→1 surfaces single-host category terms at once
+    query_miner_min_logodds: float = 0.9      # legacy; v2 query miner no longer gates on z (degenerate on all-pass corpus)
+    query_miner_min_pass_docs: int = 2        # v2: anti-typo hapax guard on raw PASS-doc frequency
+    query_miner_max_candidates_per_run: int = 0   # v2: 0 = unlimited ("все зразу"); safety ceiling applied in run_query_miner
     domain_rating_enabled: bool = True
     domain_registry_path: str = "/data/domain_registry.json"
     domain_feed_per_pass: int = 8
@@ -350,6 +352,7 @@ def from_settings(s: _RawSettings) -> Config:
         query_lexicon_resurface_factor=s.query_lexicon_resurface_factor,
         query_miner_min_domain_support=s.query_miner_min_domain_support,
         query_miner_min_logodds=s.query_miner_min_logodds,
+        query_miner_min_pass_docs=s.query_miner_min_pass_docs,
         query_miner_max_candidates_per_run=s.query_miner_max_candidates_per_run,
         domain_rating_enabled=s.domain_rating_enabled,
         domain_registry_path=s.domain_registry_path,

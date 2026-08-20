@@ -37,3 +37,11 @@ def test_reject_excludes_from_approved(db_session):
     qt.reject(db_session, row.id, reviewed_by=1)
     assert "сміття" not in qt.list_approved_terms(db_session)
     assert row.reviewed_by == 1 and row.reviewed_at is not None
+
+
+def test_list_rejected_terms(db_session):
+    qt.upsert_candidates(db_session, [_c("грн"), _c("зуби")])
+    grn = next(r for r in qt.list_terms(db_session) if r.term == "грн")
+    qt.reject(db_session, grn.id, reviewed_by=1)
+    assert qt.list_rejected_terms(db_session) == ["грн"]      # only rejected
+    assert "зуби" not in qt.list_rejected_terms(db_session)   # pending excluded

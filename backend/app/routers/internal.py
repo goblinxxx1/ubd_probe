@@ -166,6 +166,11 @@ def list_approved_query_terms(db: Session = Depends(get_db)):
     return query_term_crud.list_approved_terms(db)
 
 
+@router.get("/query-terms/rejected", response_model=list[str])
+def list_rejected_query_terms(db: Session = Depends(get_db)):
+    return query_term_crud.list_rejected_terms(db)
+
+
 @router.post("/blocked-hosts", response_model=BlockedHostOut)
 def auto_block_host(data: AutoBlockCreate, db: Session = Depends(get_db)):
     return blocked_host_crud.auto_block(db, data.host, data.sample_url)
