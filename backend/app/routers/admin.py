@@ -229,6 +229,12 @@ def reject_query_term(term_id: int, db: Session = Depends(get_db),
     return query_term_crud.reject(db, term_id, admin.id)
 
 
+@router.post("/query-terms/{term_id}/unreject", response_model=QueryTermOut)
+def unreject_query_term(term_id: int, db: Session = Depends(get_db),
+                        admin=Depends(get_current_admin)):
+    return query_term_crud.to_pending(db, term_id)
+
+
 @router.post("/users", response_model=AdminUserOut)
 def create_admin_user(data: AdminUserCreate, db: Session = Depends(get_db),
                       _=Depends(require_super_admin)):

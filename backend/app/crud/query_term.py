@@ -62,6 +62,19 @@ def reject(db: Session, term_id: int, reviewed_by: int) -> QueryTerm:
     return _review(db, term_id, QueryTermStatus.rejected, reviewed_by)
 
 
+def to_pending(db: Session, term_id: int) -> QueryTerm:
+    """Return a term to the candidate queue (e.g. un-reject a mistaken reject). Clears the
+    review stamp so it reads as a fresh, un-reviewed candidate; the crawler stops excluding
+    it once it is no longer rejected and re-surfaces it on the next mining run."""
+    obj = get(db, term_id)
+    obj.status = QueryTermStatus.pending
+    obj.reviewed_by = None
+    obj.reviewed_at = None
+    db.commit()
+    db.refresh(obj)
+    return obj
+
+
 def list_approved_terms(db: Session) -> list[str]:
     rows = (db.query(QueryTerm)
             .filter(QueryTerm.status == QueryTermStatus.approved).all())
