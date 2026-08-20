@@ -2,9 +2,10 @@ from crawler.learn.miner import TermScore
 from crawler.learn.vetoes import survivors
 
 
-def _ts(term, z, domains, neg=False):
+def _ts(term, z, domains, neg=False, doc_count=None):
     return TermScore(term=term, z=z, pass_count=len(domains), fail_count=0,
-                     domains=set(domains), in_neg_anchor=neg)
+                     domains=set(domains), in_neg_anchor=neg,
+                     doc_count=len(domains) if doc_count is None else doc_count)
 
 
 def test_multi_domain_support_required():
@@ -34,3 +35,25 @@ def test_max_candidates_caps_output_in_order():
     out = survivors(scores, min_domains=3, min_z=1.5, max_candidates=4)
     assert len(out) == 4
     assert [s.term for s in out] == ["term0", "term1", "term2", "term3"]  # prefix, input order
+
+
+def test_min_z_none_disables_abstention():
+    lowz = _ts("відбілювання", 0.1, ["a.ua"])          # z far below any threshold
+    # v2: min_z=None must NOT gate; floor=1 lets the single-host term through
+    out = survivors([lowz], min_domains=1, min_z=None)
+    assert [s.term for s in out] == ["відбілювання"]
+    # but with the legacy z-gate active it is still filtered
+    assert survivors([lowz], min_domains=1, min_z=1.5) == []
+
+
+def test_max_candidates_zero_is_unlimited():
+    scores = [_ts(f"term{i}", 3.0, ["a.ua"]) for i in range(120)]
+    out = survivors(scores, min_domains=1, min_z=None, max_candidates=0)
+    assert len(out) == 120                              # 0 => no cap
+
+
+def test_min_pass_docs_hapax_guard():
+    hapax = _ts("фотозйомка", 3.0, ["a.ua"], doc_count=1)
+    solid = _ts("манікюр", 3.0, ["a.ua"], doc_count=5)
+    out = survivors([hapax, solid], min_domains=1, min_z=None, min_pass_docs=2)
+    assert [s.term for s in out] == ["манікюр"]         # single-doc hapax dropped

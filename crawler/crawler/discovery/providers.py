@@ -85,7 +85,7 @@ class RotatingDdgProvider:
         self._sleep = sleep
         self._rand = rand
 
-    def __call__(self, keyword: str) -> list[SourceCandidate]:
+    def __call__(self, keyword: str, page: int = 1) -> list[SourceCandidate]:
         self._state.clear_degraded()
         if self._state.in_global_backoff():
             self._state.mark_degraded()
@@ -100,7 +100,8 @@ class RotatingDdgProvider:
                 return []
             self._sleep(self._adaptive_delay() * (1 + self._rand() * self._jitter))
             try:
-                results = self._ddgs_factory().text(keyword, max_results=self._n, backend=backend)
+                results = self._ddgs_factory().text(keyword, max_results=self._n,
+                                                    backend=backend, page=page)
             except Exception as exc:  # noqa: BLE001 — search is best-effort
                 log.warning("ddg backend %s failed for %r: %s", backend, keyword, exc)
                 self._state.record_block(backend, self._base, self._cap, self._jitter, self._rand,
@@ -164,18 +165,18 @@ class SearchCache:
         self._state = state
         self._ttl = ttl_seconds
 
-    def __call__(self, keyword: str) -> list[SourceCandidate]:
-        cached = self._state.cache_get(keyword, self._ttl)
+    def __call__(self, keyword: str, page: int = 1) -> list[SourceCandidate]:
+        cached = self._state.cache_get(keyword, self._ttl, page)
         if cached is not None:
             return cached
         if self._state.in_global_backoff():
             return []
-        results = self._inner(keyword)
+        results = self._inner(keyword, page)
         if self._state.in_global_backoff():        # inner just tripped backoff — degraded empty
             return []
         if self._state.degraded_last_call():       # inner flagged degraded — don't cache the empty
             return []
-        self._state.cache_put(keyword, results)
+        self._state.cache_put(keyword, results, page)
         return results
 
 
@@ -208,7 +209,7 @@ class SearxngProvider:
     def succeeded(self) -> bool:
         return self._slice_ok
 
-    def __call__(self, keyword: str) -> list[SourceCandidate]:
+    def __call__(self, keyword: str, page: int = 1) -> list[SourceCandidate]:
         self._slice_ok = False
         if self._clock() < self._cooldown_until:
             return []
@@ -217,6 +218,8 @@ class SearxngProvider:
         try:
             with self._client_factory() as client:
                 params = {"q": keyword, "format": "json"}
+                if int(page) > 1:
+                    params["pageno"] = int(page)
                 if self._engines:
                     params["engines"] = self._engines
                 resp = client.get(f"{self._base}/search", params=params)

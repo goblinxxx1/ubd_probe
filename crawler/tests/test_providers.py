@@ -60,6 +60,17 @@ def test_provider_queries_single_backend_from_pool(tmp_path):
     assert "," not in fake.kwargs.get("backend")     # one endpoint, not the whole list
 
 
+def test_provider_forwards_page(tmp_path):
+    fake = CapturingDDGS()
+    p = _provider(tmp_path, lambda: fake)
+    p("kw", page=3)
+    assert fake.kwargs.get("page") == 3
+    fake2 = CapturingDDGS()
+    p2 = _provider(tmp_path, lambda: fake2)
+    p2("kw")                                          # default page 1
+    assert fake2.kwargs.get("page") == 1
+
+
 def test_provider_is_best_effort_on_error(tmp_path):
     class Boom:
         def text(self, *a, **k):

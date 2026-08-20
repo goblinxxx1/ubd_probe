@@ -24,6 +24,7 @@ def _cfg(tmp_path):
         query_stoplist_path=str(tmp_path / "q_stop.json"),
         query_lexicon_learned_path=str(tmp_path / "q_learned.json"),
         query_miner_min_domain_support=1, query_miner_min_logodds=0.1,
+        query_miner_min_pass_docs=1,
         query_miner_max_candidates_per_run=50, query_lexicon_resurface_factor=2.0)
 
 

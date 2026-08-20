@@ -11,13 +11,14 @@ class SearchPass:
     succeeded (a throttled/backed-off pass re-scans the same phrases next time)."""
 
     def __init__(self, plans, state, grid, block_size, static_keywords=None,
-                 ttl_seconds=0.0):
+                 ttl_seconds=0.0, page_cap=1):
         self._plans = list(plans)
         self._state = state
         self._grid = grid
         self._bs = block_size
         self._pins = list(static_keywords or [])
         self._ttl = ttl_seconds
+        self._page_cap = max(1, int(page_cap))
 
     def set_grid(self, grid) -> None:
         """Swap in a freshly rebuilt grid (after in-loop learning). The rotation
@@ -44,39 +45,55 @@ class SearchPass:
         # 1) DRAIN once (no re-search): re-surface cached-but-unharvested candidates.
         out.extend(self.drain())
         # 2) Pick the due batch ONCE; every available provider searches the same phrases
-        #    (cross-provider redundancy raises recall).
+        #    (cross-provider redundancy raises recall). Each phrase carries its SERP page.
         cursor = self._state.grid_cursor
         if self._ttl > 0:
             batch, new_cursor = self._collect_due(cursor, size)
         else:
             batch, new_cursor = self._grid.next_batch(self._bs, cursor)
+        pages = {p: self._state.current_page(p) for p in batch}
+        # cache-note suffix ("ddg-cache: <key>") and fresh-note suffix ("ddg:..: <phrase>")
+        # both attribute back to the batch phrase, so per-phrase yield can be counted.
+        attribution = {}
+        for p in batch:
+            attribution[p] = p
+            attribution[self._state._key(p, pages[p])] = p
+        new_by_phrase: dict[str, int] = {p: 0 for p in batch}
         any_success = False
         for plan in self._plans:
             if not plan.available():
                 continue
             pins = self._pins if plan.include_pins else []
             keywords = merge_queries(batch, pins)
-            searched = plan.discovery.run(keywords, known)
+            searched = plan.discovery.run(keywords, known, pages)
             for c in searched:
-                if c.origin_key is None and c.discovery_note and ": " in c.discovery_note:
-                    c.origin_key = c.discovery_note.split(": ", 1)[1]
+                suffix = (c.discovery_note.split(": ", 1)[1]
+                          if c.discovery_note and ": " in c.discovery_note else None)
+                phrase = attribution.get(suffix) if suffix else None
+                if phrase is not None:                      # a grid-phrase result (not a pin)
+                    new_by_phrase[phrase] += 1              # run() already known-filtered → new
+                    c.origin_key = self._state._key(phrase, pages[phrase])   # exact harvest key
+                elif c.origin_key is None and suffix:
+                    c.origin_key = suffix
             out.extend(searched)
             if plan.succeeded():
                 any_success = True
-        # advance the cursor only if at least one provider covered this batch
+        # advance the grid cursor AND each phrase's page cursor only on a covered batch
         if any_success:
+            for p in batch:
+                self._state.record_page_result(p, pages[p], new_by_phrase[p], self._page_cap)
             self._state.set_grid_cursor(new_cursor)
         return out
 
     def _collect_due(self, cursor, size):
-        """Scan forward from cursor collecting up to block_size due (stale/unseen)
-        phrases; return (batch, next_cursor). next_cursor is past every phrase
-        scanned (fresh skipped ones included), wrapping modulo size."""
+        """Scan forward from cursor collecting up to block_size due phrases; a phrase is
+        due when its CURRENT SERP page is not cache-fresh. return (batch, next_cursor);
+        next_cursor is past every phrase scanned (fresh skipped ones included), wrapping."""
         batch: list[str] = []
         scanned = 0
         while scanned < size and len(batch) < self._bs:
             kw = self._grid.at(cursor)
-            if not self._state.is_fresh(kw, self._ttl):
+            if not self._state.is_fresh(kw, self._ttl, self._state.current_page(kw)):
                 batch.append(kw)
             cursor = (cursor + 1) % size
             scanned += 1

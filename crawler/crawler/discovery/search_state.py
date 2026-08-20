@@ -10,7 +10,7 @@ log = logging.getLogger(__name__)
 
 _EMPTY = {"version": 1, "cursor": 0, "grid_cursor": 0, "site_cursor": 0,
           "approved_cursor": 0,
-          "next_allowed_at": 0.0, "backends": {}, "cache": {}}
+          "next_allowed_at": 0.0, "backends": {}, "cache": {}, "phrase_pages": {}}
 
 
 class SearchState:
@@ -157,25 +157,53 @@ class SearchState:
     def degraded_last_call(self) -> bool:
         return self._degraded
 
-    # --- keyword cache ---
-    def is_fresh(self, keyword: str, ttl_seconds: float) -> bool:
-        """True iff a non-expired cache entry exists for `keyword` (mirrors cache_get)."""
-        entry = self._data["cache"].get(self._key(keyword))
+    # --- per-phrase SERP page cursor + cadence (Track 3) ---
+    def current_page(self, phrase: str) -> int:
+        """The SERP page to fetch next for `phrase` (1-based). Default 1."""
+        e = self._data.get("phrase_pages", {}).get(self._key(phrase))
+        return int(e.get("page", 1)) if e else 1
+
+    def record_page_result(self, phrase: str, page: int, new_count: int,
+                           page_cap: int) -> None:
+        """Advance/stop the per-phrase page cursor from the search-time new-candidate
+        count. Productive (new>0) → next page (reset at the cap). Dry (new==0) → probe ONE
+        more page; a SECOND consecutive dry confirms nothing and stops (reset to page 1,
+        so the due-walk revisits from page 1 only after the freshness TTL)."""
+        pages = self._data.setdefault("phrase_pages", {})
+        k = self._key(phrase)
+        prev_dry = int((pages.get(k) or {}).get("dry", 0))
+        if new_count > 0:
+            nxt, dry = (page + 1 if page < page_cap else 1), 0
+        else:
+            dry = prev_dry + 1
+            if dry >= 2 or page >= page_cap:       # confirmed empty, or hit the ceiling
+                nxt, dry = 1, 0
+            else:                                  # first dry → probe one more page
+                nxt = page + 1
+        pages[k] = {"page": nxt, "dry": dry}
+        self._save()
+
+    # --- keyword cache (page-aware; page 1 uses the bare key for back-compat) ---
+    def is_fresh(self, keyword: str, ttl_seconds: float, page: int = 1) -> bool:
+        """True iff a non-expired cache entry exists for `(keyword, page)`."""
+        entry = self._data["cache"].get(self._key(keyword, page))
         if not entry:
             return False
         return self._clock() - entry.get("ts", 0.0) < ttl_seconds
 
-    def cache_get(self, keyword: str, ttl_seconds: float) -> list[SourceCandidate] | None:
-        entry = self._data["cache"].get(self._key(keyword))
+    def cache_get(self, keyword: str, ttl_seconds: float,
+                  page: int = 1) -> list[SourceCandidate] | None:
+        entry = self._data["cache"].get(self._key(keyword, page))
         if not entry or self._clock() - entry.get("ts", 0.0) >= ttl_seconds:
             return None
         return [SourceCandidate(name=c["name"], type=c["type"], url_or_handle=c["url_or_handle"],
                                 discovered_from_source_id=None,
-                                discovery_note=f"ddg-cache: {self._key(keyword)}")
+                                discovery_note=f"ddg-cache: {self._key(keyword, page)}")
                 for c in entry.get("candidates", [])]
 
-    def cache_put(self, keyword: str, candidates: list[SourceCandidate]) -> None:
-        self._data["cache"][self._key(keyword)] = {
+    def cache_put(self, keyword: str, candidates: list[SourceCandidate],
+                  page: int = 1) -> None:
+        self._data["cache"][self._key(keyword, page)] = {
             "ts": self._clock(),
             "harvested": False,
             "candidates": [{"name": c.name, "type": c.type, "url_or_handle": c.url_or_handle}
@@ -215,8 +243,9 @@ class SearchState:
         return out
 
     @staticmethod
-    def _key(keyword: str) -> str:
-        return keyword.strip().casefold()
+    def _key(keyword: str, page: int = 1) -> str:
+        base = keyword.strip().casefold()
+        return base if int(page) <= 1 else f"{base}#p{int(page)}"
 
     def _save(self) -> None:
         directory = os.path.dirname(self._path)

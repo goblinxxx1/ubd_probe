@@ -12,6 +12,13 @@ _NON_SERVICE = (
     "україна", "дія", "місто", "область", "країна", "територія", "київ",
     # audience synonyms not spelled out in AUDIENCE_FORMS
     "переселенець", "оборона", "захисниця", "боєць", "герой",
+    # feminine audience lemma that escapes AUDIENCE_FORMS (surfaced in the live queue)
+    "ветеранка", "ветеран",
+    # grammar-generic nouns proven as noise in the live top-50 (v2)
+    "грн", "день", "рік", "рок", "вид", "під", "форма", "статус", "місце", "том",
+    "комплекс", "період", "пора", "час", "раз", "сума", "розмір", "кількість",
+    # UBD-eligibility boilerplate on discount pages (not a service)
+    "мужність", "відданість", "службовець", "воїн", "звитяга", "подвиг",
 )
 
 

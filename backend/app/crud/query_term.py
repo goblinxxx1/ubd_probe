@@ -66,3 +66,12 @@ def list_approved_terms(db: Session) -> list[str]:
     rows = (db.query(QueryTerm)
             .filter(QueryTerm.status == QueryTermStatus.approved).all())
     return [r.term for r in rows]
+
+
+def list_rejected_terms(db: Session) -> list[str]:
+    """Moderator-rejected terms — the crawler pulls these to hard-exclude them from
+    mining (they never re-enter the audit queue until un-rejected). Mirror of
+    list_approved_terms."""
+    rows = (db.query(QueryTerm)
+            .filter(QueryTerm.status == QueryTermStatus.rejected).all())
+    return [r.term for r in rows]
