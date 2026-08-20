@@ -18,7 +18,7 @@ class RecordingDDGS:
         self._results = results
         self._log = log
 
-    def text(self, query, max_results=7, backend=None):
+    def text(self, query, max_results=7, backend=None, page=1):
         self._log.append(backend)
         return self._results
 
@@ -55,7 +55,7 @@ def test_blocked_backend_falls_through_to_next(tmp_path):
     log = []
 
     class Flaky:
-        def text(self, query, max_results=7, backend=None):
+        def text(self, query, max_results=7, backend=None, page=1):
             log.append(backend)
             if backend == "google":
                 raise RuntimeError("429")
@@ -71,7 +71,7 @@ def test_blocked_backend_falls_through_to_next(tmp_path):
 
 def test_all_cooled_sets_global_backoff_and_returns_empty(tmp_path):
     class Boom:
-        def text(self, query, max_results=7, backend=None):
+        def text(self, query, max_results=7, backend=None, page=1):
             raise RuntimeError("banned")
 
     # tiny pool so two attempts exhaust it
@@ -106,7 +106,7 @@ def test_partial_failure_marks_degraded_without_global_backoff(tmp_path):
     log = []
 
     class AlwaysBad:
-        def text(self, query, max_results=7, backend=None):
+        def text(self, query, max_results=7, backend=None, page=1):
             log.append(backend)
             raise RuntimeError("429")
 
@@ -130,7 +130,7 @@ def test_success_clears_degraded(tmp_path):
 
 
 class FailingDDGS:
-    def text(self, query, max_results=7, backend=None):
+    def text(self, query, max_results=7, backend=None, page=1):
         raise RuntimeError("boom")
 
 

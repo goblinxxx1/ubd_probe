@@ -11,9 +11,11 @@ class ActiveDiscovery:
         self._budget = budget
         self._provider = search_provider
 
-    def run(self, keywords: list[str], known: set[str]) -> list[SourceCandidate]:
+    def run(self, keywords: list[str], known: set[str],
+            pages: dict[str, int] | None = None) -> list[SourceCandidate]:
         if self._provider is None:
             return []
+        pages = pages or {}
         out: list[SourceCandidate] = []
         seen: set[tuple[str, str]] = set()
         used = 0
@@ -22,7 +24,7 @@ class ActiveDiscovery:
                 break
             used += 1
             try:
-                results = self._provider(kw)
+                results = self._provider(kw, pages.get(kw, 1))
             except Exception as exc:  # noqa: BLE001 — search is best-effort
                 log.warning("active search failed for %r: %s", kw, exc)
                 continue

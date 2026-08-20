@@ -13,12 +13,15 @@ class _Resp:
 
 
 class _Client:
-    def __init__(self, payload=None, boom=False):
+    def __init__(self, payload=None, boom=False, seen=None):
         self._payload = payload or {"results": []}
         self._boom = boom
+        self._seen = seen
     def __enter__(self): return self
     def __exit__(self, *a): return False
     def get(self, url, params=None):
+        if self._seen is not None:
+            self._seen.append(params)
         if self._boom:
             raise RuntimeError("connection refused")
         return _Resp(self._payload)
@@ -34,6 +37,17 @@ def test_parses_results_into_candidates():
     assert cands[0].discovery_note == "searxng: знижки військовим"
     assert p.succeeded() is True
     assert p.available() is True
+
+
+def test_pageno_forwarded_only_when_gt1():
+    seen = []
+    p = SearxngProvider("http://searxng:8080",
+                        client_factory=lambda: _Client({"results": []}, seen=seen),
+                        sleep=lambda _s: None)
+    p("kw")                       # page 1 → no pageno (byte-eq)
+    assert "pageno" not in seen[-1]
+    p("kw", page=2)               # page 2 → pageno=2
+    assert seen[-1]["pageno"] == 2
 
 
 def test_failure_cools_after_threshold():

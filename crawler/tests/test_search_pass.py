@@ -7,7 +7,7 @@ from crawler.models import SourceCandidate
 class _Disc:
     """Fake ActiveDiscovery: records keyword lists, returns one candidate."""
     def __init__(self): self.calls = []
-    def run(self, keywords, known):
+    def run(self, keywords, known, pages=None):
         self.calls.append(list(keywords))
         return [SourceCandidate(name="c", type="website", url_or_handle="https://c.example")]
 
@@ -70,7 +70,7 @@ class _FreshState(SearchState):
     def __init__(self, path, fresh):
         super().__init__(path)
         self._fresh = set(fresh)
-    def is_fresh(self, keyword, ttl_seconds):
+    def is_fresh(self, keyword, ttl_seconds, page=1):
         return keyword in self._fresh
 
 
@@ -155,13 +155,19 @@ class _Grid:
 class _State:
     def __init__(self): self.grid_cursor = 0
     def unharvested(self, ttl): return []
-    def is_fresh(self, kw, ttl): return False
+    def is_fresh(self, kw, ttl, page=1): return False
     def set_grid_cursor(self, v): self.grid_cursor = v
+    def current_page(self, phrase): return 1
+    def record_page_result(self, phrase, page, new_count, page_cap): pass
+    @staticmethod
+    def _key(keyword, page=1):
+        base = keyword.strip().casefold()
+        return base if int(page) <= 1 else f"{base}#p{int(page)}"
 
 
 class _MultiDisc:
     def __init__(self, cands): self._c = cands
-    def run(self, keywords, known): return list(self._c)
+    def run(self, keywords, known, pages=None): return list(self._c)
 
 
 def _multi_plan(name, cands, available=True, succeeded=True):
@@ -183,6 +189,49 @@ def test_run_iterates_all_available_plans():
     urls = {c.url_or_handle for c in out}
     assert urls == {"https://b.ua/2"}          # only the available (searxng) plan ran
     assert sp.any_provider_available() is True
+
+
+class _PagedDisc:
+    """Fake discovery whose new-candidate yield depends on the SERP page requested."""
+    def __init__(self, phrase, yield_by_page):
+        self.phrase = phrase
+        self._yield = yield_by_page
+        self.pages_seen = []
+    def run(self, keywords, known, pages=None):
+        page = (pages or {}).get(self.phrase, 1)
+        self.pages_seen.append(page)
+        n = self._yield.get(page, 0)
+        return [SourceCandidate(name=f"c{i}", type="website",
+                                url_or_handle=f"https://{self.phrase}-p{page}-{i}.ua",
+                                discovery_note=f"x: {self.phrase}") for i in range(n)]
+
+
+def _paged_plan(disc):
+    from crawler.discovery.providers import SearchProviderPlan
+    return SearchProviderPlan(name="x", discovery=disc, include_pins=False,
+                              succeeded=(lambda: True), available=(lambda: True))
+
+
+def test_pagination_climbs_then_stops_after_two_dry(tmp_path):
+    st = SearchState(str(tmp_path / "s.json"), clock=lambda: 1000.0)
+    disc = _PagedDisc("стоматологія", {1: 2, 2: 0, 3: 0})   # p1 productive, p2/p3 dry
+    sp = SearchPass([_paged_plan(disc)], st, QueryGrid(["стоматологія"]),
+                    block_size=1, ttl_seconds=1000.0, page_cap=3)
+    sp.run(set()); assert st.current_page("стоматологія") == 2   # p1 productive → page 2
+    sp.run(set()); assert st.current_page("стоматологія") == 3   # p2 dry #1 → probe page 3
+    sp.run(set()); assert st.current_page("стоматологія") == 1   # p3 dry #2 → stop, reset
+    assert disc.pages_seen == [1, 2, 3]                          # went one past the first empty
+
+
+def test_pagination_stamps_page_into_origin_key(tmp_path):
+    st = SearchState(str(tmp_path / "s.json"), clock=lambda: 1000.0)
+    disc = _PagedDisc("готель", {1: 1, 2: 1})
+    sp = SearchPass([_paged_plan(disc)], st, QueryGrid(["готель"]),
+                    block_size=1, ttl_seconds=1000.0, page_cap=3)
+    out1 = sp.run(set())
+    assert out1[0].origin_key == "готель"          # page 1 → bare key (harvest-marking exact)
+    out2 = sp.run(set())
+    assert out2[0].origin_key == "готель#p2"        # page 2 → suffixed key
 
 
 def test_site_query_provider_prefers_available():

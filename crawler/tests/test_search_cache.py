@@ -23,7 +23,7 @@ def _cache(tmp_path, clock, inner, ttl=100.0):
 def test_cache_miss_calls_inner_and_stores(tmp_path):
     calls = []
 
-    def inner(kw):
+    def inner(kw, page=1):
         calls.append(kw)
         return _cand()
 
@@ -36,7 +36,7 @@ def test_cache_miss_calls_inner_and_stores(tmp_path):
 def test_cache_hit_skips_inner(tmp_path):
     calls = []
 
-    def inner(kw):
+    def inner(kw, page=1):
         calls.append(kw)
         return _cand()
 
@@ -50,7 +50,7 @@ def test_cache_expiry_requeries(tmp_path):
     calls = []
     clk = Clock(1000.0)
 
-    def inner(kw):
+    def inner(kw, page=1):
         calls.append(kw)
         return _cand()
 
@@ -64,7 +64,7 @@ def test_cache_expiry_requeries(tmp_path):
 def test_empty_result_is_cached(tmp_path):
     calls = []
 
-    def inner(kw):
+    def inner(kw, page=1):
         calls.append(kw)
         return []
 
@@ -77,12 +77,12 @@ def test_empty_result_is_cached(tmp_path):
 def test_backoff_tripped_during_call_not_cached(tmp_path):
     calls = []
 
-    def inner(kw):
+    def inner(kw, page=1):
         calls.append(kw)
         st.set_global_backoff(3600.0)   # inner trips global backoff, returns degraded []
         return []
 
-    cache, st = _cache(tmp_path, Clock(), lambda kw: inner(kw))
+    cache, st = _cache(tmp_path, Clock(), lambda kw, page=1: inner(kw, page))
     assert cache("kw") == []
     # not cached: next non-backoff call would re-query. Simulate backoff cleared:
     st.set_global_backoff(-3600.0)      # move next_allowed_at into the past
@@ -92,7 +92,7 @@ def test_backoff_tripped_during_call_not_cached(tmp_path):
 
 def test_in_backoff_returns_empty_without_inner(tmp_path):
     calls = []
-    cache, st = _cache(tmp_path, Clock(), lambda kw: calls.append(kw) or [])
+    cache, st = _cache(tmp_path, Clock(), lambda kw, page=1: calls.append(kw) or [])
     st.set_global_backoff(3600.0)
     assert cache("kw") == []
     assert calls == []
@@ -101,7 +101,7 @@ def test_in_backoff_returns_empty_without_inner(tmp_path):
 def test_degraded_empty_not_cached(tmp_path):
     calls = []
 
-    def inner(kw):
+    def inner(kw, page=1):
         calls.append(kw)
         st.mark_degraded()          # provider signals a degraded pass (all attempted backends failed)
         return []

@@ -36,6 +36,7 @@ class _RawSettings(BaseSettings):
     active_fetch_budget: int = 80
     first_crawl_budget: int = 10
     search_block_size: int = 15
+    active_search_page_cap: int = 3   # Track 3: max SERP depth per phrase (two-dry rule trims earlier)
     grid_cities_enabled: bool = True
     site_query_enabled: bool = True
     site_query_budget: int = 5
@@ -157,6 +158,7 @@ class Config:
     active_fetch_budget: int = 80
     first_crawl_budget: int = 10
     search_block_size: int = 15
+    active_search_page_cap: int = 3   # Track 3: max SERP depth per phrase (two-dry rule trims earlier)
     grid_cities_enabled: bool = True
     site_query_enabled: bool = True
     site_query_budget: int = 5
@@ -300,6 +302,7 @@ def from_settings(s: _RawSettings) -> Config:
         active_fetch_budget=s.active_fetch_budget,
         first_crawl_budget=s.first_crawl_budget,
         search_block_size=s.search_block_size,
+        active_search_page_cap=s.active_search_page_cap,
         grid_cities_enabled=s.grid_cities_enabled,
         site_query_enabled=s.site_query_enabled,
         site_query_budget=s.site_query_budget,

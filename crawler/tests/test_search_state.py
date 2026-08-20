@@ -307,6 +307,88 @@ def test_record_success_clears_quarantine(tmp_path):
     assert st.reprobe_due("google") is False
 
 
+def test_cache_page_key_backcompat_and_isolation(tmp_path):
+    st = _state(tmp_path, Clock())
+    st.cache_put("стоматологія", [_cand("https://p1.ua")])            # page 1 (bare key)
+    st.cache_put("стоматологія", [_cand("https://p2.ua")], page=2)     # page 2 (#p2 key)
+    # page 1 and page 2 are isolated
+    assert [c.url_or_handle for c in st.cache_get("стоматологія", 1e9)] == ["https://p1.ua"]
+    assert [c.url_or_handle for c in st.cache_get("стоматологія", 1e9, page=2)] == ["https://p2.ua"]
+    # page-1 stored under the bare key (byte-compatible with legacy entries)
+    assert "стоматологія" in st._data["cache"]
+    assert "стоматологія#p2" in st._data["cache"]
+
+
+def test_is_fresh_is_page_scoped(tmp_path):
+    st = _state(tmp_path, Clock())
+    st.cache_put("готель", [_cand("https://a.ua")], page=1)
+    assert st.is_fresh("готель", 1e9, page=1) is True
+    assert st.is_fresh("готель", 1e9, page=2) is False        # page 2 not yet fetched
+
+
+def test_current_page_defaults_one(tmp_path):
+    st = _state(tmp_path, Clock())
+    assert st.current_page("барбершоп") == 1
+
+
+def test_record_page_productive_advances(tmp_path):
+    st = _state(tmp_path, Clock())
+    st.record_page_result("зуби", page=1, new_count=3, page_cap=3)
+    assert st.current_page("зуби") == 2
+
+
+def test_record_page_one_dry_probes_next(tmp_path):
+    st = _state(tmp_path, Clock())
+    st.record_page_result("зуби", page=1, new_count=0, page_cap=3)   # first dry
+    assert st.current_page("зуби") == 2                              # probe one more
+
+
+def test_record_page_two_dry_stops_and_resets(tmp_path):
+    st = _state(tmp_path, Clock())
+    st.record_page_result("зуби", page=1, new_count=0, page_cap=3)   # dry #1 -> page 2
+    st.record_page_result("зуби", page=2, new_count=0, page_cap=3)   # dry #2 -> stop, reset
+    assert st.current_page("зуби") == 1
+
+
+def test_record_page_productive_resets_dry_counter(tmp_path):
+    st = _state(tmp_path, Clock())
+    st.record_page_result("зуби", page=1, new_count=0, page_cap=3)   # dry #1 -> page 2
+    st.record_page_result("зуби", page=2, new_count=5, page_cap=3)   # productive -> page 3, dry=0
+    assert st.current_page("зуби") == 3
+    st.record_page_result("зуби", page=3, new_count=0, page_cap=3)   # dry #1 again (not #2) -> reset (cap)
+    assert st.current_page("зуби") == 1
+
+
+def test_record_page_productive_at_cap_resets(tmp_path):
+    st = _state(tmp_path, Clock())
+    st.record_page_result("зуби", page=3, new_count=4, page_cap=3)   # productive at cap
+    assert st.current_page("зуби") == 1                              # reset, re-scan next TTL cycle
+
+
+def test_record_page_dry_at_cap_stops(tmp_path):
+    st = _state(tmp_path, Clock())
+    st.record_page_result("зуби", page=3, new_count=0, page_cap=3)   # first dry but already at cap
+    assert st.current_page("зуби") == 1                              # do not probe past the cap
+
+
+def test_phrase_pages_persist(tmp_path):
+    path = str(tmp_path / "state.json")
+    st = SearchState(path, clock=Clock())
+    st.record_page_result("готель", page=1, new_count=2, page_cap=3)
+    reloaded = SearchState.load(path)
+    assert reloaded.current_page("готель") == 2
+
+
+def test_legacy_state_without_phrase_pages_loads(tmp_path):
+    import json as _json
+    path = tmp_path / "partial.json"
+    path.write_text(_json.dumps({"version": 1, "cursor": 0, "grid_cursor": 3,
+                                 "next_allowed_at": 0.0, "backends": {}, "cache": {}}),
+                    encoding="utf-8")
+    st = SearchState.load(str(path), clock=Clock())
+    assert st.current_page("будь-що") == 1        # missing key defaults cleanly
+
+
 def test_soonest_recovery_min_over_nonquarantined_with_floor(tmp_path):
     clock = Clock(1000.0)
     st = SearchState(str(tmp_path / "s.json"), clock=clock)
