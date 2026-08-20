@@ -15,8 +15,7 @@ const status = ref("pending");
 
 const columns = [
   { prop: "term", label: "Термін" },
-  { label: "z", slot: "z" },
-  { prop: "support", label: "Домени" },
+  { prop: "support", label: "Бізнес-сайтів" },
 ];
 
 async function load() {
@@ -49,8 +48,17 @@ async function onReject(id) {
     ElMessage.error(extractError(e));
   }
 }
+async function onUnreject(id) {
+  try {
+    await terms.unreject(id);
+    ElMessage.success("Повернуто в кандидати");
+    await load();
+  } catch (e) {
+    ElMessage.error(extractError(e));
+  }
+}
 
-defineExpose({ items, pageItems, page, total, setPage, load, onApprove, onReject, status });
+defineExpose({ items, pageItems, page, total, setPage, load, onApprove, onReject, onUnreject, status });
 </script>
 
 <template>
@@ -73,12 +81,14 @@ defineExpose({ items, pageItems, page, total, setPage, load, onApprove, onReject
     />
 
     <ResponsiveTable :columns="columns" :rows="pageItems" :loading="loading" :actions-width="220">
-      <template #col-z="{ row }">{{ Number(row.z).toFixed(2) }}</template>
       <template #actions="{ row }">
         <template v-if="row.status === 'pending'">
           <el-button size="small" type="success" @click="onApprove(row.id)">Затвердити</el-button>
           <el-button size="small" type="danger" @click="onReject(row.id)">Відхилити</el-button>
         </template>
+        <el-button v-else-if="row.status === 'rejected'" size="small" @click="onUnreject(row.id)">
+          Повернути в кандидати
+        </el-button>
         <span v-else>{{ enumLabel(SUGGESTION_STATUSES, row.status) }}</span>
       </template>
     </ResponsiveTable>

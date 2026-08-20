@@ -39,6 +39,18 @@ def test_reject_excludes_from_approved(db_session):
     assert row.reviewed_by == 1 and row.reviewed_at is not None
 
 
+def test_to_pending_unrejects_and_clears_review(db_session):
+    qt.upsert_candidates(db_session, [_c("манікюр")])
+    row = qt.list_terms(db_session)[0]
+    qt.reject(db_session, row.id, reviewed_by=7)
+    assert row.status == QueryTermStatus.rejected and row.reviewed_by == 7
+    qt.to_pending(db_session, row.id)
+    db_session.refresh(row)
+    assert row.status == QueryTermStatus.pending          # back in candidates
+    assert row.reviewed_by is None and row.reviewed_at is None   # review stamp cleared
+    assert "манікюр" not in qt.list_rejected_terms(db_session)   # crawler stops excluding
+
+
 def test_list_rejected_terms(db_session):
     qt.upsert_candidates(db_session, [_c("грн"), _c("зуби")])
     grn = next(r for r in qt.list_terms(db_session) if r.term == "грн")
