@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.crud import blocked_host as blocked_host_crud
+from app.crud import query_term as query_term_crud
 from app.crud import bot_account as bot_account_crud
 from app.crud import category as category_crud
 from app.crud import crawl_state as crawl_state_crud
@@ -16,6 +17,7 @@ from app.deps import get_db, require_api_key
 from app.models import OfferCategory
 from app.models.enums import CreatedBy, OfferStatus
 from app.schemas.blocked_host import AutoBlockCreate, BlockedHostOut, HostCandidateCreate
+from app.schemas.query_term import QueryTermsSubmit
 from app.schemas.bot_account import BotAccountOut, BotAccountStateUpdate
 from app.schemas.category import CategoryCreate, CategoryOut
 from app.schemas.crawl_state import CrawlStateOut, CrawlStateUpdate
@@ -152,6 +154,16 @@ def submit_host_candidate(data: HostCandidateCreate, db: Session = Depends(get_d
 @router.get("/blocked-hosts", response_model=list[str])
 def list_blocked_hosts(db: Session = Depends(get_db)):
     return blocked_host_crud.list_approved_hosts(db)
+
+
+@router.post("/query-terms")
+def submit_query_terms(data: QueryTermsSubmit, db: Session = Depends(get_db)):
+    return {"upserted": query_term_crud.upsert_candidates(db, data.candidates)}
+
+
+@router.get("/query-terms/approved", response_model=list[str])
+def list_approved_query_terms(db: Session = Depends(get_db)):
+    return query_term_crud.list_approved_terms(db)
 
 
 @router.post("/blocked-hosts", response_model=BlockedHostOut)

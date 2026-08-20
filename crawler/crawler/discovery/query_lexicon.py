@@ -6,6 +6,17 @@ import json
 
 _cats: tuple[str, ...] = ()      # moderator-vetted structural categories (always in grid)
 _mined: tuple[str, ...] = ()     # miner-learned service nouns, z-sorted (cap applies here only)
+_approved: tuple[str, ...] = ()  # moderator-approved terms from the backend audit (Track A1)
+
+
+def reload_backend_terms(terms) -> None:
+    """Replace the moderator-approved query terms fetched from the backend audit. None/
+    empty ⇒ cleared (byte-eq to the file-only grid)."""
+    global _approved
+    if not terms:
+        _approved = ()
+        return
+    _approved = tuple(t for t in (s.strip() for s in terms if s) if t)
 
 
 def reload_learned(path: str | None) -> None:
@@ -60,7 +71,7 @@ def compose_service_terms(seed, cap: int) -> list[str]:
     mined = _mined if (cap is None or cap <= 0) else _mined[:cap]
     seen: set[str] = set()
     out: list[str] = []
-    for term in (*seed, *_cats, *mined):
+    for term in (*seed, *_cats, *mined, *_approved):
         key = (term or "").strip().casefold()
         if key and key not in seen:
             seen.add(key)

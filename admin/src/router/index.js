@@ -8,6 +8,7 @@ import OfferFormView from "@/views/OfferFormView.vue";
 import SourcesView from "@/views/SourcesView.vue";
 import SuggestedSourcesView from "@/views/SuggestedSourcesView.vue";
 import HostCandidatesView from "@/views/HostCandidatesView.vue";
+import QueryTermsView from "@/views/QueryTermsView.vue";
 import CategoriesView from "@/views/CategoriesView.vue";
 import AdminUsersView from "@/views/AdminUsersView.vue";
 
@@ -24,6 +25,7 @@ const routes = [
       { path: "sources", name: "sources", component: SourcesView },
       { path: "suggested-sources", name: "suggested-sources", component: SuggestedSourcesView },
       { path: "host-candidates", name: "host-candidates", component: HostCandidatesView },
+      { path: "query-terms", name: "query-terms", component: QueryTermsView },
       { path: "categories", name: "categories", meta: { superAdmin: true }, component: CategoriesView },
       { path: "users", name: "users", meta: { superAdmin: true }, component: AdminUsersView },
     ],

@@ -36,12 +36,17 @@ def main(argv=None) -> int:
         def _learn():
             runner.learn_and_reload_grid(config)   # mine → rebuild live grid, in-process
 
+        def _refresh():
+            runner.refresh_grid_from_approved(config)   # pull approved terms → rebuild grid
+
         log.info("scheduler: adaptive loop — active while DDG free, passive in backoff windows")
         run_loop(runner, _load_state, passive,
                  active_delay=config.active_loop_delay_seconds,
                  backoff_max_sleep=config.backoff_max_sleep_seconds,
                  hard_factor=config.passive_hard_overdue_factor,
                  learn=_learn, learn_interval_seconds=config.learn_interval_seconds,
+                 refresh=_refresh,
+                 refresh_interval_seconds=config.query_terms_refresh_interval_seconds,
                  search_available=runner.search_available)
         return 0
 

@@ -42,7 +42,7 @@ def step(runner, state, passive_schedule, *, active_delay, backoff_max_sleep, ha
 def run_loop(runner, state_loader, passive_schedule, *, active_delay, backoff_max_sleep,
              hard_factor, sleep=time.sleep, iterations=None,
              learn=None, learn_interval_seconds=0, now=time.monotonic,
-             search_available=None):
+             search_available=None, refresh=None, refresh_interval_seconds=0):
     """Drive step() forever (or `iterations` times in tests), reloading search state each
     pass so a freshly-persisted next_allowed_at is always seen. A failing pass is logged
     and skipped — it must never kill the loop.
@@ -53,6 +53,7 @@ def run_loop(runner, state_loader, passive_schedule, *, active_delay, backoff_ma
     never kills the loop nor blocks the crawl pass."""
     n = 0
     last_learn = None
+    last_refresh = None
     while iterations is None or n < iterations:
         if learn is not None and learn_interval_seconds > 0:
             t = now()
@@ -62,6 +63,14 @@ def run_loop(runner, state_loader, passive_schedule, *, active_delay, backoff_ma
                     learn()
                 except Exception as exc:  # noqa: BLE001 — learning must not kill the loop
                     log.warning("scheduler learn tick failed: %s", exc)
+        if refresh is not None and refresh_interval_seconds > 0:
+            t = now()
+            if last_refresh is None or (t - last_refresh) >= refresh_interval_seconds:
+                last_refresh = t
+                try:
+                    refresh()
+                except Exception as exc:  # noqa: BLE001 — refresh must not kill the loop
+                    log.warning("scheduler refresh tick failed: %s", exc)
         try:
             state = state_loader()
             secs = step(runner, state, passive_schedule, active_delay=active_delay,

@@ -75,7 +75,43 @@ class Runner:
             return
         recorder = self._corpus or CorpusRecorder(config.corpus_path, config.corpus_max_mb)
         bootstrap(config, self._api, recorder)          # mine → lexicon file + candidates
+        self._submit_query_candidates(config)           # push candidates to backend audit
         self._search_pass.set_grid(build_query_grid(config))   # rebuild → go live
+
+    def _submit_query_candidates(self, config) -> None:
+        """Push the just-mined candidates to the backend audit queue so a moderator can
+        approve them in the admin (Track A1). Best-effort."""
+        import json
+        path = getattr(config, "query_candidates_path", None)
+        if not path:
+            return
+        try:
+            with open(path, encoding="utf-8") as fh:
+                cands = json.load(fh)
+        except (OSError, ValueError):
+            return
+        items = [{"term": c["term"], "z": c.get("z", 0.0), "support": c.get("support", 0)}
+                 for c in (cands or []) if isinstance(c, dict) and c.get("term")]
+        if not items:
+            return
+        try:
+            self._api.submit_query_candidates(items)
+        except Exception as exc:  # noqa: BLE001 — audit push is best-effort
+            log.warning("submit query candidates failed: %s", exc)
+
+    def refresh_grid_from_approved(self, config) -> None:
+        """Periodic (~6h) tick: pull moderator-approved query terms from the backend audit
+        and rebuild the live grid so they take effect WITHOUT a restart. Best-effort;
+        no-op with no active search pass."""
+        from crawler.discovery import query_lexicon
+        from crawler.wiring import build_query_grid
+        if self._search_pass is None:
+            return
+        try:
+            query_lexicon.reload_backend_terms(self._api.list_approved_query_terms())
+            self._search_pass.set_grid(build_query_grid(config))
+        except Exception as exc:  # noqa: BLE001 — refresh is best-effort
+            log.warning("refresh grid from approved failed: %s", exc)
 
     def search_available(self) -> bool:
         """Whether ANY search provider (DDG or SearXNG) is currently healthy — used by the

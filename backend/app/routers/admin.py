@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.crud import admin_user as admin_user_crud
 from app.crud import blocked_host as blocked_host_crud
+from app.crud import query_term as query_term_crud
 from app.crud import category as category_crud
 from app.crud import offer as offer_crud
 from app.crud import source as source_crud
@@ -11,9 +12,11 @@ from app.crud import suggested_source as suggestion_crud
 from app.core.errors import validation_error
 from app.deps import get_current_admin, get_db, require_super_admin
 from app.models import OfferCategory, TargetCategory
-from app.models.enums import BlockedHostStatus, CreatedBy, OfferStatus, OfferType, SuggestionStatus
+from app.models.enums import (BlockedHostStatus, CreatedBy, OfferStatus, OfferType,
+                               QueryTermStatus, SuggestionStatus)
 from app.schemas.admin_user import AdminUserCreate, AdminUserOut
 from app.schemas.blocked_host import BlockedHostCreate, BlockedHostOut
+from app.schemas.query_term import QueryTermOut
 from app.schemas.category import CategoryCreate, CategoryOut, CategoryUpdate
 from app.schemas.common import Page
 from app.schemas.offer import OfferAdminOut, OfferCreate, OfferOut, OfferUpdate
@@ -206,6 +209,24 @@ def approve_host_candidate(host_id: int, db: Session = Depends(get_db),
 def reject_host_candidate(host_id: int, db: Session = Depends(get_db),
                           admin=Depends(get_current_admin)):
     return blocked_host_crud.reject(db, host_id, admin.id)
+
+
+@router.get("/query-terms", response_model=list[QueryTermOut])
+def list_query_terms(status: QueryTermStatus | None = None,
+                     db: Session = Depends(get_db), _=Depends(get_current_admin)):
+    return query_term_crud.list_terms(db, status)
+
+
+@router.post("/query-terms/{term_id}/approve", response_model=QueryTermOut)
+def approve_query_term(term_id: int, db: Session = Depends(get_db),
+                       admin=Depends(get_current_admin)):
+    return query_term_crud.approve(db, term_id, admin.id)
+
+
+@router.post("/query-terms/{term_id}/reject", response_model=QueryTermOut)
+def reject_query_term(term_id: int, db: Session = Depends(get_db),
+                      admin=Depends(get_current_admin)):
+    return query_term_crud.reject(db, term_id, admin.id)
 
 
 @router.post("/users", response_model=AdminUserOut)
