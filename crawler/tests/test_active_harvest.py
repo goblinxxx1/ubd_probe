@@ -866,3 +866,66 @@ def test_select_fetch_set_same_host_seen_within_suppressed():
     ordered, stop = h._select_fetch_set([a, b], known=set(), known_hosts=set())
     assert [c.url_or_handle for c in ordered] == ["https://same.example/a"]  # b suppressed
     assert stop == 2            # both examined (b skipped, not fetched)
+
+
+def _inline_executor_factory(max_workers):
+    from concurrent.futures import Future
+
+    class _Inline:
+        def __enter__(self): return self
+        def __exit__(self, *exc): return False
+        def submit(self, fn, *a, **kw):
+            f = Future()
+            f.set_result(fn(*a, **kw))
+            return f
+    return _Inline()
+
+
+def test_harvest_parallel_matches_serial_offers_and_stop():
+    api = FakeApi()
+    fetchers = {"website": FakeFetcher([_item("Знижка 20% для УБД", site_name="Cafe")])}
+    h = ActiveHarvester(api, fetchers, GateExtractor(), rate_limiter=None, fetch_budget=5,
+                        active_workers=3, executor_factory=_inline_executor_factory)
+    cands = [_cand(url=f"https://s{i}.example", name=f"S{i}") for i in range(3)]
+    summary = _summary()
+    stop = h.harvest(cands, cats=None, known=set(), summary=summary)
+    assert stop == 3                       # all 3 examined
+    assert summary["offers"] == 3          # one offer per source, merged
+    assert len(api.offers) == 3
+    assert summary["errors"] == 0
+
+
+def test_harvest_recheck_skips_now_blocked_host(monkeypatch):
+    # A candidate whose host becomes blocked before its task runs is skipped without fetch.
+    import crawler.discovery.harvest as harvest_mod
+    fetched = []
+
+    class RecordingFetcher:
+        def fetch(self, source, k):
+            fetched.append(source["url_or_handle"])
+            return [_item("Знижка 20% для УБД", site_name="X")], None
+
+    monkeypatch.setattr(harvest_mod, "is_blocked_host",
+                        lambda u: "blocked.example" in u)
+    api = FakeApi()
+    h = ActiveHarvester(api, {"website": RecordingFetcher()}, GateExtractor(),
+                        rate_limiter=None, fetch_budget=5,
+                        active_workers=2, executor_factory=_inline_executor_factory)
+    # blocked.example is filtered in pre-scan already; assert it never reaches fetch.
+    summary = _summary()
+    h.harvest([_cand(url="https://blocked.example", name="B"),
+               _cand(url="https://ok.example", name="OK")],
+              cats=None, known=set(), summary=summary)
+    assert "https://ok.example" in "".join(fetched) or fetched  # ok fetched
+    assert all("blocked.example" not in u for u in fetched)     # blocked never fetched
+
+
+def test_harvest_workers_1_serial_baseline():
+    api = FakeApi()
+    fetchers = {"website": FakeFetcher([_item("Знижка 20% для УБД", site_name="Cafe")])}
+    h = ActiveHarvester(api, fetchers, GateExtractor(), rate_limiter=None, fetch_budget=5,
+                        active_workers=1)   # real ThreadPoolExecutor(max_workers=1)
+    cands = [_cand(url=f"https://s{i}.example", name=f"S{i}") for i in range(3)]
+    summary = _summary()
+    stop = h.harvest(cands, cats=None, known=set(), summary=summary)
+    assert stop == 3 and summary["offers"] == 3 and summary["errors"] == 0

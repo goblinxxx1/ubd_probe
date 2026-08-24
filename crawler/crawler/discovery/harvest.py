@@ -1,4 +1,5 @@
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from crawler.discovery.attribution import attribute, build_page_ctx, _outbound_hosts
 from crawler.discovery.blocklist import is_blocked_host
@@ -36,7 +37,8 @@ class ActiveHarvester:
                  aggregator_max_domains=500, revisit_cooldown_seconds=0,
                  geo_block_store=None, media_blocker=None, media_autoblock_crawls=2,
                  lang_block_store=None, editorial_gate_enabled=True,
-                 source_hint_enabled=True):
+                 source_hint_enabled=True,
+                 active_workers=1, executor_factory=None):
         self._api = api
         self._fetchers = fetchers
         self._extractor = extractor
@@ -57,72 +59,53 @@ class ActiveHarvester:
         self._lang_block_store = lang_block_store
         self._editorial_gate_enabled = editorial_gate_enabled
         self._source_hint_enabled = source_hint_enabled
+        self._workers = max(1, int(active_workers))
+        self._executor_factory = executor_factory or (
+            lambda mw: ThreadPoolExecutor(max_workers=mw))
 
     def harvest(self, candidates, cats, known, summary, known_hosts=None) -> int:
         known_hosts = known_hosts or set()
-        used = 0
-        stop = 0
-        for idx, cand in enumerate(candidates):
-            if used >= self._budget:
-                return idx                    # budget break: idx..end untouched
-            stop = idx + 1
-            if cand.type not in _FETCHABLE:
-                continue
-            # Russia/Belarus signal anywhere in the URL — ccTLD/subdomain OR a city-code
-            # path segment (restoran.cafe/spb). Never fetch, AND pin the WHOLE host into the
-            # persistent geo-block so is_blocked_host drops it from every future feed/walk.
-            if cand.type == "website" and is_ru_by_geo(cand.url_or_handle):
-                if self._geo_block_store is not None:
-                    self._geo_block_store.add(cand.url_or_handle)
-                continue
-            # UA-only: never fetch/walk a foreign-ccTLD site (напр. .by). Гейт до
-            # витрати бюджету й до запису в domain_registry, тож іноземний хост не
-            # осідає й не ре-фідиться.
-            if cand.type == "website" and is_foreign_host(cand.url_or_handle):
-                continue
-            # Low-value: інституційні (gov/edu/mil/int) та глобальні платформи ніколи не
-            # джерело офера — гейт ДО обходу, щоб не палити бюджет на 88% сміття з видачі.
-            if cand.type == "website" and is_low_value_host(cand.url_or_handle):
-                continue
-            # Новинний хост (news/novyny/gazeta/… у мітці) — медіа, не джерело офера;
-            # гейт ДО обходу, щоб не краулити новини (groza-news.info тощо).
-            if cand.type == "website" and is_news_host(cand.url_or_handle):
-                continue
-            # Блокліст = не краулити взагалі: заблокований хост ніколи не фетчиться/
-            # не обходиться (не лише «не приписувати як провайдера»).
+        ordered_fetch, stop = self._select_fetch_set(candidates, known, known_hosts)
+        self._execute(ordered_fetch, cats, known, summary)
+        return stop
+
+    def _execute(self, ordered_fetch, cats, known, summary) -> None:
+        """Фаза 2 (паралельна): виконати обрані кандидати в пулі. Кожен таск на старті
+        re-check'ає execution-feedback гейти (is_blocked_host — уже з lang/media-блоками
+        цього проходу; known) і скіпає now-blocked без fetch. Per-task локальний summary,
+        злиття після join. Спільні обʼєкти (registry/corpus/aggregator/lang/known/
+        rate-limiter) уже потокобезпечні."""
+        def run_one(cand) -> dict:
+            local = {"offers": 0, "suggestions": 0, "errors": 0}
             if cand.type == "website" and is_blocked_host(cand.url_or_handle):
-                continue
-            # Revisit-cooldown: не ре-краулити домен, бачений у межах вікна cooldown
-            # (belt для фідів, крім DomainFeed/site:, що вже фільтрують через top()).
-            if (cand.type == "website" and self._revisit_cooldown and self._registry is not None
-                    and self._registry.seen_within(_host(cand.url_or_handle), self._revisit_cooldown)):
-                continue
+                return local                       # заблоковано конкурентним таском — скіп
             if normalize_ref(cand.type, cand.url_or_handle) in known:
-                continue
-            if (cand.type == "website" and not cand.bypass_host_skip
-                    and _host(cand.url_or_handle) in known_hosts):
-                continue
+                return local
             fetcher = self._fetchers.get(cand.type)
             if fetcher is None:
-                continue
-            used += 1
-            before_o, before_e = summary["offers"], summary["errors"]
+                return local
             structural = False
             try:
-                structural = self._harvest_one(cand, fetcher, cats, known, summary)
+                structural = self._harvest_one(cand, fetcher, cats, known, local)
             except Exception as exc:  # noqa: BLE001 — isolate per candidate
-                summary["errors"] += 1
+                local["errors"] += 1
                 log.warning("active harvest failed for %s: %s", cand.url_or_handle, exc)
             if self._registry is not None and cand.type == "website":
                 host = _host(cand.url_or_handle)
-                self._registry.record(host, summary["offers"] - before_o,
-                                      summary["errors"] - before_e,
+                self._registry.record(host, local["offers"], local["errors"],
                                       structural_provider=structural)
                 if (self._media_blocker is not None
                         and self._registry.media_block_due(host, self._media_autoblock_crawls)):
                     if self._media_blocker.block(host, cand.url_or_handle):
                         self._registry.mark_media_blocked(host)
-        return stop
+            return local
+
+        with self._executor_factory(self._workers) as ex:
+            futures = [ex.submit(run_one, c) for c in ordered_fetch]
+            for fut in as_completed(futures):
+                local = fut.result()
+                for k in local:
+                    summary[k] = summary.get(k, 0) + local[k]
 
     def _select_fetch_set(self, candidates, known, known_hosts):
         """Фаза 1 (серійна): застосувати чисті skip-гейти в порядку (з їх in-scan
