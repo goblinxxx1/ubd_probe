@@ -234,3 +234,25 @@ def test_record_back_compat_positional(tmp_path):
     r = _reg(tmp_path)
     r.record("x.ua", 1, 0)                       # old 3-arg call still works
     assert r.score("x.ua") == 1.0
+
+
+import threading
+
+
+def test_record_is_thread_safe_no_lost_updates(tmp_path):
+    """Concurrent record() on the SAME host from many threads must not lose updates:
+    the offers counter equals the number of recorded passes."""
+    r = _reg(tmp_path, offer_weight=1.0)
+    n = 200
+
+    def worker():
+        r.record("silpo.ua", offers=1, errors=0)
+
+    threads = [threading.Thread(target=worker) for _ in range(n)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert r._data["domains"]["silpo.ua"]["offers"] == n
+    assert r._data["domains"]["silpo.ua"]["passes"] == n
