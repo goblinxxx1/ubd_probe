@@ -124,6 +124,52 @@ class ActiveHarvester:
                         self._registry.mark_media_blocked(host)
         return stop
 
+    def _select_fetch_set(self, candidates, known, known_hosts):
+        """Фаза 1 (серійна): застосувати чисті skip-гейти в порядку (з їх in-scan
+        side-ефектами: geo_block.add) і відібрати кандидатів на fetch, обмежившись
+        бюджетом. `selected_hosts` точно відтворює серійну same-host `seen_within`-
+        супресію без реальних fetch'ів. Повертає (ordered_fetch, stop), де stop —
+        той самий індекс, що й серійний harvest."""
+        used = 0
+        stop = 0
+        selected = []
+        selected_hosts = set()
+        for idx, cand in enumerate(candidates):
+            if used >= self._budget:
+                return selected, idx          # budget break: idx..end untouched
+            stop = idx + 1
+            if cand.type not in _FETCHABLE:
+                continue
+            if cand.type == "website" and is_ru_by_geo(cand.url_or_handle):
+                if self._geo_block_store is not None:
+                    self._geo_block_store.add(cand.url_or_handle)
+                continue
+            if cand.type == "website" and is_foreign_host(cand.url_or_handle):
+                continue
+            if cand.type == "website" and is_low_value_host(cand.url_or_handle):
+                continue
+            if cand.type == "website" and is_news_host(cand.url_or_handle):
+                continue
+            if cand.type == "website" and is_blocked_host(cand.url_or_handle):
+                continue
+            host = _host(cand.url_or_handle) if cand.type == "website" else None
+            if (cand.type == "website" and self._revisit_cooldown and self._registry is not None
+                    and (self._registry.seen_within(host, self._revisit_cooldown)
+                         or host in selected_hosts)):
+                continue
+            if normalize_ref(cand.type, cand.url_or_handle) in known:
+                continue
+            if (cand.type == "website" and not cand.bypass_host_skip
+                    and host in known_hosts):
+                continue
+            if self._fetchers.get(cand.type) is None:
+                continue
+            used += 1
+            selected.append(cand)
+            if host is not None:
+                selected_hosts.add(host)
+        return selected, stop
+
     def _plan(self, cand):
         """(urls, domain, delay, foreign) for a candidate. Website candidates expand via
         the walker; without a walker, a website candidate is fetched only if root-or-target."""

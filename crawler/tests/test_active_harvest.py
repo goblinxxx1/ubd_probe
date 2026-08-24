@@ -839,3 +839,30 @@ def test_source_hint_disabled(monkeypatch):
     harv.harvest([_cand(url="https://visitlviv.com.ua/promo")], cats=None, known=set(),
                  summary=_summary())
     assert all("optimahotels" not in s["url_or_handle"] for s in api.suggested)
+
+
+def test_select_fetch_set_matches_serial_selection_and_stop():
+    # 3 fetchable website candidates, budget 2 -> selects first 2, stop stays within examined prefix.
+    api = FakeApi()
+    h = ActiveHarvester(api, {"website": FakeFetcher([])}, GateExtractor(),
+                        rate_limiter=None, fetch_budget=2)
+    cands = [_cand(url=f"https://s{i}.example", name=f"S{i}") for i in range(3)]
+    ordered, stop = h._select_fetch_set(cands, known=set(), known_hosts=set())
+    assert [c.url_or_handle for c in ordered] == ["https://s0.example", "https://s1.example"]
+    assert stop == 2            # budget breaks at idx 2 (used>=2 checked at top)
+
+
+def test_select_fetch_set_same_host_seen_within_suppressed():
+    # Two candidates share a host; with a revisit cooldown, the SECOND must not be selected
+    # (serial suppresses it via record->seen_within; pre-scan simulates via selected_hosts).
+    class Reg:
+        def seen_within(self, host, secs): return False   # nothing seen before this pass
+    api = FakeApi()
+    h = ActiveHarvester(api, {"website": FakeFetcher([])}, GateExtractor(),
+                        rate_limiter=None, fetch_budget=10,
+                        domain_registry=Reg(), revisit_cooldown_seconds=3600)
+    a = _cand(url="https://same.example/a", name="A")
+    b = _cand(url="https://same.example/b", name="B")
+    ordered, stop = h._select_fetch_set([a, b], known=set(), known_hosts=set())
+    assert [c.url_or_handle for c in ordered] == ["https://same.example/a"]  # b suppressed
+    assert stop == 2            # both examined (b skipped, not fetched)
