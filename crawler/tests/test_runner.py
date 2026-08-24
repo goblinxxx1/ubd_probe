@@ -653,3 +653,17 @@ def test_run_passive_workers_1_is_serial_baseline():
     assert summary["offers"] == 3
     assert summary["sources"] == 3
     assert summary["errors"] == 0
+
+
+def test_passive_gate_drops_non_genuine():
+    class DropGate:
+        def keep(self, cand): return False
+        def reset_breaker(self): pass
+    src = {"id": 1, "type": "website", "name": "Shop", "url_or_handle": "http://x"}
+    item = RawItem(source_id=1, platform="website", key="k",
+                   text="Знижка 20% для ветеранів", links=[])
+    api = FakeApi([src])
+    runner = Runner(api, {"website": FakeFetcher([item])}, get_extractor("heuristic"), _rl(),
+                    relevance_gate=DropGate())
+    summary = runner.run()
+    assert summary["offers"] == 0             # гейт відкинув

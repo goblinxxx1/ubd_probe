@@ -11,6 +11,8 @@ from crawler.discovery.promo_lexicon import seed_is_target
 from crawler.discovery.source_hint import business_domains_from_page
 from crawler.extract.aggregate import aggregate_page
 from crawler.extract.categories import resolve_offer_categories
+from crawler.judge.base import NullJudge
+from crawler.judge.gate import RelevanceGate
 from crawler.payloads import offer_payload
 from crawler.util.hosts import is_foreign_host, is_ru_by_geo
 
@@ -38,7 +40,8 @@ class ActiveHarvester:
                  geo_block_store=None, media_blocker=None, media_autoblock_crawls=2,
                  lang_block_store=None, editorial_gate_enabled=True,
                  source_hint_enabled=True,
-                 active_workers=1, executor_factory=None):
+                 active_workers=1, executor_factory=None,
+                 relevance_gate=None):
         self._api = api
         self._fetchers = fetchers
         self._extractor = extractor
@@ -62,6 +65,7 @@ class ActiveHarvester:
         self._workers = max(1, int(active_workers))
         self._executor_factory = executor_factory or (
             lambda mw: ThreadPoolExecutor(max_workers=mw))
+        self._gate = relevance_gate or RelevanceGate(NullJudge(), None)
 
     def harvest(self, candidates, cats, known, summary, known_hosts=None) -> int:
         known_hosts = known_hosts or set()
@@ -224,6 +228,8 @@ class ActiveHarvester:
             if attr is None:
                 continue
             offer = self._extractor.extract(item, attr.provider, cats)
+            if offer is None or not self._gate.keep(offer):
+                continue
             collected.append((offer, attr))
         if not collected:
             return structural_provider

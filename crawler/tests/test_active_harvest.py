@@ -969,3 +969,25 @@ def test_harvest_workers_1_serial_baseline():
     summary = _summary()
     stop = h.harvest(cands, cats=None, known=set(), summary=summary)
     assert stop == 3 and summary["offers"] == 3 and summary["errors"] == 0
+
+
+def test_active_gate_drops_non_genuine():
+    class DropGate:
+        def keep(self, cand): return False       # суддя каже: сміття
+        def reset_breaker(self): pass
+    api = FakeApi()
+    fetchers = {"website": FakeFetcher([_item("Знижка 20% для УБД", site_name="Cafe")])}
+    h = ActiveHarvester(api, fetchers, GateExtractor(), rate_limiter=None, fetch_budget=5,
+                        relevance_gate=DropGate())
+    summary = _summary()
+    h.harvest([_cand()], cats=None, known=set(), summary=summary)
+    assert len(api.offers) == 0 and summary["offers"] == 0   # відкинуто гейтом
+
+
+def test_active_default_gate_keeps():
+    api = FakeApi()
+    fetchers = {"website": FakeFetcher([_item("Знижка 20% для УБД", site_name="Cafe")])}
+    h = ActiveHarvester(api, fetchers, GateExtractor(), rate_limiter=None, fetch_budget=5)
+    summary = _summary()
+    h.harvest([_cand()], cats=None, known=set(), summary=summary)
+    assert len(api.offers) == 1               # дефолтний NullJudge-гейт лишає (зворотна сумісність)

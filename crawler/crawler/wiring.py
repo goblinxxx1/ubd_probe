@@ -27,6 +27,9 @@ from crawler.fetchers.facebook import FacebookFetcher
 from crawler.fetchers.instagram import InstagramFetcher
 from crawler.fetchers.telegram import TelegramFetcher
 from crawler.fetchers.website import WebsiteFetcher
+from crawler.judge.base import NullJudge
+from crawler.judge.cache import VerdictCache
+from crawler.judge.gate import RelevanceGate
 from crawler.ratelimit import DomainRateLimiter, RateLimiter
 from crawler.runner import Runner
 from crawler.schedule import PassiveSchedule
@@ -219,6 +222,16 @@ def build_runner(config) -> Runner:
         from crawler.discovery.media_autoblock import MediaAutoBlocker
         media_blocker = MediaAutoBlocker(api)
 
+    if config.judge_enabled and config.judge_url:
+        from crawler.judge.llama import LlamaCppJudge
+        judge = LlamaCppJudge(httpx.Client(base_url=config.judge_url),
+                              model=config.judge_model,
+                              timeout=config.judge_timeout_seconds)
+    else:
+        judge = NullJudge()
+    relevance_gate = RelevanceGate(judge, VerdictCache(config.judge_cache_path),
+                                   enabled=config.judge_enabled)
+
     if ((search_pass is not None or brand_feed is not None
          or osm_feed is not None or domain_feed is not None
          or aggregator_feed is not None)
@@ -239,7 +252,8 @@ def build_runner(config) -> Runner:
                                     lang_block_store=lang_block_store,
                                     editorial_gate_enabled=config.editorial_gate_enabled,
                                     source_hint_enabled=config.source_hint_enabled,
-                                    active_workers=config.active_workers)
+                                    active_workers=config.active_workers,
+                                    relevance_gate=relevance_gate)
     return Runner(api, fetchers, extractor, rate_limiter,
                   discovery=discovery, search_pass=search_pass, harvester=harvester,
                   brand_feed=brand_feed, freshness_ttl_days=config.freshness_ttl_days,
@@ -256,4 +270,5 @@ def build_runner(config) -> Runner:
                   revisit_cooldown_seconds=revisit_cooldown,
                   reject_ingestor=reject_ingestor,
                   first_crawl_budget=config.first_crawl_budget,
-                  passive_workers=config.passive_workers)
+                  passive_workers=config.passive_workers,
+                  relevance_gate=relevance_gate)
