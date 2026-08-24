@@ -166,7 +166,9 @@ class Runner:
         cats = CategoryIndex(self._api.list_target_categories(),
                              self._api.list_offer_categories())
         sources = self._api.list_sources(is_active=True)
-        known = {normalize_ref(s["type"], s["url_or_handle"]) for s in sources}
+        # Паралельні задачі фази 2 (ActiveHarvester._execute -> run_one) конкурентно
+        # роблять known.add()/x in known -> потрібна потокобезпечна множина.
+        known = LockedSet({normalize_ref(s["type"], s["url_or_handle"]) for s in sources})
         try:
             # Unconditional host-skip: active never fetches a host that is already an active
             # website source. Guarantees published/approved sources are left to the passive pass.

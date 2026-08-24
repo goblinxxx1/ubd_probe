@@ -920,6 +920,46 @@ def test_harvest_recheck_skips_now_blocked_host(monkeypatch):
     assert all("blocked.example" not in u for u in fetched)     # blocked never fetched
 
 
+def test_harvest_recheck_skips_host_blocked_mid_pass():
+    # Ізолюючий тест саме фази-2 re-check (а не фази-1 pre-scan, як у тесті вище, де
+    # is_blocked_host монкіпатчений ГЛОБАЛЬНО і хост відсіюється ще до re-check).
+    # Кандидат B проходить pre-scan фази 1 (його хост ще НЕ заблокований), але
+    # стає заблокованим побічним ефектом обробки кандидата A — ДО старту власної
+    # задачі B. З INLINE-екзекутором (синхронний, у порядку submit) задача A
+    # завершується повністю раніше за B, тож re-check у run_one для B бачить
+    # is_blocked_host("https://b.example") == True і скіпає БЕЗ fetch.
+    # is_blocked_host НЕ монкіпатчиться — використовується реальний
+    # blocklist.add_learned, щоб перевірити живий re-check-шлях.
+    blocklist.reload_learned(None)
+    api = FakeApi()
+
+    class SideEffectFetcher:
+        """Обробка a.example симулює виявлення, що b.example — медіа/агрегатор,
+        і вчить блоклист посеред проходу (до того, як задача B стартує)."""
+        def __init__(self):
+            self.fetched = []
+
+        def fetch(self, source, k):
+            url = source["url_or_handle"]
+            self.fetched.append(url)
+            if "a.example" in url:
+                blocklist.add_learned("b.example")
+            return [_item("Знижка 20% для УБД", site_name="X")], None
+
+    fetcher = SideEffectFetcher()
+    h = ActiveHarvester(api, {"website": fetcher}, GateExtractor(),
+                        rate_limiter=None, fetch_budget=5,
+                        active_workers=2, executor_factory=_inline_executor_factory)
+    try:
+        summary = _summary()
+        h.harvest([_cand(url="https://a.example", name="A"),
+                   _cand(url="https://b.example", name="B")],
+                  cats=None, known=set(), summary=summary)
+        assert fetcher.fetched == ["https://a.example"]  # A fetched; B skipped at re-check
+    finally:
+        blocklist.reload_learned(None)
+
+
 def test_harvest_workers_1_serial_baseline():
     api = FakeApi()
     fetchers = {"website": FakeFetcher([_item("Знижка 20% для УБД", site_name="Cafe")])}

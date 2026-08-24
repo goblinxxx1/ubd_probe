@@ -18,11 +18,9 @@ class FakeSearchPass:
         self._cands = cands
         self._drain = drain_cands or []
         self._site_discovery = site_discovery
-        self.called_with = None
         self.ran = False
     def run(self, known):
         self.ran = True
-        self.called_with = set(known)
         return self._cands
     def drain(self):
         return list(self._drain)
