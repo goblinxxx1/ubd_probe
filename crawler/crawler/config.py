@@ -42,6 +42,7 @@ class _RawSettings(BaseSettings):
     site_query_budget: int = 5
     freshness_ttl_days: int = 30
     passive_interval_seconds: int = 172800   # 48h default; passive source-crawl cadence
+    passive_workers: int = 4
     passive_state_path: str = "/data/passive_state.json"
     active_revisit_cooldown_days: int = 21
     brand_feed_enabled: bool = True
@@ -164,6 +165,7 @@ class Config:
     site_query_budget: int = 5
     freshness_ttl_days: int = 30
     passive_interval_seconds: int = 172800   # 48h default; passive source-crawl cadence
+    passive_workers: int = 4
     passive_state_path: str = "/data/passive_state.json"
     active_revisit_cooldown_days: int = 21
     brand_feed_enabled: bool = True
@@ -308,6 +310,7 @@ def from_settings(s: _RawSettings) -> Config:
         site_query_budget=s.site_query_budget,
         freshness_ttl_days=s.freshness_ttl_days,
         passive_interval_seconds=s.passive_interval_seconds,
+        passive_workers=s.passive_workers,
         passive_state_path=s.passive_state_path,
         active_revisit_cooldown_days=s.active_revisit_cooldown_days,
         brand_feed_enabled=s.brand_feed_enabled,

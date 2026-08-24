@@ -326,3 +326,13 @@ def test_query_terms_refresh_interval_default():
     cfg = Config(internal_api_url="x", crawler_api_key="k", extractor="heuristic",
                  active_discovery=False, request_timeout=1.0, min_delay_seconds=0.0)
     assert cfg.query_terms_refresh_interval_seconds == 21600
+
+
+def test_passive_workers_default_and_env(monkeypatch):
+    from crawler.config import load_config
+    cfg = load_config()
+    assert cfg.passive_workers == 4
+
+    monkeypatch.setenv("PASSIVE_WORKERS", "8")
+    cfg2 = load_config()
+    assert cfg2.passive_workers == 8
