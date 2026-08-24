@@ -129,6 +129,11 @@ class _RawSettings(BaseSettings):
     searxng_url: str = "http://searxng:8080"
     searxng_engines: str = "google,bing,duckduckgo,brave,mojeek,qwant,marginalia,wikidata"  # NO yandex (project rule); google/bing verified live-working from our residential IP
     searxng_min_delay: float = 4.0
+    judge_enabled: bool = True
+    judge_url: str = "http://llama:8080"
+    judge_model: str = "qwen2.5-7b-instruct"
+    judge_timeout_seconds: float = 30.0
+    judge_cache_path: str = "/data/judge_cache.json"
 
 
 @dataclass
@@ -253,6 +258,11 @@ class Config:
     searxng_url: str = "http://searxng:8080"
     searxng_engines: str = "google,bing,duckduckgo,brave,mojeek,qwant,marginalia,wikidata"
     searxng_min_delay: float = 4.0
+    judge_enabled: bool = True
+    judge_url: str = "http://llama:8080"
+    judge_model: str = "qwen2.5-7b-instruct"
+    judge_timeout_seconds: float = 30.0
+    judge_cache_path: str = "/data/judge_cache.json"
 
 
 def _parse_accounts(platform: str, raw: str) -> list[BotCredential]:
@@ -399,6 +409,11 @@ def from_settings(s: _RawSettings) -> Config:
         searxng_url=s.searxng_url,
         searxng_engines=s.searxng_engines,
         searxng_min_delay=s.searxng_min_delay,
+        judge_enabled=s.judge_enabled,
+        judge_url=s.judge_url,
+        judge_model=s.judge_model,
+        judge_timeout_seconds=s.judge_timeout_seconds,
+        judge_cache_path=s.judge_cache_path,
     )
 
 

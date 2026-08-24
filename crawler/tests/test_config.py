@@ -346,3 +346,12 @@ def test_active_workers_default_and_env(monkeypatch):
     monkeypatch.setenv("ACTIVE_WORKERS", "6")
     cfg2 = load_config()
     assert cfg2.active_workers == 6
+
+
+def test_judge_config_defaults(monkeypatch):
+    from crawler.config import load_config
+    cfg = load_config()
+    assert cfg.judge_enabled is True
+    assert cfg.judge_model == "qwen2.5-7b-instruct"
+    monkeypatch.setenv("JUDGE_ENABLED", "false")
+    assert load_config().judge_enabled is False

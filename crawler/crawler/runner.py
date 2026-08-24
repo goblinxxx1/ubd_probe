@@ -9,6 +9,8 @@ from crawler.discovery.passive import extract_source_candidates, normalize_ref
 from crawler.extract.aggregate import aggregate_page
 from crawler.extract.base import CategoryIndex
 from crawler.extract.categories import resolve_offer_categories
+from crawler.judge.base import NullJudge
+from crawler.judge.gate import RelevanceGate
 from crawler.models import SourceCandidate
 from crawler.payloads import offer_payload, suggestion_payload
 from crawler.util.locked_set import LockedSet
@@ -27,7 +29,8 @@ class Runner:
                  osm_feed=None, aggregator_feed=None,
                  passive_schedule=None, now=time.time, revisit_cooldown_seconds=0,
                  reject_ingestor=None, first_crawl_budget=0,
-                 passive_workers=1, executor_factory=None):
+                 passive_workers=1, executor_factory=None,
+                 relevance_gate=None):
         self._api = api_client
         self._fetchers = fetchers
         self._extractor = extractor
@@ -57,6 +60,7 @@ class Runner:
         self._passive_workers = max(1, int(passive_workers))
         self._executor_factory = executor_factory or (
             lambda mw: ThreadPoolExecutor(max_workers=mw))
+        self._gate = relevance_gate or RelevanceGate(NullJudge(), None)
 
     def _fetch_for(self, source: dict, last_seen_key):
         fetcher = self._fetchers.get(source["type"])
@@ -146,6 +150,7 @@ class Runner:
         ddg_allowed=False (global backoff): run everything DDG-INDEPENDENT — the cache
         drain, all four feeds, harvest — and skip only the DDG legs (due-walk search +
         site:). Default True = full pass (byte-identical to before)."""
+        self._gate.reset_breaker()
         summary = self._empty_summary()
         if self._harvester is None:
             return summary
@@ -281,6 +286,7 @@ class Runner:
         рідкому циклі. Джерела краулляться ПАРАЛЕЛЬНО (passive_workers потоків); per-domain
         ввічливість забезпечує per-domain lock усередині DomainRateLimiter. Кожна задача
         накопичує у СВІЙ локальний summary; підсумки зливаються після завершення всіх задач."""
+        self._gate.reset_breaker()
         cats = CategoryIndex(self._api.list_target_categories(),
                              self._api.list_offer_categories())
         sources = self._api.list_sources(is_active=True)
@@ -369,7 +375,7 @@ class Runner:
             cand = self._extractor.extract(item, source["name"], cats)
             if self._corpus is not None:
                 self._corpus.record(item, cand is not None)
-            if cand is not None:
+            if cand is not None and self._gate.keep(cand):
                 key = cand.article_url
                 if key not in groups:
                     groups[key] = []
