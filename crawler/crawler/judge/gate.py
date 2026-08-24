@@ -34,5 +34,8 @@ class RelevanceGate:
             log.warning("relevance judge unavailable, degrading to keep-all this pass: %s", exc)
             return True
         if content_hash and self._cache is not None:
-            self._cache.put(content_hash, v)
+            try:
+                self._cache.put(content_hash, v)
+            except Exception as exc:  # noqa: BLE001 — запис кешу best-effort, не блокує офер
+                log.warning("verdict cache write failed: %s", exc)
         return v.genuine and v.page_scoped

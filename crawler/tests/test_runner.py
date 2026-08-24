@@ -666,4 +666,4 @@ def test_passive_gate_drops_non_genuine():
     runner = Runner(api, {"website": FakeFetcher([item])}, get_extractor("heuristic"), _rl(),
                     relevance_gate=DropGate())
     summary = runner.run()
-    assert summary["offers"] == 0             # gate dropped it
+    assert summary["offers"] == 0             # гейт відкинув

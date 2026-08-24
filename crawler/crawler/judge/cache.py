@@ -38,11 +38,10 @@ class VerdictCache:
             self._data[content_hash] = {"genuine": verdict.genuine,
                                         "page_scoped": verdict.page_scoped,
                                         "reason": verdict.reason}
-            snapshot = dict(self._data)
-        directory = os.path.dirname(self._path)
-        if directory:
-            os.makedirs(directory, exist_ok=True)
-        tmp = f"{self._path}.tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
-            json.dump(snapshot, f, ensure_ascii=False)
-        os.replace(tmp, self._path)
+            directory = os.path.dirname(self._path)
+            if directory:
+                os.makedirs(directory, exist_ok=True)
+            tmp = f"{self._path}.tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(self._data, f, ensure_ascii=False)
+            os.replace(tmp, self._path)
