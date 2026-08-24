@@ -98,7 +98,9 @@ services:
       -hf Qwen/Qwen2.5-7B-Instruct-GGUF:Q4_K_M
       --host 0.0.0.0 --port 8080 --ctx-size 4096
     volumes:
-      - ubd-llama-models:/root/.cache/llama.cpp
+      # llama.cpp `-hf` завантажує GGUF у HuggingFace-hub кеш (не llama.cpp-кеш) —
+      # монтуємо волюм саме туди, щоб ~5ГБ моделі персистились і не перекачувались.
+      - ubd-llama-models:/root/.cache/huggingface
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
       interval: 30s
