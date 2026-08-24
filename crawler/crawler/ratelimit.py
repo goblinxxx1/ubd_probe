@@ -21,11 +21,12 @@ class RateLimiter:
 
 
 class DomainRateLimiter:
-    """Per-domain minimum-delay limiter. The per-call `delay` (e.g. robots Crawl-delay)
-    raises the floor for that call; each domain is tracked independently. Thread-safe:
-    a short guard lock protects the per-domain lock registry; each domain has its OWN
-    lock held across the read-modify-write + sleep, so same-domain callers serialize
-    (politeness preserved) while different domains overlap."""
+    """Per-domain лімітер мінімальної затримки. Аргумент `delay` для конкретного виклику
+    (напр. robots Crawl-delay) піднімає поріг лише для цього виклику; кожен домен
+    відстежується незалежно. Потокобезпечний: короткий guard-лок захищає реєстр
+    per-domain локів; кожен домен має ВЛАСНИЙ лок, утримуваний на всьому read-modify-write
+    + sleep, тож виклики того самого домену серіалізуються (ввічливість збережена),
+    а різні домени виконуються паралельно."""
 
     def __init__(self, min_delay: float, sleep=time.sleep, monotonic=time.monotonic):
         self._min_delay = min_delay

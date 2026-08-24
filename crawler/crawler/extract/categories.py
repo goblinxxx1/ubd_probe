@@ -11,6 +11,8 @@ def resolve_offer_categories(api, cats, matches) -> list[int]:
         row = by_slug.get(slug)
         if row is None:
             row = api.create_offer_category(name, slug)
+            # безпечно під конкурентністю: list.append атомарний під GIL, а бекендовий
+            # get_or_create_category ідемпотентний за slug
             cats.offer.append(row)
             by_slug[slug] = row
         ids.append(row["id"])

@@ -275,7 +275,7 @@ class Runner:
             state.mark_harvested(done)
 
     def run_passive(self) -> dict:
-        """Re-confirm approved sources (freshness) + expire stale source-offers. Виконується на
+        """Повторно підтверджує approved-джерела (свіжість) + прострочує застарілі source-офери. Виконується на
         рідкому циклі. Джерела краулляться ПАРАЛЕЛЬНО (passive_workers потоків); per-domain
         ввічливість забезпечує per-domain lock усередині DomainRateLimiter. Кожна задача
         накопичує у СВІЙ локальний summary; підсумки зливаються після завершення всіх задач."""
@@ -374,6 +374,8 @@ class Runner:
                     order.append(key)
                 groups[key].append(cand)
             for sc in extract_source_candidates(item, known):
+                # check-then-add по known не атомарний як послідовність під конкурентністю —
+                # зрідка можлива дублююча пропозиція; нешкідливо, бекендова черга пропозицій дедупить
                 self._api.submit_suggestion(suggestion_payload(sc))
                 known.add(normalize_ref(sc.type, sc.url_or_handle))
                 summary["suggestions"] += 1

@@ -1,4 +1,5 @@
 import json
+import threading
 
 from crawler.discovery.domain_registry import DomainRegistry
 
@@ -234,9 +235,6 @@ def test_record_back_compat_positional(tmp_path):
     r = _reg(tmp_path)
     r.record("x.ua", 1, 0)                       # old 3-arg call still works
     assert r.score("x.ua") == 1.0
-
-
-import threading
 
 
 def test_record_is_thread_safe_no_lost_updates(tmp_path):

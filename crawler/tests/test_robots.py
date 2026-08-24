@@ -1,4 +1,5 @@
 import json
+import threading
 
 from crawler.discovery.robots import ParsedRobots, RobotsPolicy
 
@@ -90,3 +91,29 @@ def test_corrupt_cache_file_starts_clean(tmp_path):
     client = FakeClient(text=ROBOTS_TXT)
     pol = RobotsPolicy(client, NoWait(), path, ttl_seconds=1000)
     assert pol.get("shop.ua").crawl_delay() == 7.0
+
+
+def test_concurrent_get_does_not_corrupt_cache_file(tmp_path):
+    """Паралельні walker-и б'ють в один RobotsPolicy для РІЗНИХ доменів. get() пише у
+    self._data і в файл (fixed tmp-шлях) — без локу два потоки можуть гонитись на цьому
+    tmp-шляху й пошкодити robots.json. Лок серіалізує запис; мережевий fetch лишається
+    поза локом."""
+    path = str(tmp_path / "r.json")
+    client = FakeClient(text=ROBOTS_TXT)
+    pol = RobotsPolicy(client, NoWait(), path, ttl_seconds=1000)
+    n = 12
+    domains = [f"d{i}.ua" for i in range(n)]
+
+    def worker(domain):
+        pol.get(domain)
+
+    threads = [threading.Thread(target=worker, args=(d,)) for d in domains]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    with open(path, encoding="utf-8") as f:
+        saved = json.load(f)   # raises if the file was corrupted by a racing write
+    for d in domains:
+        assert d in saved

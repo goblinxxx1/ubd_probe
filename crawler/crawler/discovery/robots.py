@@ -5,6 +5,7 @@ any failure yields an allow-all policy. Mirrors the BrandDomainCache persistence
 import json
 import logging
 import os
+import threading
 import time
 from urllib.robotparser import RobotFileParser
 
@@ -49,6 +50,7 @@ class RobotsPolicy:
         self._ttl = ttl_seconds
         self._clock = clock
         self._data = self._load()
+        self._lock = threading.Lock()
 
     def _load(self) -> dict:
         try:
@@ -74,12 +76,13 @@ class RobotsPolicy:
         entry = self._data.get(domain)
         if isinstance(entry, dict) and self._fresh(entry):
             return ParsedRobots(entry.get("text", ""))
-        text = self._fetch(domain)
-        self._data[domain] = {"fetched_at": self._clock(), "text": text}
-        try:
-            self._save()
-        except OSError as exc:  # noqa: BLE001 — cache write is best-effort
-            log.warning("robots cache save failed: %s", exc)
+        text = self._fetch(domain)          # мережа — поза локом (має власний per-domain rl.wait)
+        with self._lock:
+            self._data[domain] = {"fetched_at": self._clock(), "text": text}
+            try:
+                self._save()
+            except OSError as exc:  # noqa: BLE001 — запис кешу best-effort
+                log.warning("robots cache save failed: %s", exc)
         return ParsedRobots(text)
 
     def _fetch(self, domain: str) -> str:
