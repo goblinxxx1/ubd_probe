@@ -126,7 +126,7 @@ def test_add_learned_blocks_host_immediately():
 
 
 def test_add_learned_is_thread_safe_no_lost_update():
-    blocklist.reload_learned(None)          # start from a clean learned set
+    blocklist.reload_learned(None)          # почати з чистого learned-набору
     n = 300
 
     def worker(i):
@@ -137,6 +137,6 @@ def test_add_learned_is_thread_safe_no_lost_update():
         t.start()
     for t in threads:
         t.join()
-    # every host must be present -> none lost to a racing union
+    # кожен хост має бути присутній -> жоден не загублений гонкою унії
     assert all(blocklist.is_blocked_host(f"learned{i}.example") for i in range(n))
-    blocklist.reload_learned(None)          # cleanup: don't leak state to other tests
+    blocklist.reload_learned(None)          # прибирання: не лишати стан іншим тестам

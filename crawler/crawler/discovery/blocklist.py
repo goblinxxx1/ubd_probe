@@ -46,11 +46,11 @@ _GEO_BLOCKED: frozenset[str] = frozenset()
 # fetched/walked/re-fed again. Separate slot from _GEO_BLOCKED and _LEARNED.
 _LANG_BLOCKED: frozenset[str] = frozenset()
 
-# Guards the four mutators below: active-harvest candidates now run on a
-# thread pool, and each rebinds a module-global frozenset (read-modify-write).
-# Without the lock, two concurrent unions can race and lose one host (lost
-# update). Readers (is_blocked_host) stay lock-free — a bare-name read of a
-# frozenset reference is atomic, so it always observes an old-or-new set.
+# Захищає чотири мутатори нижче: кандидати активного harvest тепер виконуються в
+# пулі потоків, і кожен ребайндить модульний глобал-frozenset (read-modify-write).
+# Без локу дві конкурентні унії можуть зіткнутись і загубити один хост (lost
+# update). Читачі (is_blocked_host) лишаються lock-free — читання голого імені
+# посилання на frozenset атомарне, тож завжди бачить старий-або-новий набір.
 _LOCK = threading.Lock()
 
 
