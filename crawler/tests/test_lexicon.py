@@ -92,3 +92,35 @@ def test_kafe_matches_but_not_kafedra():
 def test_sushi_matches_but_not_sushinnia():
     assert "food" in {s for _, s in classify("замовити суші", OFFER_LEXICON)}
     assert "food" not in {s for _, s in classify("сушіння білизни надворі", OFFER_LEXICON)}
+
+
+def test_target_abbrev_and_full_phrase_with_declensions():
+    """Кожна категорія має ловитись і абревіатурою, і повним текстом у відмінках."""
+    def slugs(t):
+        return {s for _, s in classify(t, TARGET_LEXICON)}
+    # НГУ: абревіатура, злите, повне у відмінках
+    for t in ("НГУ", "нацгвардія", "національна гвардія України",
+              "бійцям національної гвардії", "гвардійцям"):
+        assert "ngu" in slugs(t), t
+    # ТрО: абревіатура + повний текст у відмінках
+    for t in ("ТрО", "сили ТрО", "територіальна оборона",
+              "бійцям територіальної оборони"):
+        assert "warrior" in slugs(t), t
+    # ЗСУ: абревіатура + повний текст у відмінках
+    for t in ("ЗСУ", "збройні сили України", "військовослужбовцям Збройних Сил"):
+        assert "warrior" in slugs(t), t
+    # ДСНС: абревіатура + повний текст (стандартна форма назви)
+    for t in ("ДСНС", "державна служба з надзвичайних ситуацій",
+              "працівникам з надзвичайних ситуацій"):
+        assert "dsns" in slugs(t), t
+
+
+def test_target_no_false_positives_on_homographs():
+    """Guard'и: маркетинг/побутові слова не мають чіпати категорії захисників."""
+    def slugs(t):
+        return {s for _, s in classify(t, TARGET_LEXICON)}
+    assert "warrior" not in slugs("троянда для коханої")        # ТрО-guard
+    assert "warrior" not in slugs("тролейбусний маршрут")
+    assert "warrior" not in slugs("збройний напад пограбування")  # не «збройних сил»
+    assert "dsns" not in slugs("надзвичайна знижка сьогодні")   # не «надзвичайних ситуац»
+    assert "ngu" not in slugs("авангард моди у гардеробі")      # не «гвард» окремим словом
