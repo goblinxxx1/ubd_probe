@@ -49,3 +49,25 @@ def test_store_missing_file_is_empty(tmp_path):
     store = LangBlockStore(str(tmp_path / "nope.json")).load()
     assert store.hosts() == frozenset()
     assert is_blocked_host("justcolor.net") is False
+
+
+import threading
+
+
+def test_lang_block_add_is_thread_safe(tmp_path):
+    from crawler.discovery.lang_block import LangBlockStore
+    s = LangBlockStore(str(tmp_path / "lang.json"))
+    n = 200
+
+    def worker(i):
+        s.add(f"h{i}.by")
+
+    threads = [threading.Thread(target=worker, args=(i,)) for i in range(n)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert len(s.hosts()) == n
+    import json
+    with open(str(tmp_path / "lang.json"), encoding="utf-8") as f:
+        assert len(json.load(f)) == n

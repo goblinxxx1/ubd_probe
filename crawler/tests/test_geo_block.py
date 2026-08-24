@@ -50,3 +50,25 @@ def test_store_missing_file_is_empty(tmp_path):
     store = GeoBlockStore(str(tmp_path / "nope.json")).load()
     assert store.hosts() == frozenset()
     assert is_blocked_host("restoran.cafe") is False
+
+
+import threading
+
+
+def test_geo_block_add_is_thread_safe(tmp_path):
+    from crawler.discovery.geo_block import GeoBlockStore
+    s = GeoBlockStore(str(tmp_path / "geo.json"))
+    n = 200
+
+    def worker(i):
+        s.add(f"h{i}.ru")
+
+    threads = [threading.Thread(target=worker, args=(i,)) for i in range(n)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert len(s.hosts()) == n           # none lost
+    import json
+    with open(str(tmp_path / "geo.json"), encoding="utf-8") as f:
+        assert len(json.load(f)) == n    # file valid + complete

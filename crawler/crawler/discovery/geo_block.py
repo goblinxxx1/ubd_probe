@@ -9,6 +9,7 @@ respects it everywhere at once."""
 import json
 import logging
 import os
+import threading
 
 from crawler.discovery import blocklist
 from crawler.util.hosts import bare_host
@@ -20,6 +21,7 @@ class GeoBlockStore:
     def __init__(self, path: str):
         self._path = path
         self._hosts: set[str] = set()
+        self._lock = threading.Lock()
 
     def load(self) -> "GeoBlockStore":
         try:
@@ -37,12 +39,15 @@ class GeoBlockStore:
     def add(self, host_or_url: str | None) -> bool:
         """Pin a host (accepts a full URL). Returns True if newly added."""
         h = bare_host(host_or_url)
-        if not h or h in self._hosts:
+        if not h:
             return False
-        self._hosts.add(h)
-        self._save()
-        self._push()
-        return True
+        with self._lock:
+            if h in self._hosts:
+                return False
+            self._hosts.add(h)
+            self._save()
+            self._push()
+            return True
 
     def _push(self) -> None:
         blocklist.reload_geo_blocked(self._hosts)

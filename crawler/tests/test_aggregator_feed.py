@@ -68,3 +68,25 @@ def test_feed_rotates_window(tmp_path):
     assert [c.name for c in feed.candidates(set())] == ["a.ua", "b.ua"]
     assert [c.name for c in feed.candidates(set())] == ["c.ua", "d.ua"]
     assert [c.name for c in feed.candidates(set())] == ["a.ua", "b.ua"]
+
+
+import threading
+
+
+def test_aggregator_store_add_is_thread_safe(tmp_path):
+    from crawler.discovery.aggregator_feed import AggregatorDomainStore
+    s = AggregatorDomainStore(str(tmp_path / "agg.json"))
+    n = 200
+
+    def worker(i):
+        s.add([f"h{i}.ua"], cap=10_000)
+
+    threads = [threading.Thread(target=worker, args=(i,)) for i in range(n)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert len(s.domains()) == n         # none lost under concurrent read-modify-write
+    import json
+    with open(str(tmp_path / "agg.json"), encoding="utf-8") as f:
+        json.load(f)                     # valid JSON, not corrupted

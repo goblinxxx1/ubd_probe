@@ -6,6 +6,7 @@ import copy
 import json
 import logging
 import os
+import threading
 
 from crawler.discovery.passive import normalize_ref
 from crawler.models import SourceCandidate
@@ -22,6 +23,7 @@ class AggregatorDomainStore:
     def __init__(self, path, data=None):
         self._path = path
         self._data = data if data is not None else json.loads(json.dumps(_EMPTY))
+        self._lock = threading.Lock()
 
     @classmethod
     def load(cls, path) -> "AggregatorDomainStore":
@@ -44,20 +46,22 @@ class AggregatorDomainStore:
         return int(self._data.get("cursor", 0))
 
     def set_cursor(self, value: int) -> None:
-        self._data["cursor"] = int(value)
-        self._save()
+        with self._lock:
+            self._data["cursor"] = int(value)
+            self._save()
 
     def add(self, hosts, cap: int) -> None:
-        cur = list(self._data.get("hosts", []))
-        seen = set(cur)
-        for h in sorted(hosts):
-            if h and h not in seen:
-                cur.append(h)
-                seen.add(h)
-        if len(cur) > cap:
-            cur = cur[len(cur) - cap:]      # keep newest cap, drop oldest from the front
-        self._data["hosts"] = cur
-        self._save()
+        with self._lock:
+            cur = list(self._data.get("hosts", []))
+            seen = set(cur)
+            for h in sorted(hosts):
+                if h and h not in seen:
+                    cur.append(h)
+                    seen.add(h)
+            if len(cur) > cap:
+                cur = cur[len(cur) - cap:]      # keep newest cap, drop oldest from the front
+            self._data["hosts"] = cur
+            self._save()
 
     def _save(self) -> None:
         directory = os.path.dirname(self._path)
