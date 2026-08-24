@@ -2,6 +2,7 @@
 
 import json
 import os
+import threading
 import time
 
 from crawler.learn.labeler import label_item
@@ -22,6 +23,7 @@ class CorpusRecorder:
     def __init__(self, path: str, max_mb: float):
         self._path = path
         self._max_bytes = int(max_mb * 1024 * 1024)
+        self._lock = threading.Lock()  # серіалізує append+ротацію між потоками
 
     def record(self, item, extracted_is_offer: bool, *, snowball: bool = False) -> None:
         rec = label_item(item, extracted_is_offer)
@@ -33,10 +35,11 @@ class CorpusRecorder:
             "url": getattr(item, "url", None) or "",
             "snowball": snowball, "ts": int(time.time()),
         }
-        os.makedirs(os.path.dirname(self._path) or ".", exist_ok=True)
-        with open(self._path, "a", encoding="utf-8", newline="") as fh:
-            fh.write(json.dumps(row, ensure_ascii=False) + "\n")
-        self._rotate()
+        with self._lock:
+            os.makedirs(os.path.dirname(self._path) or ".", exist_ok=True)
+            with open(self._path, "a", encoding="utf-8", newline="") as fh:
+                fh.write(json.dumps(row, ensure_ascii=False) + "\n")
+            self._rotate()
 
     def _rotate(self) -> None:
         try:

@@ -1,4 +1,5 @@
 import json
+import threading
 
 from crawler.learn.corpus import CorpusRecorder, read_corpus
 from crawler.models import RawItem
@@ -49,3 +50,23 @@ def test_corpus_row_has_source_url(tmp_path):
     CorpusRecorder(p, max_mb=50).record(it, extracted_is_offer=True)
     rows = read_corpus(p)
     assert rows[0]["url"] == "https://blog.example/a"
+
+
+def test_corpus_record_is_thread_safe(tmp_path):
+    """Конкурентні record() не мають перемішувати/псувати рядки: кожен запис
+    виживає як окремий валідний JSON-рядок."""
+    path = str(tmp_path / "corpus.jsonl")
+    rec = CorpusRecorder(path, max_mb=50.0)
+    n = 200
+
+    def worker(i):
+        rec.record(_item(f"row-{i}"), extracted_is_offer=bool(i % 2))
+
+    threads = [threading.Thread(target=worker, args=(i,)) for i in range(n)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    rows = read_corpus(path)
+    assert len(rows) == n     # жодного втраченого чи пошкодженого (read_corpus парсить кожен рядок)
