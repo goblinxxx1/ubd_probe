@@ -275,7 +275,7 @@ class Runner:
             state.mark_harvested(done)
 
     def run_passive(self) -> dict:
-        """Re-confirm approved sources (freshness) + expire stale source-offers. Runs на
+        """Re-confirm approved sources (freshness) + expire stale source-offers. Виконується на
         рідкому циклі. Джерела краулляться ПАРАЛЕЛЬНО (passive_workers потоків); per-domain
         ввічливість забезпечує per-domain lock усередині DomainRateLimiter. Кожна задача
         накопичує у СВІЙ локальний summary; підсумки зливаються після завершення всіх задач."""
