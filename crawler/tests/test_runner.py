@@ -594,3 +594,62 @@ def test_passive_does_not_skip_a_productive_source(tmp_path):
     runner.run_passive()
     runner.run_passive()
     assert fetcher.seen == ["https://shop.ua", "https://shop.ua"]   # crawled both passes
+
+
+def _inline_executor_factory(max_workers):
+    """Детермінований замінник ThreadPoolExecutor: виконує кожну submit-задачу
+    синхронно одразу при виклику, щоб тестувати логіку run_passive без реальних гонок."""
+    from concurrent.futures import Future
+
+    class _Inline:
+        def __enter__(self): return self
+        def __exit__(self, *exc): return False
+        def submit(self, fn, *a, **kw):
+            f = Future()
+            f.set_result(fn(*a, **kw))
+            return f
+    return _Inline()
+
+
+def test_run_passive_parallel_sums_summary_across_sources():
+    srcs = [{"id": i, "type": "website", "name": f"S{i}",
+             "url_or_handle": f"http://x{i}"} for i in range(3)]
+    item = RawItem(source_id=1, platform="website", key="k",
+                   text="Знижка 20% для ветеранів", links=[])
+    api = FakeApi(srcs)
+    runner = Runner(api, {"website": FakeFetcher([item])}, get_extractor("heuristic"),
+                    _rl(), passive_workers=3,
+                    executor_factory=_inline_executor_factory)
+    summary = runner.run_passive()
+    assert summary["offers"] == 3         # one offer per source, all merged
+    assert summary["sources"] == 3
+    assert summary["errors"] == 0
+    assert summary["expired"] == 2        # expire_stale still runs once, after join
+
+
+def test_run_passive_parallel_isolates_source_failure():
+    good = {"id": 1, "type": "website", "name": "S1", "url_or_handle": "http://x"}
+    bad = {"id": 2, "type": "telegram", "name": "S2", "url_or_handle": "@chan"}
+    item = RawItem(source_id=1, platform="website", key="k",
+                   text="Акція 10% для військових", links=[])
+    api = FakeApi([bad, good])
+    fetchers = {"website": FakeFetcher([item]), "telegram": BoomFetcher()}
+    runner = Runner(api, fetchers, get_extractor("heuristic"), _rl(),
+                    passive_workers=2, executor_factory=_inline_executor_factory)
+    summary = runner.run_passive()
+    assert summary["errors"] == 1
+    assert summary["offers"] == 1
+
+
+def test_run_passive_workers_1_is_serial_baseline():
+    srcs = [{"id": i, "type": "website", "name": f"S{i}",
+             "url_or_handle": f"http://x{i}"} for i in range(3)]
+    item = RawItem(source_id=1, platform="website", key="k",
+                   text="Знижка 20% для ветеранів", links=[])
+    api = FakeApi(srcs)
+    runner = Runner(api, {"website": FakeFetcher([item])}, get_extractor("heuristic"),
+                    _rl(), passive_workers=1)   # real ThreadPoolExecutor(max_workers=1)
+    summary = runner.run_passive()
+    assert summary["offers"] == 3
+    assert summary["sources"] == 3
+    assert summary["errors"] == 0

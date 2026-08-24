@@ -1,5 +1,6 @@
 import logging
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from itertools import zip_longest
 
 from crawler.discovery.blocklist import is_blocked_host
@@ -10,6 +11,7 @@ from crawler.extract.base import CategoryIndex
 from crawler.extract.categories import resolve_offer_categories
 from crawler.models import SourceCandidate
 from crawler.payloads import offer_payload, suggestion_payload
+from crawler.util.locked_set import LockedSet
 
 log = logging.getLogger(__name__)
 
@@ -24,7 +26,8 @@ class Runner:
                  site_planner=None, site_state=None, site_query_budget=5,
                  osm_feed=None, aggregator_feed=None,
                  passive_schedule=None, now=time.time, revisit_cooldown_seconds=0,
-                 reject_ingestor=None, first_crawl_budget=0):
+                 reject_ingestor=None, first_crawl_budget=0,
+                 passive_workers=1, executor_factory=None):
         self._api = api_client
         self._fetchers = fetchers
         self._extractor = extractor
@@ -51,6 +54,9 @@ class Runner:
         self._revisit_cooldown = revisit_cooldown_seconds
         self._reject_ingestor = reject_ingestor
         self._first_crawl_budget = first_crawl_budget
+        self._passive_workers = max(1, int(passive_workers))
+        self._executor_factory = executor_factory or (
+            lambda mw: ThreadPoolExecutor(max_workers=mw))
 
     def _fetch_for(self, source: dict, last_seen_key):
         fetcher = self._fetchers.get(source["type"])
@@ -269,20 +275,33 @@ class Runner:
             state.mark_harvested(done)
 
     def run_passive(self) -> dict:
-        """Re-confirm approved sources (freshness) + expire stale source-offers. Runs on a
-        rare cadence — sources change slowly and expiry TTL (30d) is far longer."""
+        """Re-confirm approved sources (freshness) + expire stale source-offers. Runs на
+        рідкому циклі. Джерела краулляться ПАРАЛЕЛЬНО (passive_workers потоків); per-domain
+        ввічливість забезпечує per-domain lock усередині DomainRateLimiter. Кожна задача
+        накопичує у СВІЙ локальний summary; підсумки зливаються після завершення всіх задач."""
         cats = CategoryIndex(self._api.list_target_categories(),
                              self._api.list_offer_categories())
         sources = self._api.list_sources(is_active=True)
-        known = {normalize_ref(s["type"], s["url_or_handle"]) for s in sources}
+        known = LockedSet({normalize_ref(s["type"], s["url_or_handle"]) for s in sources})
         summary = self._empty_summary()
-        for source in sources:
-            summary["sources"] += 1
+
+        def crawl_one(source) -> dict:
+            local = self._empty_summary()
+            local["sources"] += 1
             try:
-                self._crawl_source(source, cats, known, summary)
+                self._crawl_source(source, cats, known, local)
             except Exception as exc:  # noqa: BLE001 — isolate per source
-                summary["errors"] += 1
+                local["errors"] += 1
                 log.warning("source #%s failed: %s", source.get("id"), exc)
+            return local
+
+        with self._executor_factory(self._passive_workers) as ex:
+            futures = [ex.submit(crawl_one, s) for s in sources]
+            for fut in as_completed(futures):
+                local = fut.result()
+                for k in set(summary) | set(local):
+                    summary[k] = summary.get(k, 0) + local.get(k, 0)
+
         try:
             result = self._api.expire_stale(self._freshness_ttl_days)
             summary["expired"] = result.get("expired", 0)
