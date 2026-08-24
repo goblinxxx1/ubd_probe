@@ -34,6 +34,7 @@ class _RawSettings(BaseSettings):
     search_backoff_floor_seconds: float = 300.0
     search_budget: int = 0  # 0 = process all keywords
     active_fetch_budget: int = 80
+    active_workers: int = 4
     first_crawl_budget: int = 10
     search_block_size: int = 15
     active_search_page_cap: int = 3   # Track 3: max SERP depth per phrase (two-dry rule trims earlier)
@@ -157,6 +158,7 @@ class Config:
     search_backoff_floor_seconds: float = 300.0
     search_budget: int | None = None
     active_fetch_budget: int = 80
+    active_workers: int = 4
     first_crawl_budget: int = 10
     search_block_size: int = 15
     active_search_page_cap: int = 3   # Track 3: max SERP depth per phrase (two-dry rule trims earlier)
@@ -302,6 +304,7 @@ def from_settings(s: _RawSettings) -> Config:
         search_backoff_floor_seconds=s.search_backoff_floor_seconds,
         search_budget=(s.search_budget or None),
         active_fetch_budget=s.active_fetch_budget,
+        active_workers=s.active_workers,
         first_crawl_budget=s.first_crawl_budget,
         search_block_size=s.search_block_size,
         active_search_page_cap=s.active_search_page_cap,

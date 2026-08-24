@@ -238,7 +238,8 @@ def build_runner(config) -> Runner:
                                     media_autoblock_crawls=config.media_autoblock_crawls,
                                     lang_block_store=lang_block_store,
                                     editorial_gate_enabled=config.editorial_gate_enabled,
-                                    source_hint_enabled=config.source_hint_enabled)
+                                    source_hint_enabled=config.source_hint_enabled,
+                                    active_workers=config.active_workers)
     return Runner(api, fetchers, extractor, rate_limiter,
                   discovery=discovery, search_pass=search_pass, harvester=harvester,
                   brand_feed=brand_feed, freshness_ttl_days=config.freshness_ttl_days,
