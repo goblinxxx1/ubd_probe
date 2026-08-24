@@ -1,3 +1,5 @@
+import threading
+
 from crawler.ratelimit import RateLimiter, DomainRateLimiter
 
 
@@ -52,3 +54,41 @@ def test_domain_rate_limiter_per_call_delay_overrides_min():
     rl.wait("a.ua")
     rl.wait("a.ua", delay=9.0)  # crawl-delay bigger than floor -> waits 9.0
     assert slept == [9.0]
+
+
+def test_domain_rate_limiter_lock_is_per_domain_not_global():
+    """While a slow sleep for domain A is in progress, a wait() for domain B must
+    NOT block — proves the lock is per-domain, not a single global lock held during
+    sleep (which would serialize all domains and kill parallelism)."""
+    a_sleeping = threading.Event()
+    release_a = threading.Event()
+
+    def sleep(_s):
+        # Only the second (throttled) call for "a.ua" actually sleeps.
+        a_sleeping.set()
+        release_a.wait(timeout=5)
+
+    t = {"now": 0.0}
+    rl = DomainRateLimiter(min_delay=5.0, sleep=sleep, monotonic=lambda: t["now"])
+
+    rl.wait("a.ua")  # primes a.ua; no sleep yet
+    a_done = threading.Event()
+
+    def slow_a():
+        rl.wait("a.ua")   # immediate re-call -> throttles -> enters sleep()
+        a_done.set()
+
+    threading.Thread(target=slow_a, daemon=True).start()
+    assert a_sleeping.wait(timeout=5)      # a.ua is now parked inside sleep()
+
+    b_done = threading.Event()
+
+    def call_b():
+        rl.wait("b.ua")   # different domain -> must proceed without waiting on a.ua
+        b_done.set()
+
+    threading.Thread(target=call_b, daemon=True).start()
+    assert b_done.wait(timeout=5), "b.ua blocked on a.ua's lock -> lock is global, not per-domain"
+
+    release_a.set()
+    assert a_done.wait(timeout=5)
