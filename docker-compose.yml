@@ -88,6 +88,24 @@ services:
     volumes:
       - ./docker/searxng/settings.yml:/etc/searxng/settings.yml:ro
 
+  llama:
+    image: ghcr.io/ggml-org/llama.cpp:server
+    profiles: ["crawler"]
+    restart: unless-stopped
+    # Qwen2.5-7B-Instruct Q4_K_M, auto-downloaded once from HuggingFace into a
+    # persistent volume (pinned repo:quant). Apache-2.0 weights — $0.
+    command: >
+      -hf Qwen/Qwen2.5-7B-Instruct-GGUF:Q4_K_M
+      --host 0.0.0.0 --port 8080 --ctx-size 4096
+    volumes:
+      - ubd-llama-models:/root/.cache/llama.cpp
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 20
+      start_period: 600s
+
   crawler:
     build: ./crawler
     profiles: ["crawler"]
@@ -121,7 +139,9 @@ services:
       CRAWL_INTERVAL_SECONDS: ${CRAWL_INTERVAL_SECONDS:-0}
       SEARXNG_URL: http://searxng:8080
       SEARCH_PROVIDERS: ${SEARCH_PROVIDERS:-duckduckgo,searxng}
+      JUDGE_URL: http://llama:8080
 
 volumes:
   ubd-db-data:
   ubd-crawler-state:
+  ubd-llama-models:
