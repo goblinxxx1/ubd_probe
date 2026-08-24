@@ -2,6 +2,7 @@
 news media, government, stock-photo banks, social-video aggregators."""
 
 import re
+import threading
 
 from crawler.util.hosts import bare_host
 
@@ -45,26 +46,35 @@ _GEO_BLOCKED: frozenset[str] = frozenset()
 # fetched/walked/re-fed again. Separate slot from _GEO_BLOCKED and _LEARNED.
 _LANG_BLOCKED: frozenset[str] = frozenset()
 
+# Guards the four mutators below: active-harvest candidates now run on a
+# thread pool, and each rebinds a module-global frozenset (read-modify-write).
+# Without the lock, two concurrent unions can race and lose one host (lost
+# update). Readers (is_blocked_host) stay lock-free — a bare-name read of a
+# frozenset reference is atomic, so it always observes an old-or-new set.
+_LOCK = threading.Lock()
+
 
 def reload_lang_blocked(hosts) -> None:
     """Replace the language-blocked host set. None/empty ⇒ cleared."""
     global _LANG_BLOCKED
-    if not hosts:
-        _LANG_BLOCKED = frozenset()
-        return
-    norm = {bare_host(h) for h in hosts if h and h.strip()}
-    _LANG_BLOCKED = frozenset(n for n in norm if n)
+    with _LOCK:
+        if not hosts:
+            _LANG_BLOCKED = frozenset()
+            return
+        norm = {bare_host(h) for h in hosts if h and h.strip()}
+        _LANG_BLOCKED = frozenset(n for n in norm if n)
 
 
 def reload_learned(hosts) -> None:
     """Replace the learned media/aggregator host set (approved via the Vue audit).
     None/empty ⇒ SEED-only, byte-equivalent to prior behaviour."""
     global _LEARNED
-    if not hosts:
-        _LEARNED = frozenset()
-        return
-    norm = {bare_host(h) for h in hosts if h and h.strip()}
-    _LEARNED = frozenset(n for n in norm if n)
+    with _LOCK:
+        if not hosts:
+            _LEARNED = frozenset()
+            return
+        norm = {bare_host(h) for h in hosts if h and h.strip()}
+        _LEARNED = frozenset(n for n in norm if n)
 
 
 def add_learned(host) -> None:
@@ -72,18 +82,21 @@ def add_learned(host) -> None:
     drops it immediately within the current run (persistence is backend-side)."""
     global _LEARNED
     h = bare_host(host) if host and host.strip() else ""
-    if h:
+    if not h:
+        return
+    with _LOCK:
         _LEARNED = _LEARNED | frozenset({h})
 
 
 def reload_geo_blocked(hosts) -> None:
     """Replace the RU/BY geo-blocked host set. None/empty ⇒ cleared."""
     global _GEO_BLOCKED
-    if not hosts:
-        _GEO_BLOCKED = frozenset()
-        return
-    norm = {bare_host(h) for h in hosts if h and h.strip()}
-    _GEO_BLOCKED = frozenset(n for n in norm if n)
+    with _LOCK:
+        if not hosts:
+            _GEO_BLOCKED = frozenset()
+            return
+        norm = {bare_host(h) for h in hosts if h and h.strip()}
+        _GEO_BLOCKED = frozenset(n for n in norm if n)
 
 
 def is_blocked_host(host: str | None) -> bool:

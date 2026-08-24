@@ -1,3 +1,5 @@
+import threading
+
 from crawler.discovery.blocklist import is_blocked_host
 from crawler.discovery import blocklist
 
@@ -121,3 +123,20 @@ def test_add_learned_blocks_host_immediately():
     blocklist.add_learned("")                            # no-op, no crash
     blocklist.add_learned(None)                           # no-op, no crash
     blocklist.reload_learned(None)                       # cleanup for other tests
+
+
+def test_add_learned_is_thread_safe_no_lost_update():
+    blocklist.reload_learned(None)          # start from a clean learned set
+    n = 300
+
+    def worker(i):
+        blocklist.add_learned(f"learned{i}.example")
+
+    threads = [threading.Thread(target=worker, args=(i,)) for i in range(n)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    # every host must be present -> none lost to a racing union
+    assert all(blocklist.is_blocked_host(f"learned{i}.example") for i in range(n))
+    blocklist.reload_learned(None)          # cleanup: don't leak state to other tests
