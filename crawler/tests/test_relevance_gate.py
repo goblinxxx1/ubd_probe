@@ -1,6 +1,6 @@
 from crawler.judge.base import Verdict, NullJudge
 from crawler.judge.cache import VerdictCache
-from crawler.judge.llama import JudgeError
+from crawler.judge.llama import JudgeError, JudgeUnavailable
 from crawler.judge.gate import RelevanceGate
 
 
@@ -45,12 +45,20 @@ def test_cache_hit_skips_judge(tmp_path):
     assert j.calls == 1                       # другий виклик віддано з кешу
 
 
-def test_judge_error_degrades_and_trips_breaker(tmp_path):
-    j = FakeJudge(exc=JudgeError("down"))
+def test_judge_error_skips_candidate_without_tripping_breaker(tmp_path):
+    j = FakeJudge(exc=JudgeError("bad content / 400"))
+    g = _gate(tmp_path, j)
+    assert g.keep(_Cand("a")) is True         # fail-open цього кандидата
+    assert g.keep(_Cand("b")) is True         # breaker НЕ зламаний -> суддю викликано знову
+    assert j.calls == 2
+
+
+def test_judge_unavailable_trips_breaker(tmp_path):
+    j = FakeJudge(exc=JudgeUnavailable("connection refused"))
     g = _gate(tmp_path, j)
     assert g.keep(_Cand("a")) is True         # деградація: лишає як сьогодні
     assert g.keep(_Cand("b")) is True         # breaker спрацював -> подальших викликів нема
     assert j.calls == 1
     g.reset_breaker()
     assert g.keep(_Cand("c")) is True
-    assert j.calls == 2                        # breaker скинуто -> суддю викликано знову
+    assert j.calls == 2                         # breaker скинуто -> суддю викликано знову

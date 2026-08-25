@@ -6,6 +6,8 @@ breaker глушить подальші виклики до reset_breaker() (п�
 
 import logging
 
+from crawler.judge.llama import JudgeError, JudgeUnavailable
+
 log = logging.getLogger(__name__)
 
 
@@ -29,9 +31,12 @@ class RelevanceGate:
                 return cached.genuine and cached.page_scoped
         try:
             v = self._judge.verdict(candidate)
-        except Exception as exc:  # noqa: BLE001 — деградація: недоступний суддя не блокує
+        except JudgeUnavailable as exc:
             self._broken = True
             log.warning("relevance judge unavailable, degrading to keep-all this pass: %s", exc)
+            return True
+        except JudgeError as exc:  # per-candidate: скіп лише цього, breaker незмінний
+            log.warning("relevance judge skipped this candidate (fail-open): %s", exc)
             return True
         if content_hash and self._cache is not None:
             try:
