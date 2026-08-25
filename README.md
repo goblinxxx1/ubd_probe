@@ -28,6 +28,8 @@ docker compose up -d --build
 
 Повний довідник запуску (окремо/разом, краулер, активний пошук, потік у адмінку) —
 **[RUN.md](RUN.md)**. Деталі Docker-стеку — **[README-docker.md](README-docker.md)**.
+Розгортання на віддаленому сервері (VPS/хмара: секрети, HTTPS, бекапи, безпека) —
+**[docs/deploy-server.md](docs/deploy-server.md)**.
 
 ## Стан
 
