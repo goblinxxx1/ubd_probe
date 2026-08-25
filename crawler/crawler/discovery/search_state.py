@@ -10,7 +10,8 @@ log = logging.getLogger(__name__)
 
 _EMPTY = {"version": 1, "cursor": 0, "grid_cursor": 0, "site_cursor": 0,
           "approved_cursor": 0,
-          "next_allowed_at": 0.0, "backends": {}, "cache": {}, "phrase_pages": {}}
+          "next_allowed_at": 0.0, "backends": {}, "cache": {}, "phrase_pages": {},
+          "phrase_stats": {}, "host_freq": {}}
 
 
 class SearchState:
@@ -181,6 +182,21 @@ class SearchState:
             else:                                  # first dry → probe one more page
                 nxt = page + 1
         pages[k] = {"page": nxt, "dry": dry}
+        self._save()
+
+    # --- per-phrase productivity (adaptive scheduling) ---
+    def record_yield(self, phrase: str, new_count: int, alpha: float = 0.3) -> None:
+        """EWMA урожайності фрази + лічильник спроб + серія «сухих» проходів.
+        Продуктивність (new_count) уже known-filtered у SearchPass → це маргінальні
+        НОВІ кандидати. Живить effective_ttl (рідше вертатись до сухих фраз)."""
+        stats = self._data.setdefault("phrase_stats", {})
+        k = self._key(phrase)
+        e = stats.get(k) or {"tries": 0, "ewma": 0.0, "dry_streak": 0}
+        e["tries"] = int(e.get("tries", 0)) + 1
+        prev = float(e.get("ewma", 0.0))
+        e["ewma"] = (1.0 - alpha) * prev + alpha * float(new_count)
+        e["dry_streak"] = 0 if new_count > 0 else int(e.get("dry_streak", 0)) + 1
+        stats[k] = e
         self._save()
 
     # --- keyword cache (page-aware; page 1 uses the bare key for back-compat) ---

@@ -401,3 +401,25 @@ def test_soonest_recovery_min_over_nonquarantined_with_floor(tmp_path):
     # raise yahoo cooldown above floor → min wins
     st._data["backends"]["yahoo"]["cooldown_until"] = 1500.0  # 500s out
     assert st.soonest_recovery(["yahoo", "brave"], floor=300.0) == 500.0
+
+
+def test_record_yield_tracks_tries_ewma_and_dry_streak(tmp_path):
+    s = SearchState(str(tmp_path / "state.json"), clock=lambda: 1000.0)
+    s.record_yield("знижка військові", 4, alpha=0.5)
+    e = s._data["phrase_stats"][s._key("знижка військові")]
+    assert e["tries"] == 1
+    assert e["ewma"] == 2.0            # 0.5*0 + 0.5*4
+    assert e["dry_streak"] == 0
+
+    s.record_yield("знижка військові", 0, alpha=0.5)
+    e = s._data["phrase_stats"][s._key("знижка військові")]
+    assert e["tries"] == 2
+    assert e["ewma"] == 1.0            # 0.5*2 + 0.5*0
+    assert e["dry_streak"] == 1        # a dry pass increments the streak
+
+
+def test_record_yield_survives_reload(tmp_path):
+    p = str(tmp_path / "state.json")
+    SearchState(p, clock=lambda: 1.0).record_yield("акція ЗСУ", 3)
+    reloaded = SearchState.load(p, clock=lambda: 2.0)
+    assert reloaded._data["phrase_stats"][reloaded._key("акція ЗСУ")]["tries"] == 1
