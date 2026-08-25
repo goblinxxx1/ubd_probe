@@ -1,8 +1,14 @@
 """RelevanceGate: суддя + кеш + circuit-breaker + деградація.
 
 keep(candidate) = genuine AND page_scoped. Недоступний суддя (виняток) або
-enabled=False -> keep=True (поведінка як сьогодні). Після падіння виклику —
-breaker глушить подальші виклики до reset_breaker() (початок кожного проходу)."""
+enabled=False -> keep=True (поведінка як сьогодні).
+
+Помилки судді розділені на два рівні:
+- JudgeUnavailable (суддя недосяжний, нема з'єднання) → breaker глушить подальші
+  виклики до reset_breaker() (початок кожного проходу).
+- JudgeError (погане тіло / HTTP-статус / read-timeout / парсинг) → fail-open лише
+  для цього кандидата, breaker незмінний.
+Обидва залишаються keep=True."""
 
 import logging
 

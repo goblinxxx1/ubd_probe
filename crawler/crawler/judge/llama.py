@@ -1,6 +1,6 @@
 """LLM-суддя через локальний llama.cpp (llama-server, OpenAI-сумісний API).
-Qwen2.5-7B-Instruct. Будь-яка помилка HTTP/парсингу -> JudgeError, щоб
-circuit-breaker у RelevanceGate відкотив на поведінку-як-сьогодні."""
+Qwen2.5-7B-Instruct. З'єднання (ConnectError/ConnectTimeout) → JudgeUnavailable (ламає breaker);
+HTTP-статус/timeout/парсинг → JudgeError (fail-open per-candidate)."""
 
 import json
 import logging
