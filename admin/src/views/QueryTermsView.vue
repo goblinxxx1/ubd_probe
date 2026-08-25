@@ -57,8 +57,17 @@ async function onUnreject(id) {
     ElMessage.error(extractError(e));
   }
 }
+async function onToPending(id) {
+  try {
+    await terms.toPending(id);
+    ElMessage.success("Повернуто в кандидати (прибрано з пошуку)");
+    await load();
+  } catch (e) {
+    ElMessage.error(extractError(e));
+  }
+}
 
-defineExpose({ items, pageItems, page, total, setPage, load, onApprove, onReject, onUnreject, status });
+defineExpose({ items, pageItems, page, total, setPage, load, onApprove, onReject, onUnreject, onToPending, status });
 </script>
 
 <template>
@@ -87,6 +96,9 @@ defineExpose({ items, pageItems, page, total, setPage, load, onApprove, onReject
           <el-button size="small" type="danger" @click="onReject(row.id)">Відхилити</el-button>
         </template>
         <el-button v-else-if="row.status === 'rejected'" size="small" @click="onUnreject(row.id)">
+          Повернути в кандидати
+        </el-button>
+        <el-button v-else-if="row.status === 'approved'" size="small" @click="onToPending(row.id)">
           Повернути в кандидати
         </el-button>
         <span v-else>{{ enumLabel(SUGGESTION_STATUSES, row.status) }}</span>

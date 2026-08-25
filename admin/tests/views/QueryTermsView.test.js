@@ -10,6 +10,7 @@ vi.mock("@/api/queryTerms", () => ({
   approve: vi.fn(() => Promise.resolve({})),
   reject: vi.fn(() => Promise.resolve({})),
   unreject: vi.fn(() => Promise.resolve({})),
+  toPending: vi.fn(() => Promise.resolve({})),
 }));
 vi.mock("element-plus", async (importOriginal) => {
   const actual = await importOriginal();
@@ -48,6 +49,22 @@ describe("QueryTermsView", () => {
     await flushPromises();
     expect(terms.unreject).toHaveBeenCalledWith(9);
     expect(terms.list).toHaveBeenLastCalledWith({ status: "rejected" });
+  });
+
+  it("renders «Повернути в кандидати» on an approved row and calls toPending", async () => {
+    terms.list.mockResolvedValue([
+      { id: 7, term: "евакуатор", z: 1.2, support: 5, status: "approved" },
+    ]);
+    const wrapper = mount(QueryTermsView, { global: { plugins: [ElementPlus] } });
+    wrapper.vm.status = "approved";
+    await wrapper.vm.load();
+    await flushPromises();
+    const btn = wrapper.findAll("button").find((b) => b.text().includes("Повернути в кандидати"));
+    expect(btn).toBeTruthy();
+    await btn.trigger("click");
+    await flushPromises();
+    expect(terms.toPending).toHaveBeenCalledWith(7);
+    expect(terms.list).toHaveBeenLastCalledWith({ status: "approved" });
   });
 
   it("onUnreject calls the API and reloads", async () => {

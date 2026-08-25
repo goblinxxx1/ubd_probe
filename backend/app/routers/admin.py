@@ -235,6 +235,14 @@ def unreject_query_term(term_id: int, db: Session = Depends(get_db),
     return query_term_crud.to_pending(db, term_id)
 
 
+@router.post("/query-terms/{term_id}/to-pending", response_model=QueryTermOut)
+def query_term_to_pending(term_id: int, db: Session = Depends(get_db),
+                          admin=Depends(get_current_admin)):
+    """Remove an approved term from the search grid by returning it to the candidate
+    queue (approved → pending). The crawler drops it on its next approved-terms refresh."""
+    return query_term_crud.to_pending(db, term_id)
+
+
 @router.post("/users", response_model=AdminUserOut)
 def create_admin_user(data: AdminUserCreate, db: Session = Depends(get_db),
                       _=Depends(require_super_admin)):
