@@ -115,11 +115,29 @@ def test_services_block_appended_after_geo():
     g = build_grid(services=["стоматологія", "автосервіс"])
     assert g[:len(base)] == base              # byte-stable: services appended after
     added = len(g) - len(base)
-    # A: service × modifier × audience — grid-neutral (2×3 = 6/service, same count)
-    assert added == 2 * len(SERVICE_MODIFIERS) * len(SERVICE_AUDIENCES)
-    # each service query now carries a discount modifier (search-stage precision)
+    # per service: modifier-block (2×3=6) + bare axis (3) = 9
+    per_svc = len(SERVICE_MODIFIERS) * len(SERVICE_AUDIENCES) + len(SERVICE_AUDIENCES)
+    assert added == 2 * per_svc
+    # модифікатор-блок (precision) лишається
     assert "стоматологія знижка військовим" in g
     assert "автосервіс безкоштовно ветеранам" in g
+    # гола вісь (recall): сервіс + аудиторія без модифікатора
+    assert "стоматологія військовим" in g
+    assert "автосервіс ветеранам" in g
+
+
+def test_bare_service_axis_appended_after_modifier_block():
+    from crawler.discovery.query_grid import SERVICE_MODIFIERS, SERVICE_AUDIENCES
+    g = build_grid(services=["автомийка"])
+    # усі модифікатор-запити сервісу передують усім голим запитам сервісу
+    mod_idx = max(g.index(f"автомийка {m} {a}")
+                  for m in SERVICE_MODIFIERS for a in SERVICE_AUDIENCES)
+    bare_idx = min(g.index(f"автомийка {a}") for a in SERVICE_AUDIENCES)
+    assert mod_idx < bare_idx
+    # рівно +3 голі запити/сервіс
+    for a in SERVICE_AUDIENCES:
+        assert f"автомийка {a}" in g
+    assert len([q for q in g if q in {f"автомийка {a}" for a in SERVICE_AUDIENCES}]) == 3
 
 
 def test_service_block_is_grid_neutral_vs_old_two_token():

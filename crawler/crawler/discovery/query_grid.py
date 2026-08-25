@@ -123,6 +123,9 @@ def build_grid(cities: list[str] | None = None,
         for mod in SERVICE_MODIFIERS:
             for aud in SERVICE_AUDIENCES:
                 _add(f"{svc} {mod} {aud}".strip())
+    for svc in svc_list:                     # A2: гола вісь svc → audience (recall lever)
+        for aud in SERVICE_AUDIENCES:        # без модифікатора: «автомийка військовим»
+            _add(f"{svc} {aud}".strip())
     return out
 
 

@@ -432,16 +432,19 @@ def test_build_runner_grid_cities_disabled(tmp_path):
 
 def test_build_runner_grid_includes_seed_and_learned_services(tmp_path, monkeypatch):
     # With the feature enabled: curated SEED_SERVICES are always in the grid,
-    # and miner-learned terms add on top of them — both × 6 service phrases.
+    # and miner-learned terms add on top of them — both × per-service phrase count
+    # (modifier-block 2×3=6 + bare axis 3 = 9, per A2).
     import crawler.discovery.query_lexicon as ql
-    from crawler.discovery.query_grid import SEED_SERVICES
+    from crawler.discovery.query_grid import (SEED_SERVICES, SERVICE_MODIFIERS,
+                                               SERVICE_AUDIENCES)
     monkeypatch.setattr(ql, "reload_learned", lambda *_a, **_k: None)
     monkeypatch.setattr(ql, "_cats", ())
     monkeypatch.setattr(ql, "_mined", ("стоматологія", "автосервіс"))
     cfg = _base_cfg(tmp_path, active_discovery=True, search_providers=["duckduckgo"],
                     grid_cities_enabled=True, query_lexicon_enabled=True)
     runner = build_runner(cfg)
-    assert len(runner._search_pass._grid) == 1701 + (len(SEED_SERVICES) + 2) * 6
+    per_svc = len(SERVICE_MODIFIERS) * len(SERVICE_AUDIENCES) + len(SERVICE_AUDIENCES)
+    assert len(runner._search_pass._grid) == 1701 + (len(SEED_SERVICES) + 2) * per_svc
 
 
 def test_build_runner_query_lexicon_disabled_is_1701(tmp_path, monkeypatch):
