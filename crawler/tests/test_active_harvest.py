@@ -857,6 +857,7 @@ def test_select_fetch_set_same_host_seen_within_suppressed():
     # (serial suppresses it via record->seen_within; pre-scan simulates via selected_hosts).
     class Reg:
         def seen_within(self, host, secs): return False   # nothing seen before this pass
+        def take_skip(self, host): return False           # no empty-pass cooldown owed
     api = FakeApi()
     h = ActiveHarvester(api, {"website": FakeFetcher([])}, GateExtractor(),
                         rate_limiter=None, fetch_budget=10,
@@ -991,3 +992,19 @@ def test_active_default_gate_keeps():
     summary = _summary()
     h.harvest([_cand()], cats=None, known=set(), summary=summary)
     assert len(api.offers) == 1               # дефолтний NullJudge-гейт лишає (зворотна сумісність)
+
+
+def test_empty_pass_armed_website_candidate_skipped_in_active_harvest(tmp_path):
+    # A domain that returned 0 offers last pass (skip_left armed via record) must be skipped
+    # by the ACTIVE harvest too — not just the passive path — regardless of feed source.
+    api = FakeApi()
+    fetched = []
+    class CountingFetcher:
+        def fetch(self, source, k): fetched.append(source["url_or_handle"]); return [], None
+    reg = DomainRegistry(str(tmp_path / "r.json"), clock=lambda: 1.0)
+    reg.record("empty.example", offers=0, errors=0)      # 0 offers -> skip_left armed
+    h = ActiveHarvester(api, {"website": CountingFetcher()}, GateExtractor(),
+                        rate_limiter=None, fetch_budget=5, domain_registry=reg)
+    h.harvest([_cand(url="https://empty.example"), _cand(url="https://fresh.example")],
+              cats=None, known=set(), summary=_summary())
+    assert fetched == ["https://fresh.example"]          # armed domain skipped, fresh fetched

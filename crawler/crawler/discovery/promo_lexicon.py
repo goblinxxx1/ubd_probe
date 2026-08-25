@@ -162,6 +162,20 @@ def is_excluded(url: str) -> bool:
     return any(t in path for t in EXCLUDE_TOKENS)
 
 
+# Генеричні каталог/категорійні сторінки: у BFS їх НЕ обходимо (не фетчимо глибше) — на
+# мегамаркеті вони палять BFS-бюджет без користі. ОКРЕМО від EXCLUDE_TOKENS: EXCLUDE виграв
+# би над page_is_target і вбив би промо під каталогом (напр. /shop/akcii/). У walker'і
+# is_catalog_page перевіряється ПІСЛЯ page_is_target, тож промо/ветеран-слаги збираються.
+NO_TRAVERSE_TOKENS: tuple[str, ...] = (
+    "/shop/", "/catalog", "/category", "/collection", "/brands", "/c/",
+)
+
+
+def is_catalog_page(url: str) -> bool:
+    path = unquote(urlsplit(url or "").path).lower()
+    return any(t in path for t in NO_TRAVERSE_TOKENS)
+
+
 def page_is_target(url: str, anchor_text: str | None = None) -> bool:
     if is_excluded(url):
         return False                                    # EXCLUDE wins

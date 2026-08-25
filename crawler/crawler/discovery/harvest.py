@@ -140,6 +140,9 @@ class ActiveHarvester:
             if cand.type == "website" and is_blocked_host(cand.url_or_handle):
                 continue
             host = _host(cand.url_or_handle) if cand.type == "website" else None
+            if (cand.type == "website" and self._registry is not None
+                    and self._registry.take_skip(host)):
+                continue                          # empty-pass cooldown: skip this domain's walk
             if (cand.type == "website" and self._revisit_cooldown and self._registry is not None
                     and (self._registry.seen_within(host, self._revisit_cooldown)
                          or host in selected_hosts)):

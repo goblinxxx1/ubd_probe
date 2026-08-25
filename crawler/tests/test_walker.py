@@ -245,3 +245,47 @@ def test_non_foreign_root_walks_normally(monkeypatch):
 
 def test_walkplan_foreign_defaults_false():
     assert WalkPlan("shop.ua", [], 0.0).foreign is False
+
+
+class _MapResp:
+    def __init__(self, text): self.text = text; self.content = None; self.status_code = 200
+    def raise_for_status(self): pass
+
+
+class _MapClient:
+    """Per-URL HTML so BFS traversal depth is observable."""
+    def __init__(self, pages): self._pages = pages
+    def get(self, url, **kw): return _MapResp(self._pages.get(url.split("#")[0], ""))
+
+
+def test_bfs_does_not_traverse_generic_catalog_category(monkeypatch):
+    monkeypatch.setattr(walker_mod, "collect_sitemap_urls", lambda *a, **k: [])
+    pages = {
+        # homepage links only to a generic catalog category (neutral, not a target)
+        "https://shop.ua": '<a href="/shop/razdvizhnye-systemy/">Каталог</a>',
+        # a promo page is buried INSIDE that category — reachable only by traversing it
+        "https://shop.ua/shop/razdvizhnye-systemy/": '<a href="/akcii-hidden">Акція</a>',
+    }
+    policy = FakePolicy(FakeRobots())
+    w = DomainWalker(client=_MapClient(pages), robots=policy, rate_limiter=NoWait(),
+                     bfs_trigger_min=3, bfs_max_pages=8, domain_page_cap=10)
+    plan = w.walk(_cand("https://shop.ua"))
+    # catalog category is neither collected nor traversed → the buried promo is never found
+    assert "https://shop.ua/akcii-hidden" not in plan.urls
+    assert "https://shop.ua/shop/razdvizhnye-systemy/" not in plan.urls
+
+
+def test_bfs_still_traverses_non_catalog_neutral_page(monkeypatch):
+    monkeypatch.setattr(walker_mod, "collect_sitemap_urls", lambda *a, **k: [])
+    pages = {
+        # homepage links to a plain neutral page (no catalog/exclude/target token)
+        "https://shop.ua": '<a href="/misc-landing">Лендінг</a>',
+        # which links to a real promo/target page one level deeper
+        "https://shop.ua/misc-landing": '<a href="/akcii-deep">Акція</a>',
+    }
+    policy = FakePolicy(FakeRobots())
+    w = DomainWalker(client=_MapClient(pages), robots=policy, rate_limiter=NoWait(),
+                     bfs_trigger_min=3, bfs_max_pages=8, domain_page_cap=10)
+    plan = w.walk(_cand("https://shop.ua"))
+    # plain neutral page IS traversed → the deeper promo target is discovered
+    assert "https://shop.ua/akcii-deep" in plan.urls

@@ -10,7 +10,7 @@ from selectolax.parser import HTMLParser
 
 from crawler.discovery.passive import normalize_ref
 from crawler.discovery.promo_lexicon import (  # re-export url_is_promo for callers/tests
-    is_excluded, page_is_target, seed_is_target, url_is_promo)
+    is_catalog_page, is_excluded, page_is_target, seed_is_target, url_is_promo)
 from crawler.discovery.sitemap import collect_sitemap_urls
 from crawler.util.hosts import bare_host, is_ru_by_geo
 
@@ -121,9 +121,11 @@ class DomainWalker:
                     if is_excluded(link) or is_ru_by_geo(link):
                         continue                        # hard skip: no collect, no traverse
                     if page_is_target(link, anchor):
-                        found.append(link)
+                        found.append(link)              # promo/veteran wins even under /shop/
+                    elif is_catalog_page(link):
+                        continue                        # generic catalog category -> don't traverse
                     else:
-                        nxt.append(link)                # neutral -> traverse deeper
+                        nxt.append(link)                # other neutral -> traverse deeper
             frontier = nxt
         return found
 

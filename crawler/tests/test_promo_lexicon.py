@@ -75,3 +75,21 @@ def test_discount_ctx_recognizes_typographic_and_word_forms():
     assert _pl.DISCOUNT_CTX.search("акційний набір 1+1 військовим") is not None  # «акці» вже ловить
     # наявні негативи-омографи лишаються негативами
     assert _pl.DISCOUNT_CTX.search("права акціонера") is None
+
+
+def test_is_catalog_page_matches_generic_catalog_categories():
+    assert pl.is_catalog_page("https://epicentrk.ua/ua/shop/razdvizhnye-sistemy-dlya-dverey/")
+    assert pl.is_catalog_page("https://shop.ua/catalog/dveri")
+    assert pl.is_catalog_page("https://shop.ua/category/mebli")
+    assert pl.is_catalog_page("https://shop.ua/collection/summer")
+    assert pl.is_catalog_page("https://shop.ua/c/12345")
+
+
+def test_is_catalog_page_false_for_promo_and_info_and_veteran():
+    # promo/veteran pages must NOT read as generic catalog (BFS target-check runs first,
+    # but the raw predicate should also be false where there is no /shop//catalog token)
+    assert not pl.is_catalog_page("https://epicentrk.ua/ua/actions/floor-promo.html")
+    assert not pl.is_catalog_page("https://shop.ua/veteranam")
+    assert not pl.is_catalog_page("https://shop.ua/akcii")
+    assert not pl.is_catalog_page("https://shop.ua/")
+    assert not pl.is_catalog_page("")
