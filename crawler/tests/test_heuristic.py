@@ -429,3 +429,14 @@ def test_free_kept_on_offer_page():
     text = "Ми надаємо безкоштовну допомогу ветеранам та військовим"
     cand = ex.extract(_item_url(text, "https://x.org/promo"), "Shop", CATS)
     assert cand is not None and cand.discount_type == "free"
+
+
+def test_percent_extracted_with_typographic_minus_via_trigger():
+    # «уцінка» проходить гейт offer_triggers, але сама НЕ в DISCOUNT_CTX;
+    # en-dash «–15%» має тепер дати знижковий контекст → percent екстрактиться
+    # (до розширення DISCOUNT_CTX цей кейс повертав None).
+    ex = get_extractor("heuristic", require_discount=True)
+    cand = ex.extract(_item("Уцінка ветеранам –15% на всі послуги"), "Магазин", CATS)
+    assert cand is not None
+    assert cand.discount_type == "percent"
+    assert cand.discount_value == "15"

@@ -57,3 +57,21 @@ def test_discount_ctx_excludes_shareholder_homograph():
     assert _pl.DISCOUNT_CTX.search("акційна ціна на все") is not None
     assert _pl.DISCOUNT_CTX.search("наші акції та знижки") is not None
     assert _pl.DISCOUNT_CTX.search("знижка 20%") is not None
+
+
+def test_discount_ctx_recognizes_typographic_and_word_forms():
+    # типографські тире — реальні сайти рендерять – / − , не ASCII-дефіс
+    assert _pl.DISCOUNT_CTX.search("військовим –15%") is not None   # en dash U+2013
+    assert _pl.DISCOUNT_CTX.search("військовим −15%") is not None   # minus U+2212
+    assert _pl.DISCOUNT_CTX.search("військовим -15%") is not None   # ASCII (регресія)
+    # словоформа «мінус» і додаткові знижкові маркери
+    assert _pl.DISCOUNT_CTX.search("ветеранам мінус 15%") is not None
+    assert _pl.DISCOUNT_CTX.search("кешбек 10% військовим") is not None
+    assert _pl.DISCOUNT_CTX.search("спеціальна ціна для ветеранів") is not None
+    assert _pl.DISCOUNT_CTX.search("спеціальні ціни для військових") is not None
+    # СВІДОМО не матчимо (шумовий клас)
+    assert _pl.DISCOUNT_CTX.search("військовим —15%") is None       # em dash U+2014 (буліт)
+    assert _pl.DISCOUNT_CTX.search("комісія 15% від суми") is None  # голе % без контексту
+    assert _pl.DISCOUNT_CTX.search("акційний набір 1+1 військовим") is not None  # «акці» вже ловить
+    # наявні негативи-омографи лишаються негативами
+    assert _pl.DISCOUNT_CTX.search("права акціонера") is None
