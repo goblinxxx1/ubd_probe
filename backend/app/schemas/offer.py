@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, computed_field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
 from app.models.enums import DiscountType, OfferStatus, OfferType, CreatedBy, VALUE_DISCOUNT_TYPES
 from app.schemas.category import CategoryOut
@@ -155,20 +155,8 @@ class OfferOut(BaseModel):
     discounts: list[DiscountOut] = []
 
 
-class ConfidenceOut(BaseModel):
-    tier: str
-    host: str = ""
-    host_published: int = 0
-    host_rejected: int = 0
-    signals: list[str] = []
-
-
 class OfferAdminOut(OfferOut):
-    confidence: ConfidenceOut | None = None
-
-    @computed_field
-    @property
-    def is_expired(self) -> bool:
-        # soft-expiry marker for admins: a published offer past its valid_until is
-        # hidden from the public site but still shown (flagged) in admin.
-        return self.valid_until is not None and self.valid_until < date.today()
+    """Admin serialization of an offer. Currently identical to OfferOut; kept as a
+    distinct type so admin endpoints can grow admin-only fields without touching the
+    public schema."""
+    pass

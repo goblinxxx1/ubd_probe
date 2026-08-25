@@ -8,9 +8,6 @@ import {
   discountLabel,
   supersedeSummary,
   discountSummary,
-  confidenceTagType,
-  confidenceLabel,
-  signalLabel,
 } from "@/utils/format";
 import { OFFER_STATUSES } from "@/constants/enums";
 
@@ -118,17 +115,3 @@ describe("discountSummary", () => {
   });
 });
 
-describe("confidence helpers", () => {
-  it("maps tier to tag type", () => {
-    expect(confidenceTagType("high")).toBe("success");
-    expect(confidenceTagType("low")).toBe("danger");
-    expect(confidenceTagType(undefined)).toBe("info");
-  });
-  it("labels a tier in Ukrainian", () => {
-    expect(confidenceLabel("medium")).toBe("Середня");
-  });
-  it("labels known signal slugs and passes unknown through", () => {
-    expect(signalLabel("noisy_host")).toBe("шумний хост");
-    expect(signalLabel("weird")).toBe("weird");
-  });
-});

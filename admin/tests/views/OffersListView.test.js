@@ -231,14 +231,12 @@ describe("OffersListView", () => {
     spy.mockRestore();
   });
 
-  it("renders confidence tag + signal chips + inline city/category tags for a pending row", async () => {
+  it("renders inline city/category/discount tags for a pending row", async () => {
     offers.list.mockResolvedValueOnce({
       items: [{
         id: 1, title: "T", provider: "P", type: "discount", status: "pending_review",
         valid_until: null, discount_type: "percent", discount_value: 20,
         locations: ["Київ", "Львів"], offer_categories: [{ id: 3, name: "Медицина" }],
-        confidence: { tier: "low", host: "noisy.ua", host_published: 0, host_rejected: 2,
-                      signals: ["noisy_host", "no_category"] },
       }],
       total: 1,
     });
@@ -251,8 +249,6 @@ describe("OffersListView", () => {
     });
     await flushPromises();
     const txt = wrapper.text();
-    expect(txt).toContain("Низька");          // confidence tier label
-    expect(txt).toContain("шумний хост");     // signal chip
     expect(txt).toContain("Київ");            // inline city
     expect(txt).toContain("Медицина");        // inline category
     expect(txt).toContain("−20%");            // inline discount
@@ -289,27 +285,5 @@ describe("OffersListView", () => {
     await wrapper.vm.onBulkReject();
     await flushPromises();
     expect(offers.bulkReject).not.toHaveBeenCalled();
-  });
-
-  it("confidence sort orders loaded items low-tier first", async () => {
-    offers.list.mockResolvedValueOnce({
-      items: [
-        { id: 1, title: "A", provider: "P", type: "discount", status: "pending_review", valid_until: null, confidence: { tier: "high", signals: [] } },
-        { id: 2, title: "B", provider: "P", type: "discount", status: "pending_review", valid_until: null, confidence: { tier: "low", signals: [] } },
-        { id: 3, title: "C", provider: "P", type: "discount", status: "pending_review", valid_until: null, confidence: { tier: "medium", signals: [] } },
-      ],
-      total: 3,
-    });
-    const router = makeRouter();
-    router.push("/");
-    await router.isReady();
-    const wrapper = mount(OffersListView, {
-      props: { fixedStatus: "pending_review" },
-      global: { plugins: [router, ElementPlus] },
-    });
-    await flushPromises();
-    wrapper.vm.sortByConfidence = true;
-    await wrapper.vm.$nextTick();
-    expect(wrapper.vm.displayItems.map((r) => r.id)).toEqual([2, 3, 1]);   // low, medium, high
   });
 });

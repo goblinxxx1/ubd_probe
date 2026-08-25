@@ -1,13 +1,13 @@
 <script setup>
-import { computed, onMounted, ref } from "vue";
+import { onMounted, ref } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { ElMessage } from "element-plus";
 import { useApiList } from "@/composables/useApiList";
 import { useModerationStore } from "@/stores/moderation";
 import * as offers from "@/api/offers";
 import { OFFER_STATUSES, OFFER_TYPES } from "@/constants/enums";
-import { enumLabel, formatDate, statusTagType, isHttpUrl, supersedeSummary,
-         discountSummary, confidenceTagType, confidenceLabel, signalLabel } from "@/utils/format";
+import { enumLabel, statusTagType, isHttpUrl, supersedeSummary,
+         discountSummary } from "@/utils/format";
 import { confirmDelete, confirmAction } from "@/utils/confirm";
 import { extractError } from "@/utils/errors";
 import DataTableToolbar from "@/components/DataTableToolbar.vue";
@@ -29,16 +29,14 @@ function onTabChange() {
   applyFilters({});
 }
 
-const isQueue = !!props.fixedStatus;   // moderation-queue variant gets preview/confidence extras
+const isQueue = !!props.fixedStatus;   // moderation-queue variant gets bulk-reject + row selection
 // Only "Заголовок" gets a 170px desktop minimum (it held the long promo text and was the
 // one being crushed); the rest keep fixed widths and "Деталі" stays auto to fill.
 const columns = [
   { label: "Заголовок", slot: "title", minWidth: 170 },
   { prop: "provider", label: "Провайдер", width: 130 },
   { label: "Деталі", slot: "details" },
-  ...(isQueue ? [{ label: "Довіра", slot: "confidence", width: 200 }] : []),
   { label: "Статус", slot: "status", width: 120 },
-  { label: "Дійсний до", slot: "validUntil", width: 120 },
   { label: "Джерело", slot: "source", width: 160 },
 ];
 
@@ -50,18 +48,6 @@ const PUBLIC_BASE = import.meta.env.VITE_PUBLIC_BASE
 function preview(row) {
   window.open(`${PUBLIC_BASE}/offers/${row.id}?preview=1`, "_blank", "noopener");
 }
-
-// --- confidence-assisted client-side sort (within the loaded page) ---
-const sortByConfidence = ref(false);
-const TIER_RANK = { low: 0, medium: 1, high: 2 };   // problems first when sorting
-const displayItems = computed(() => {
-  if (!sortByConfidence.value) return items.value;
-  return [...items.value].sort((a, b) => {
-    const ra = TIER_RANK[a.confidence?.tier] ?? 1;
-    const rb = TIER_RANK[b.confidence?.tier] ?? 1;
-    return ra - rb;
-  });
-});
 
 // --- bulk reject (queue only; reversible soft-trash, #12). No bulk publish. ---
 const selected = ref([]);
@@ -180,7 +166,7 @@ function pluralZnyzhka(n) {
 }
 
 defineExpose({ onPublish, onReject, onRestore, onDelete, onBlockHost, preview, edit, load, applyFilters,
-               items, tab, selected, onBulkReject, sortByConfidence, displayItems });
+               items, tab, selected, onBulkReject });
 </script>
 
 <template>
@@ -209,9 +195,6 @@ defineExpose({ onPublish, onReject, onRestore, onDelete, onBlockHost, preview, e
         >
           <el-option v-for="t in OFFER_TYPES" :key="t.value" :label="t.label" :value="t.value" />
         </el-select>
-        <el-checkbox v-if="isQueue" v-model="sortByConfidence" style="margin-left: 8px">
-          Спершу низька довіра
-        </el-checkbox>
       </template>
     </DataTableToolbar>
 
@@ -229,7 +212,7 @@ defineExpose({ onPublish, onReject, onRestore, onDelete, onBlockHost, preview, e
       @current-change="setPage"
     />
 
-    <ResponsiveTable :columns="columns" :rows="displayItems" :loading="loading" :actions-width="300"
+    <ResponsiveTable :columns="columns" :rows="items" :loading="loading" :actions-width="300"
                      :selectable="isQueue" @selection-change="selected = $event">
       <template #col-title="{ row }">
         <div>{{ row.title }}</div>
@@ -248,26 +231,9 @@ defineExpose({ onPublish, onReject, onRestore, onDelete, onBlockHost, preview, e
           <el-tag v-for="c in (row.offer_categories || [])" :key="c.id" size="small" type="success" effect="plain" class="chip">{{ c.name }}</el-tag>
         </div>
       </template>
-      <template v-if="isQueue" #col-confidence="{ row }">
-        <template v-if="row.confidence">
-          <el-tag :type="confidenceTagType(row.confidence.tier)" size="small">
-            {{ confidenceLabel(row.confidence.tier) }}
-          </el-tag>
-          <span class="hostrep" :title="row.confidence.host">
-            ✓{{ row.confidence.host_published }} ✕{{ row.confidence.host_rejected }}
-          </span>
-          <div class="signals">
-            <el-tag v-for="s in row.confidence.signals" :key="s" size="small" effect="plain" class="chip">{{ signalLabel(s) }}</el-tag>
-          </div>
-        </template>
-        <span v-else class="more">—</span>
-      </template>
       <template #col-status="{ row }">
         <el-tag :type="statusTagType(row.status)">{{ enumLabel(OFFER_STATUSES, row.status) }}</el-tag>
-        <el-tag v-if="row.is_expired" size="small" type="info" effect="plain" style="margin-top: 4px"
-                title="Термін дії (діє до) минув — прихований з публічного сайту">протерміновано</el-tag>
       </template>
-      <template #col-validUntil="{ row }">{{ formatDate(row.valid_until) }}</template>
       <template #col-source="{ row }">
         <el-link v-if="isHttpUrl(row.site_url)" :href="row.site_url" type="primary" target="_blank" rel="noopener noreferrer">Сайт ↗</el-link>
         <el-link v-if="isHttpUrl(row.article_url)" :href="row.article_url" type="primary" target="_blank" rel="noopener noreferrer" style="margin-left: 8px">Стаття ↗</el-link>
@@ -299,9 +265,7 @@ defineExpose({ onPublish, onReject, onRestore, onDelete, onBlockHost, preview, e
 <style scoped lang="less">
 .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
 .details { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
-.details .chip, .signals .chip { margin: 0; }
-.details .more, .hostrep, .more { color: var(--el-text-color-secondary); font-size: 12px; }
-.hostrep { margin-left: 6px; }
-.signals { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.details .chip { margin: 0; }
+.more { color: var(--el-text-color-secondary); font-size: 12px; }
 .bulkbar { margin: 8px 0; }
 </style>

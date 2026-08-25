@@ -34,7 +34,7 @@ def test_admin_offers_requires_auth(client):
     assert client.get("/api/admin/offers").status_code == 401
 
 
-def test_admin_marks_expired_published_offer(client, db_session):
+def test_admin_sees_expired_published_offer(client, db_session):
     import datetime
     token = _admin_token(db_session)
     h = {"Authorization": f"Bearer {token}"}
@@ -47,9 +47,10 @@ def test_admin_marks_expired_published_offer(client, db_session):
         db_session, OfferCreate(type=OfferType.discount, title="Live", provider="P"),
         created_by=CreatedBy.admin, status=OfferStatus.published)
     items = {i["title"]: i for i in client.get("/api/admin/offers?status=published", headers=h).json()["items"]}
-    # admin still SEES the expired offer (unlike public) but it is flagged
-    assert items["Old"]["is_expired"] is True
-    assert items["Live"]["is_expired"] is False
+    # admin still SEES the expired offer (unlike public, which soft-hides it)
+    assert "Old" in items and "Live" in items
+    # is_expired flag removed from admin serialization (column dropped)
+    assert "is_expired" not in items["Old"]
 
 
 def test_list_offers_search_by_q(client, db_session):
@@ -180,32 +181,6 @@ def _mk_offer(db, status, **kw):
               provider=kw.pop("provider", "P"), status=status, created_by=CreatedBy.crawler, **kw)
     db.add(o); db.commit(); db.refresh(o)
     return o
-
-
-def test_pending_list_has_confidence(client, db_session):
-    token = _admin_token(db_session); h = {"Authorization": f"Bearer {token}"}
-    _mk_offer(db_session, OfferStatus.published, site_url="https://good.ua/a")
-    _mk_offer(db_session, OfferStatus.pending_review, site_url="https://good.ua/b",
-              discount_type="percent", discount_value=20)
-    data = client.get("/api/admin/offers?status=pending_review", headers=h).json()
-    assert data["items"][0]["confidence"]["tier"] == "high"
-    assert "proven_host" in data["items"][0]["confidence"]["signals"]
-
-
-def test_published_list_confidence_is_null(client, db_session):
-    token = _admin_token(db_session); h = {"Authorization": f"Bearer {token}"}
-    _mk_offer(db_session, OfferStatus.published, site_url="https://good.ua/a")
-    data = client.get("/api/admin/offers?status=published", headers=h).json()
-    assert data["items"][0]["confidence"] is None
-
-
-def test_public_offers_have_no_confidence_field(client, db_session):
-    offer_crud.create_offer(
-        db_session, OfferCreate(type=OfferType.discount, title="Pub", provider="P"),
-        created_by=CreatedBy.admin, status=OfferStatus.published)
-    data = client.get("/api/offers").json()
-    assert data["total"] == 1
-    assert "confidence" not in data["items"][0]
 
 
 def test_bulk_reject_rejects_all_given(client, db_session):
