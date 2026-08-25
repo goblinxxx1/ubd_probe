@@ -5,6 +5,8 @@ circuit-breaker у RelevanceGate відкотив на поведінку-як-�
 import json
 import logging
 
+import httpx
+
 from crawler.judge.base import Verdict
 
 log = logging.getLogger(__name__)
@@ -48,6 +50,13 @@ class JudgeError(Exception):
     pass
 
 
+class JudgeUnavailable(JudgeError):
+    """Суддя недосяжний (нема з'єднання) — ламає breaker у RelevanceGate, щоб
+    деградувати ВЕСЬ прохід. Відрізняється від per-candidate JudgeError (погане
+    тіло / HTTP 4xx-5xx / read-timeout / парсинг), який скіпає лише цього кандидата."""
+    pass
+
+
 class LlamaCppJudge:
     def __init__(self, client, model: str, timeout: float = 30.0):
         self._client = client
@@ -88,5 +97,7 @@ class LlamaCppJudge:
             return Verdict(genuine=bool(parsed["genuine"]),
                            page_scoped=bool(parsed["page_scoped"]),
                            reason=str(parsed.get("reason", "")))
-        except Exception as exc:  # noqa: BLE001 — будь-яка помилка -> JudgeError для circuit-breaker
+        except (httpx.ConnectError, httpx.ConnectTimeout) as exc:
+            raise JudgeUnavailable(str(exc)) from exc
+        except Exception as exc:  # noqa: BLE001 — per-candidate: скіп цього, суд триває
             raise JudgeError(str(exc)) from exc

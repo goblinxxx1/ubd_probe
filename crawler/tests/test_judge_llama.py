@@ -2,7 +2,7 @@ import json
 
 import httpx
 
-from crawler.judge.llama import LlamaCppJudge, JudgeError
+from crawler.judge.llama import LlamaCppJudge, JudgeError, JudgeUnavailable
 
 
 class _Cand:
@@ -73,3 +73,40 @@ def test_candidate_text_keeps_short_body():
 
     text = j._candidate_text(C())
     assert "short body" in text and "…" not in text
+
+
+def test_connect_error_raises_judge_unavailable():
+    def handler(request):
+        raise httpx.ConnectError("connection refused", request=request)
+    j = LlamaCppJudge(_client(handler), model="qwen2.5-7b-instruct")
+    try:
+        j.verdict(_Cand())
+        assert False, "expected JudgeUnavailable"
+    except JudgeUnavailable:
+        pass
+
+
+def test_http_400_raises_plain_judge_error_not_unavailable():
+    def handler(request):
+        return httpx.Response(400, text="context length exceeded")
+    j = LlamaCppJudge(_client(handler), model="qwen2.5-7b-instruct")
+    try:
+        j.verdict(_Cand())
+        assert False, "expected JudgeError"
+    except JudgeUnavailable:
+        assert False, "400 має бути per-candidate JudgeError, не Unavailable"
+    except JudgeError:
+        pass
+
+
+def test_read_timeout_raises_plain_judge_error_not_unavailable():
+    def handler(request):
+        raise httpx.ReadTimeout("slow", request=request)
+    j = LlamaCppJudge(_client(handler), model="qwen2.5-7b-instruct")
+    try:
+        j.verdict(_Cand())
+        assert False, "expected JudgeError"
+    except JudgeUnavailable:
+        assert False, "read-timeout має бути per-candidate JudgeError, не Unavailable"
+    except JudgeError:
+        pass
