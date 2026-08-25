@@ -1,14 +1,23 @@
-// Перефарбування Element Plus під приглушену (темнішу) тему.
-// Семантичні (success/warning/danger/info) НЕ чіпаємо — статуси лишаються скануваними.
+// Перефарбування Element Plus під приглушену тему.
+// Акцентні БАЗИ поглиблено для читабельності: primary/семантичні кольори Element
+// (пастельні) як ТЕКСТ у plain-кнопках/тегах давали контраст ~1.9-2.9:1 — тонули.
+// Поглиблено до 3.4-5.1:1 (WCAG-перевірено). Заливки/тінти (light-9) лишаємо світлими.
 :root {
-  // --- приглушений бурштин (primary) ---
-  --el-color-primary: #AB7D38;
+  // --- приглушений бурштин (primary) — база темніша, щоб primary-як-текст читався ---
+  --el-color-primary: #8A5A1E;           // legible amber (=@link); plain-btn/link/tag текст
   --el-color-primary-light-3: #DAC9B0;
   --el-color-primary-light-5: #DCD0BC;
   --el-color-primary-light-7: #E0D8CA;
   --el-color-primary-light-8: #E2DBD0;
   --el-color-primary-light-9: #E2DCD0;   // = @row-hover/@cream
-  --el-color-primary-dark-2: #8B6429;
+  --el-color-primary-dark-2: #6F4A18;
+
+  // --- семантичні бази поглиблено (плейн-текст + solid-контраст); light-ramp лишаємо
+  //     дефолтні Element, тож pale-тінти ті самі, а текст на них тепер читається ---
+  --el-color-success: #4E8A1E;
+  --el-color-warning: #B9770F;
+  --el-color-danger: #C63C38;
+  --el-color-info: #6B6960;
 
   // --- нейтральні поверхні: інакше EP-компоненти (таблиці/картки/інпути/дропдауни)
   //     лишаються білими. Фон +50% світліше за приглушений рівень (читабельність). ---
