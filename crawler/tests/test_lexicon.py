@@ -34,11 +34,6 @@ def test_target_ubd_is_explicit_status_only():
     assert "ubd" in slugs
 
 
-def test_target_ngu_national_guard():
-    slugs = [s for _, s in classify("Акція для нацгвардійців НГУ", TARGET_LEXICON)]
-    assert "ngu" in slugs
-
-
 def test_target_maps_idp():
     slugs = [s for _, s in classify("Пропозиція для переселенців", TARGET_LEXICON)]
     assert "idp" in slugs
@@ -50,11 +45,15 @@ def test_classify_is_deduplicated():
     assert got.count(("Кафе/ресторани", "food")) == 1
 
 
-def test_target_lexicon_covers_dsns_and_police():
-    got = {slug for _, slug in classify("знижка для рятувальників ДСНС", TARGET_LEXICON)}
-    assert "dsns" in got
-    got2 = {slug for _, slug in classify("акція для поліцейських", TARGET_LEXICON)}
-    assert "police" in got2
+# Поліція/ДСНС/НГУ навмисно НЕ класифікуються більше (прибрані з пошуку — 0 унікальних
+# оферів, усе покрито warrior/ubd/veteran). Тому окремих covers-тестів на них немає.
+def test_target_removed_security_forces_not_classified():
+    def slugs(t):
+        return {s for _, s in classify(t, TARGET_LEXICON)}
+    assert slugs("знижка для рятувальників ДСНС") <= {"warrior", "ubd", "veteran"}
+    assert "dsns" not in slugs("державна служба з надзвичайних ситуацій")
+    assert "police" not in slugs("акція для поліцейських")
+    assert "ngu" not in slugs("бійцям національної гвардії НГУ")
 
 
 # --- precision: stems must not fire on word-initial homographs ---
@@ -98,10 +97,6 @@ def test_target_abbrev_and_full_phrase_with_declensions():
     """Кожна категорія має ловитись і абревіатурою, і повним текстом у відмінках."""
     def slugs(t):
         return {s for _, s in classify(t, TARGET_LEXICON)}
-    # НГУ: абревіатура, злите, повне у відмінках
-    for t in ("НГУ", "нацгвардія", "національна гвардія України",
-              "бійцям національної гвардії", "гвардійцям"):
-        assert "ngu" in slugs(t), t
     # ТрО: абревіатура + повний текст у відмінках
     for t in ("ТрО", "сили ТрО", "територіальна оборона",
               "бійцям територіальної оборони"):
@@ -109,10 +104,6 @@ def test_target_abbrev_and_full_phrase_with_declensions():
     # ЗСУ: абревіатура + повний текст у відмінках
     for t in ("ЗСУ", "збройні сили України", "військовослужбовцям Збройних Сил"):
         assert "warrior" in slugs(t), t
-    # ДСНС: абревіатура + повний текст (стандартна форма назви)
-    for t in ("ДСНС", "державна служба з надзвичайних ситуацій",
-              "працівникам з надзвичайних ситуацій"):
-        assert "dsns" in slugs(t), t
 
 
 def test_target_no_false_positives_on_homographs():
@@ -122,5 +113,3 @@ def test_target_no_false_positives_on_homographs():
     assert "warrior" not in slugs("троянда для коханої")        # ТрО-guard
     assert "warrior" not in slugs("тролейбусний маршрут")
     assert "warrior" not in slugs("збройний напад пограбування")  # не «збройних сил»
-    assert "dsns" not in slugs("надзвичайна знижка сьогодні")   # не «надзвичайних ситуац»
-    assert "ngu" not in slugs("авангард моди у гардеробі")      # не «гвард» окремим словом

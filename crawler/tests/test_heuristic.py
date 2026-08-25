@@ -148,11 +148,11 @@ def test_offer_without_target_audience_is_skipped():
     assert ex.extract(_item("Знижка 20% на все у нашому магазині"), "Shop", CATS) is None
 
 
-def test_offer_for_dsns_passes_gate():
+def test_offer_for_dsns_only_is_dropped():
+    # ДСНС прибрано з аудиторій (0 унікальних оферів). Знижка суто «для ДСНС» без
+    # військові/УБД/ветеран більше НЕ вважається профільним офером — відсіюється гейтом.
     ex = get_extractor("heuristic")
-    cand = ex.extract(_item("Знижка 15% для рятувальників ДСНС"), "Магазин", CATS)
-    assert cand is not None
-    assert cand.discount_type == "percent"
+    assert ex.extract(_item("Знижка 15% для рятувальників ДСНС"), "Магазин", CATS) is None
 
 
 def test_price_increase_without_discount_returns_none():

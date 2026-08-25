@@ -4,19 +4,19 @@ from crawler.discovery.query_grid import (
 
 
 def test_grid_size_is_base_plus_geo_block():
-    base = len(INTENT_FORMS) * len(AUDIENCE_FORMS)          # 351
+    base = len(INTENT_FORMS) * len(AUDIENCE_FORMS)          # 13*24 = 312
     geo = len(GEO_INTENTS) * len(GEO_AUDIENCES) * len(GRID_CITIES)  # 5*6*45 = 1350
     grid = build_grid()
-    assert base == 351 and geo == 1350
-    assert len(grid) == base + geo == 1701
+    assert base == 312 and geo == 1350
+    assert len(grid) == base + geo == 1662
 
 
 def test_base_prefix_is_byte_stable():
-    # first 351 == the plain intent×audience grid, unchanged order
+    # first 312 == the plain intent×audience grid, unchanged order
     grid = build_grid()
     plain = build_grid(cities=[])
-    assert len(plain) == 351
-    assert grid[:351] == plain
+    assert len(plain) == 312
+    assert grid[:312] == plain
 
 
 def test_geo_block_present_and_ordered():
@@ -24,8 +24,8 @@ def test_geo_block_present_and_ordered():
     assert "знижка військові Київ" in grid                  # {geo_intent} {geo_aud} {city}
     assert "знижка військові" in grid                       # plain base still present
     # geo entries carry a curated city suffix
-    assert grid[351].endswith(f" {GRID_CITIES[0]}")
-    assert grid[351] == f"{GEO_INTENTS[0]} {GEO_AUDIENCES[0]} {GRID_CITIES[0]}"
+    assert grid[312].endswith(f" {GRID_CITIES[0]}")
+    assert grid[312] == f"{GEO_INTENTS[0]} {GEO_AUDIENCES[0]} {GRID_CITIES[0]}"
 
 
 def test_grid_cities_curated_and_no_occupied():
@@ -43,7 +43,7 @@ def test_geo_subsets_are_subsets_of_axes():
 
 def test_cities_di_controls_geo_size():
     grid = build_grid(cities=["Львів", "Одеса"])
-    assert len(grid) == 351 + len(GEO_INTENTS) * len(GEO_AUDIENCES) * 2   # 351 + 60
+    assert len(grid) == 312 + len(GEO_INTENTS) * len(GEO_AUDIENCES) * 2   # 312 + 60
 
 
 def test_grid_has_intent_templates_not_brands():
@@ -111,7 +111,7 @@ def test_empty_grid_is_safe():
 
 def test_services_block_appended_after_geo():
     from crawler.discovery.query_grid import SERVICE_MODIFIERS, SERVICE_AUDIENCES
-    base = build_grid()                       # 1701, no services
+    base = build_grid()                       # 1662, no services
     g = build_grid(services=["стоматологія", "автосервіс"])
     assert g[:len(base)] == base              # byte-stable: services appended after
     added = len(g) - len(base)

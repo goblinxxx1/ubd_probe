@@ -9,22 +9,32 @@ def test_veteran_slugs_are_target():
         assert pl.page_is_target(u) is True, u
 
 
-def test_security_forces_slugs_are_target():
-    # ТрО, поліція, ДСНС, Нацгвардія (НГУ), УБД, учасники бойових дій
-    for u in ("https://s.ua/teroborona", "https://s.ua/dlya-policiyi",
-              "https://s.ua/police", "https://s.ua/dsns",
-              "https://s.ua/nacgvardiya", "https://s.ua/national-guard",
-              "https://s.ua/pilhy-ubd",
-              "https://s.ua/тероборона", "https://s.ua/поліція",
-              "https://s.ua/дснс", "https://s.ua/нацгвардія",
-              "https://s.ua/пільги-убд", "https://s.ua/учасникам-бойових-дій"):
+def test_tro_and_ubd_slugs_are_target():
+    # ТрО (→ warrior) та УБД/бойові дії лишаються таргетами
+    for u in ("https://s.ua/teroborona", "https://s.ua/pilhy-ubd",
+              "https://s.ua/тероборона", "https://s.ua/пільги-убд",
+              "https://s.ua/учасникам-бойових-дій"):
         assert pl.page_is_target(u) is True, u
 
 
+def test_police_dsns_ngu_slugs_are_not_target():
+    # Поліція/ДСНС/НГУ прибрано з page-target токенів: 0 унікальних оферів, усе покрито
+    # військові/УБД. Бонус: голе "police" ловило translit «полицею» (shelf) → продуктові
+    # сторінки типу kushetka-z-policeyu (реальна регресія, що це й спровокувала).
+    for u in ("https://s.ua/dlya-policiyi", "https://s.ua/police",
+              "https://s.ua/dsns", "https://s.ua/nacgvardiya",
+              "https://s.ua/national-guard", "https://s.ua/поліція",
+              "https://s.ua/дснс", "https://s.ua/нацгвардія",
+              "https://s.ua/ua/produkciya/medichni-mebli/kushetka-oglyadova-z-policeyu"):
+        assert pl.page_is_target(u) is False, u
+
+
 def test_security_forces_anchor_text_is_target():
-    assert pl.page_is_target("https://s.ua/p9", "Національна гвардія України") is True
+    # «Нацгвардія» більше не таргет (НГУ прибрано). УБД/бойові дії лишаються. Анкор із
+    # загальним «знижк/акці» — таргет незалежно від аудиторії (загальний промо-сигнал).
+    assert pl.page_is_target("https://s.ua/p9", "Національна гвардія України") is False
     assert pl.page_is_target("https://s.ua/p10", "Пільги учасникам бойових дій") is True
-    assert pl.page_is_target("https://s.ua/p11", "Знижки для ДСНС") is True
+    assert pl.page_is_target("https://s.ua/p11", "Знижки для ДСНС") is True  # via «знижк»
 
 
 def test_info_slugs_are_target():
@@ -134,7 +144,7 @@ def test_include_tokens_word_start_anchored():
     assert pl.page_is_target("https://s.ua/aktsiya-dnya") is True       # segment starts 'aktsi'
     assert pl.url_is_promo("https://s.ua/akcii") is True
     assert pl.page_is_target("https://s.ua/dlya-veteraniv") is True     # '-veteran…' boundary
-    assert pl.page_is_target("https://s.ua/national-guard") is True     # hyphenated token intact
+    assert pl.page_is_target("https://s.ua/pro-nas-2") is True          # hyphenated token intact
     assert pl.page_is_target("https://s.ua/dostavka-i-oplata") is True  # info slug still matches
 
 
