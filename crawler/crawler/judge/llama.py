@@ -24,6 +24,11 @@ _SYSTEM = (
     "якщо це сайт-широкий банер, випадковий на сторінці з іншим змістом."
 )
 
+# Довгі юр-сторінки («правила акції») переповнюють ctx-size 4096 → 400 Bad Request.
+# Судді юр-boilerplate ні до чого — обрізаємо тіло до безпечного бюджету (голова
+# несе тайтл/тип сторінки, що й вирішує genuine).
+_MAX_BODY_CHARS = 2000
+
 # Few-shot із реальних кейсів (негативи + позитиви).
 _EXAMPLES = [
     ("Скачати пісню «Chico - Допоможе ЗСУ» безкоштовно у mp3 | musiua.com/get-uamusic/dopomozhe-zsu",
@@ -51,8 +56,11 @@ class LlamaCppJudge:
 
     def _candidate_text(self, cand) -> str:
         disc = f"{getattr(cand, 'discount_type', None)} {getattr(cand, 'discount_value', None)}"
+        body = getattr(cand, "body", "") or ""
+        if len(body) > _MAX_BODY_CHARS:
+            body = body[:_MAX_BODY_CHARS] + "…"
         return (f"{getattr(cand, 'title', '') or ''}\n"
-                f"{getattr(cand, 'body', '') or ''}\n"
+                f"{body}\n"
                 f"знижка: {disc}\n"
                 f"url: {getattr(cand, 'article_url', '') or ''}")
 

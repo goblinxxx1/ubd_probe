@@ -50,3 +50,26 @@ def test_llama_judge_bad_json_raises_judge_error():
         assert False, "expected JudgeError"
     except JudgeError:
         pass
+
+
+def test_candidate_text_truncates_long_body():
+    j = LlamaCppJudge(_client(lambda r: httpx.Response(200, json={})), model="m")
+
+    class C:
+        title = "T"; discount_type = "percent"; discount_value = 20
+        article_url = "u"; body = "x" * 5000
+
+    text = j._candidate_text(C())
+    assert "x" * 2000 + "…" in text
+    assert "x" * 2001 not in text          # не більше 2000 підряд перед трьома крапками
+
+
+def test_candidate_text_keeps_short_body():
+    j = LlamaCppJudge(_client(lambda r: httpx.Response(200, json={})), model="m")
+
+    class C:
+        title = "T"; discount_type = "free"; discount_value = None
+        article_url = "u"; body = "short body"
+
+    text = j._candidate_text(C())
+    assert "short body" in text and "…" not in text
