@@ -75,24 +75,30 @@ DISCOUNT_CTX = re.compile(
 Run: `cd crawler && .venv/Scripts/python.exe -m pytest tests/test_promo_lexicon.py -v`
 Expected: PASS — і нова функція, і наявні (`test_discount_ctx_excludes_shareholder_homograph` тощо).
 
-- [ ] **Step 5: Написати падаючий end-to-end тест через екстрактор**
+- [ ] **Step 5: Написати end-to-end тест через екстрактор**
+
+> **ВАЖЛИВО (виправлення під час виконання):** `HeuristicExtractor.extract` має ПЕРШИЙ гейт на `heuristic.py:104` — `if not any(t in low for t in pl.offer_triggers()): return None`. Тобто сторінка мусить містити промо-слово з `SEED_OFFER_TRIGGERS` (знижк/акці/промокод/безкоштов/уцінк/бонус/кешбек/супер ціна/спеціальна ціна/діє до…). Голе «−15%» без промо-слова офером НЕ стає (свідома точність — лишаємо). Тому e2e бере текст із offer-trigger «уцінка», якого НЕМАЄ в `DISCOUNT_CTX`, — так саме en-dash `–15%` постачає знижковий контекст (до лати повертало None).
 
 У `crawler/tests/test_heuristic.py` додати:
 
 ```python
-def test_percent_discount_with_typographic_minus():
-    # реальні сайти пишуть знижку мінусом/тире, не ASCII-дефісом
+def test_percent_extracted_with_typographic_minus_via_trigger():
+    # «уцінка» проходить гейт offer_triggers, але сама НЕ в DISCOUNT_CTX;
+    # en-dash «–15%» має тепер дати знижковий контекст → percent екстрактиться
+    # (до розширення DISCOUNT_CTX цей кейс повертав None).
     ex = get_extractor("heuristic", require_discount=True)
-    cand = ex.extract(_item("Мийка ветеранам −15% на всі послуги"), "Автомийка", CATS)
+    cand = ex.extract(_item("Уцінка ветеранам –15% на всі послуги"), "Магазин", CATS)
     assert cand is not None
     assert cand.discount_type == "percent"
     assert cand.discount_value == "15"
 ```
 
+(`–` — EN DASH U+2013; файл лишати UTF-8.)
+
 - [ ] **Step 6: Запустити — переконатись, що проходить**
 
-Run: `cd crawler && .venv/Scripts/python.exe -m pytest tests/test_heuristic.py::test_percent_discount_with_typographic_minus -v`
-Expected: PASS (крок 3 уже застосовано, тож весь гейт-шлях percent+DISCOUNT_CTX спрацьовує на `−15%`).
+Run: `cd crawler && .venv/Scripts/python.exe -m pytest tests/test_heuristic.py::test_percent_extracted_with_typographic_minus_via_trigger -v`
+Expected: PASS (весь гейт-шлях offer_triggers→percent→DISCOUNT_CTX спрацьовує).
 
 - [ ] **Step 7: Commit**
 
