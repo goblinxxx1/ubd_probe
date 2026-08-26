@@ -667,3 +667,43 @@ def test_passive_gate_drops_non_genuine():
                     relevance_gate=DropGate())
     summary = runner.run()
     assert summary["offers"] == 0             # гейт відкинув
+
+
+def test_saturation_gauge_is_logged(caplog):
+    # coverage_counts -> observed=4,f1=2,f2=1 -> chao1=4+(2*2)/(2*1)=6 -> saturation=4/6~=0.667
+    # (перевірено виконанням: brief-приклад ~0.714 не збігається з фактичною формулою chao1;
+    # цей тест гарантує формулу, яку runner логує; wiring-тест нижче ловить сам рядок логу)
+    from crawler.discovery.coverage import saturation as sat
+    pct = sat(4, 2, 1)
+    assert 0.665 < pct < 0.668     # guards the formula the runner will log
+
+
+def test_run_active_logs_coverage_saturation_gauge(caplog):
+    class _CovState:
+        def coverage_counts(self): return (4, 2, 1)   # -> chao1=6 -> saturation=4/6~=66.7%
+    class _SP:
+        _state = _CovState()
+        def run(self, known): return []
+        def provider_for_site_query(self): return None
+    api = FakeApi([])
+    runner = Runner(api, {"website": FakeFetcher([])}, get_extractor("heuristic"), _rl(),
+                    harvester=_RecordingHarvester(), search_pass=_SP())
+    with caplog.at_level("INFO", logger="crawler.runner"):
+        runner.run_active()
+    msgs = [r.getMessage() for r in caplog.records if r.name == "crawler.runner"]
+    assert "active coverage: observed=4 saturation=66.7%" in msgs
+
+
+def test_run_active_skips_coverage_log_when_state_lacks_coverage_counts():
+    """Existing fakes (e.g. mark_harvested-only _state) must not crash run_active."""
+    class _State:
+        def mark_harvested(self, ks): pass
+    class _SP:
+        _state = _State()
+        def run(self, known): return []
+        def provider_for_site_query(self): return None
+    api = FakeApi([])
+    runner = Runner(api, {"website": FakeFetcher([])}, get_extractor("heuristic"), _rl(),
+                    harvester=_RecordingHarvester(), search_pass=_SP())
+    summary = runner.run_active()          # no coverage_counts() -> guarded, no crash
+    assert summary["errors"] == 0

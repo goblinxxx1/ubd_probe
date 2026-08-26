@@ -238,6 +238,15 @@ class Runner:
                 # DDG-independent drain always runs; the DDG due-walk search only when allowed.
                 feeds.append(self._search_pass.run(known) if ddg_allowed
                              else self._search_pass.drain())
+                # Observability only: гейдж насичення Chao1 (НАПРЯМНИЙ показник — таргетована
+                # вибірка зміщує оцінку, тому НЕ гілкуємо планування на цьому значенні).
+                cov_state = getattr(self._search_pass, "_state", None)
+                if cov_state is not None and hasattr(cov_state, "coverage_counts"):
+                    obs, f1, f2 = cov_state.coverage_counts()
+                    if obs:
+                        from crawler.discovery.coverage import saturation as _sat
+                        log.info("active coverage: observed=%d saturation=%.1f%%",
+                                 obs, 100.0 * _sat(obs, f1, f2))
             if self._brand_feed is not None:
                 feeds.append(self._brand_feed.candidates(known))
             if self._osm_feed is not None:
