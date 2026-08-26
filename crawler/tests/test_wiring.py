@@ -420,14 +420,14 @@ def test_build_runner_grid_has_cities(tmp_path):
     cfg = _base_cfg(tmp_path, active_discovery=True, search_providers=["duckduckgo"],
                     grid_cities_enabled=True, query_lexicon_enabled=False)
     runner = build_runner(cfg)
-    assert len(runner._search_pass._grid) == 1728
+    assert len(runner._search_pass._grid) == 1700
 
 
 def test_build_runner_grid_cities_disabled(tmp_path):
     cfg = _base_cfg(tmp_path, active_discovery=True, search_providers=["duckduckgo"],
                     grid_cities_enabled=False, query_lexicon_enabled=False)
     runner = build_runner(cfg)
-    assert len(runner._search_pass._grid) == 378
+    assert len(runner._search_pass._grid) == 350
 
 
 def test_build_runner_grid_includes_seed_and_learned_services(tmp_path, monkeypatch):
@@ -446,7 +446,7 @@ def test_build_runner_grid_includes_seed_and_learned_services(tmp_path, monkeypa
                     grid_cities_enabled=True, query_lexicon_enabled=True)
     runner = build_runner(cfg)
     per_svc = len(SERVICE_MODIFIERS) * len(SERVICE_AUDIENCES) + len(SERVICE_AUDIENCES)
-    assert len(runner._search_pass._grid) == 1728 + (len(SEED_SERVICES) + 2) * per_svc
+    assert len(runner._search_pass._grid) == 1700 + (len(SEED_SERVICES) + 2) * per_svc
 
 
 def test_build_runner_fetches_protected_terms_into_search_pass(tmp_path, monkeypatch):
@@ -477,7 +477,7 @@ def test_build_runner_query_lexicon_disabled_is_base(tmp_path, monkeypatch):
     cfg = _base_cfg(tmp_path, active_discovery=True, search_providers=["duckduckgo"],
                     grid_cities_enabled=True, query_lexicon_enabled=False)
     runner = build_runner(cfg)
-    assert len(runner._search_pass._grid) == 1728           # seed + learned suppressed by flag
+    assert len(runner._search_pass._grid) == 1700           # seed + learned suppressed by flag
 
 
 def test_reject_ingestor_built_and_reuses_registry(tmp_path):
