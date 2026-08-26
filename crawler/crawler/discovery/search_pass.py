@@ -142,9 +142,20 @@ class SearchPass:
     def _effective_ttl_for(self, kw: str) -> float:
         """Adaptive freshness-TTL для фрази, з людським override. Захищена фраза
         завжди отримує базовий TTL (ніколи не душиться беком), решта — делегує
-        адаптивний backoff у SearchState (сухі фрази = довший TTL)."""
-        if kw in self._protected_terms:
-            return self._ttl                       # human-protected: never suppressed
+        адаптивний backoff у SearchState (сухі фрази = довший TTL).
+
+        `protected_terms` містить ГОЛІ адмін-терми (напр. "евакуатор"), а `kw`
+        тут — уже СКЛАДЕНА grid-фраза ("евакуатор знижка військовим"), бо
+        build_grid завжди клеїть "{service} {modifier} {audience}" /
+        "{service} {audience}" — сервіс-терм ніколи не є окремим grid-входом.
+        Тому точний membership-чек ніколи б не спрацював у проді. Захищено, якщо
+        kw ТОЧНО дорівнює захищеному терму, АБО захищений терм — його провідний
+        ПОВНОСЛІВНИЙ префікс (бо композиція завжди ставить сервіс першим)."""
+        kw_norm = (kw or "").strip().casefold()
+        for p in self._protected_terms:
+            p_norm = (p or "").strip().casefold()
+            if p_norm and (kw_norm == p_norm or kw_norm.startswith(p_norm + " ")):
+                return self._ttl                   # human-protected: never suppressed
         return self._state.effective_ttl(kw, self._ttl)
 
     def any_provider_available(self) -> bool:

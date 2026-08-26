@@ -336,6 +336,58 @@ def test_protected_phrase_never_retired(tmp_path):
     assert sp._effective_ttl_for("ручний термін") == 100.0
 
 
+def test_protected_service_term_exempts_composed_grid_phrase(tmp_path):
+    """Регресія: adminʼ захищає БАЗОВИЙ сервіс-терм ("евакуатор"), але в _collect_due
+    `kw` — це СКЛАДЕНА grid-фраза ("евакуатор знижка військовим"), бо build_grid
+    завжди клеїть "{service} {modifier} {audience}"/"{service} {audience}". Точний
+    membership-чек ("евакуатор" in protected_terms) НІКОЛИ не спрацює на композиті —
+    людський override мовчки не діяв. Префіксний match має рятувати саме цей кейс."""
+    composed = "евакуатор знижка військовим"
+    grid = QueryGrid([composed])
+    clock = [0.0]
+    state = SearchState(str(tmp_path / "s.json"), clock=lambda: clock[0])
+    for _ in range(10):
+        state.record_yield(composed, 0)          # хронічно суха складена фраза
+    sp = SearchPass([], state, grid, block_size=1, ttl_seconds=100.0,
+                    protected_terms=frozenset({"евакуатор"}))
+    assert sp._effective_ttl_for(composed) == 100.0    # має бути base TTL, не backed-off
+
+
+def test_non_protected_composed_phrase_still_backs_off(tmp_path):
+    """Контрольний випадок: складена фраза, чий провідний сервіс-терм НЕ захищений,
+    має продовжувати звичайний adaptive backoff (не отримує override за помилкою)."""
+    composed = "шиномонтаж знижка військовим"
+    grid = QueryGrid([composed])
+    clock = [0.0]
+    state = SearchState(str(tmp_path / "s.json"), clock=lambda: clock[0])
+    for _ in range(10):
+        state.record_yield(composed, 0)
+    sp = SearchPass([], state, grid, block_size=1, ttl_seconds=100.0,
+                    protected_terms=frozenset({"евакуатор"}))
+    assert sp._effective_ttl_for(composed) > 100.0    # не захищена -> звичайний backoff
+
+
+def test_protected_service_term_exempts_real_build_grid_phrase(tmp_path):
+    """Кінець-в-кінець(ish): реальний build_grid зі SEED_SERVICES дає складені фрази
+    виду "{service} {modifier} {audience}"/"{service} {audience}"; захист базового
+    сервіс-терму мусить звільняти принаймні одну з них від backoff."""
+    from crawler.discovery.query_grid import build_grid, SERVICE_AUDIENCES
+    service = "СТО"
+    phrases = build_grid(cities=[], services=[service])
+    composed = [p for p in phrases if p.casefold().startswith(service.casefold() + " ")]
+    assert composed, "build_grid мав скласти хоч одну фразу з базовим сервіс-термом"
+    clock = [0.0]
+    state = SearchState(str(tmp_path / "s.json"), clock=lambda: clock[0])
+    for p in composed:
+        for _ in range(10):
+            state.record_yield(p, 0)
+    grid = QueryGrid(composed)
+    sp = SearchPass([], state, grid, block_size=1, ttl_seconds=100.0,
+                    protected_terms=frozenset({service}))
+    for p in composed:
+        assert sp._effective_ttl_for(p) == 100.0
+
+
 def test_set_protected_terms_updates_live_without_rebuild(tmp_path):
     """Задача 5C: адмін захищає термін ПІД ЧАС роботи краулера (без рестарту) —
     set_protected_terms підмінює множину так само, як set_grid підмінює грід."""
