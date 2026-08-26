@@ -135,6 +135,9 @@ class _RawSettings(BaseSettings):
     judge_model: str = "qwen2.5-7b-instruct"
     judge_timeout_seconds: float = 30.0
     judge_cache_path: str = "/data/judge_cache.json"
+    phrase_cold_tries: int = 3       # Задача 6: adaptive-планувальник фраз — мін. спроб до backoff
+    phrase_ttl_mult_cap: float = 8.0  # стеля множника TTL для сухих фраз
+    phrase_ewma_alpha: float = 0.3    # вага EWMA продуктивності фрази
 
 
 @dataclass
@@ -265,6 +268,9 @@ class Config:
     judge_model: str = "qwen2.5-7b-instruct"
     judge_timeout_seconds: float = 30.0
     judge_cache_path: str = "/data/judge_cache.json"
+    phrase_cold_tries: int = 3
+    phrase_ttl_mult_cap: float = 8.0
+    phrase_ewma_alpha: float = 0.3
 
 
 def _parse_accounts(platform: str, raw: str) -> list[BotCredential]:
@@ -417,6 +423,9 @@ def from_settings(s: _RawSettings) -> Config:
         judge_model=s.judge_model,
         judge_timeout_seconds=s.judge_timeout_seconds,
         judge_cache_path=s.judge_cache_path,
+        phrase_cold_tries=s.phrase_cold_tries,
+        phrase_ttl_mult_cap=s.phrase_ttl_mult_cap,
+        phrase_ewma_alpha=s.phrase_ewma_alpha,
     )
 
 

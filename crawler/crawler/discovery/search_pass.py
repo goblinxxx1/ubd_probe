@@ -13,7 +13,8 @@ class SearchPass:
 
     def __init__(self, plans, state, grid, block_size, static_keywords=None,
                  ttl_seconds=0.0, page_cap=1, breed_sink=None, promote_min=2,
-                 protected_terms=frozenset()):
+                 protected_terms=frozenset(),
+                 cold_tries=3, mult_cap=8.0, alpha=0.3):
         self._plans = list(plans)
         self._state = state
         self._grid = grid
@@ -30,6 +31,11 @@ class SearchPass:
         # відсіюючи відхилені людиною (людський reject виграє). None = вимкнено.
         self._breed_sink = breed_sink
         self._promote_min = promote_min
+        # Задача 6: конфігуровані тюнінги адаптивного планувальника фраз
+        # (раніше — жорсткі дефолти effective_ttl/record_yield).
+        self._cold_tries = cold_tries
+        self._mult_cap = mult_cap
+        self._alpha = alpha
 
     def set_protected_terms(self, terms) -> None:
         """Задача 5C: живий перемикач захисту (без рестарту краулера) — той самий
@@ -99,7 +105,7 @@ class SearchPass:
         if any_success:
             for p in batch:
                 self._state.record_page_result(p, pages[p], new_by_phrase[p], self._page_cap)
-                self._state.record_yield(p, new_by_phrase[p])          # NEW: productivity
+                self._state.record_yield(p, new_by_phrase[p], alpha=self._alpha)  # NEW: productivity
             for c in out:                                              # NEW: recapture freq
                 self._state.note_host(bare_host(c.url_or_handle))
             if self._breed_sink is not None:
@@ -156,7 +162,8 @@ class SearchPass:
             p_norm = (p or "").strip().casefold()
             if p_norm and (kw_norm == p_norm or kw_norm.startswith(p_norm + " ")):
                 return self._ttl                   # human-protected: never suppressed
-        return self._state.effective_ttl(kw, self._ttl)
+        return self._state.effective_ttl(kw, self._ttl,
+                                          cold_tries=self._cold_tries, mult_cap=self._mult_cap)
 
     def any_provider_available(self) -> bool:
         return any(p.available() for p in self._plans)

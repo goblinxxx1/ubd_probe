@@ -181,7 +181,10 @@ def build_runner(config) -> Runner:
                                      page_cap=config.active_search_page_cap,
                                      breed_sink=_breed_sink,
                                      promote_min=config.query_breed_promote_min,
-                                     protected_terms=protected_at_wiring)
+                                     protected_terms=protected_at_wiring,
+                                     cold_tries=config.phrase_cold_tries,
+                                     mult_cap=config.phrase_ttl_mult_cap,
+                                     alpha=config.phrase_ewma_alpha)
             # Static fallback for the site: leg's discovery (used only when search_pass is None);
             # run_active recomputes the live provider each pass via provider_for_site_query().
             discovery = search_pass.provider_for_site_query()   # first available provider (DDG at wiring time)

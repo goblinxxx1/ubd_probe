@@ -355,3 +355,13 @@ def test_judge_config_defaults(monkeypatch):
     assert cfg.judge_model == "qwen2.5-7b-instruct"
     monkeypatch.setenv("JUDGE_ENABLED", "false")
     assert load_config().judge_enabled is False
+
+
+def test_phrase_scheduler_tunables_have_defaults(monkeypatch, tmp_path):
+    monkeypatch.setenv("CRAWLER_API_KEY", "k")
+    monkeypatch.setenv("INTERNAL_API_URL", "http://x")
+    from crawler.config import load_config
+    cfg = load_config()
+    assert cfg.phrase_cold_tries == 3
+    assert cfg.phrase_ttl_mult_cap == 8.0
+    assert cfg.phrase_ewma_alpha == 0.3
