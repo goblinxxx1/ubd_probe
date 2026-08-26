@@ -15,7 +15,7 @@ def bootstrap(config, limit=None) -> int:
     from crawler.fetchers.website import WebsiteFetcher
     from crawler.wiring import _build_brand_feed, _build_walker, _http_client
 
-    client = _http_client(config.request_timeout)
+    client = _http_client(config.request_timeout, getattr(config, "contact_url", "https://ubd.example"))
     feed = _build_brand_feed(config)
     walker, _ = _build_walker(config, client)
     fetcher = WebsiteFetcher(client)

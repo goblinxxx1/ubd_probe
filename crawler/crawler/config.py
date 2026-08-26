@@ -138,6 +138,7 @@ class _RawSettings(BaseSettings):
     phrase_cold_tries: int = 3       # Задача 6: adaptive-планувальник фраз — мін. спроб до backoff
     phrase_ttl_mult_cap: float = 8.0  # стеля множника TTL для сухих фраз
     phrase_ewma_alpha: float = 0.3    # вага EWMA продуктивності фрази
+    crawler_contact: str = "https://ubd.example"   # Задача 11: реальний контакт власника краулера в UA
 
 
 @dataclass
@@ -271,6 +272,7 @@ class Config:
     phrase_cold_tries: int = 3
     phrase_ttl_mult_cap: float = 8.0
     phrase_ewma_alpha: float = 0.3
+    contact_url: str = "https://ubd.example"
 
 
 def _parse_accounts(platform: str, raw: str) -> list[BotCredential]:
@@ -426,6 +428,7 @@ def from_settings(s: _RawSettings) -> Config:
         phrase_cold_tries=s.phrase_cold_tries,
         phrase_ttl_mult_cap=s.phrase_ttl_mult_cap,
         phrase_ewma_alpha=s.phrase_ewma_alpha,
+        contact_url=s.crawler_contact,
     )
 
 

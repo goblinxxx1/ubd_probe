@@ -365,3 +365,11 @@ def test_phrase_scheduler_tunables_have_defaults(monkeypatch, tmp_path):
     assert cfg.phrase_cold_tries == 3
     assert cfg.phrase_ttl_mult_cap == 8.0
     assert cfg.phrase_ewma_alpha == 0.3
+
+
+def test_contact_url_default_and_override(monkeypatch):
+    monkeypatch.setenv("CRAWLER_API_KEY", "k")
+    monkeypatch.setenv("INTERNAL_API_URL", "http://x")
+    monkeypatch.setenv("CRAWLER_CONTACT", "https://ubd.real/contact")
+    from crawler.config import load_config
+    assert load_config().contact_url == "https://ubd.real/contact"

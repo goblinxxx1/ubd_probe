@@ -36,11 +36,14 @@ from crawler.schedule import PassiveSchedule
 
 log = logging.getLogger(__name__)
 
-_UA = "Mozilla/5.0 (compatible; UBDCrawler/0.1; +https://ubd.example)"
+def _build_ua(contact_url: str) -> str:
+    # Задача 11: реальний контакт в UA, щоб адміни сайтів могли зв'язатись
+    # замість блокування (config-driven, замість зашитого placeholder).
+    return f"Mozilla/5.0 (compatible; UBDCrawler/0.1; +{contact_url})"
 
 
-def _http_client(timeout: float, proxy: str | None = None) -> httpx.Client:
-    return httpx.Client(timeout=timeout, headers={"User-Agent": _UA},
+def _http_client(timeout: float, contact_url: str, proxy: str | None = None) -> httpx.Client:
+    return httpx.Client(timeout=timeout, headers={"User-Agent": _build_ua(contact_url)},
                         proxy=proxy, follow_redirects=True)
 
 
@@ -124,7 +127,7 @@ def build_runner(config) -> Runner:
     lang_block_store = (LangBlockStore(config.lang_blocked_hosts_path).load()
                         if config.lang_gate_enabled else None)
 
-    web_client = _http_client(config.request_timeout)
+    web_client = _http_client(config.request_timeout, config.contact_url)
     ig_creds = [c for c in config.bot_accounts if c.platform == "instagram"]
     fb_creds = [c for c in config.bot_accounts if c.platform == "facebook"]
     ig_pool = AccountPool("instagram", ig_creds, api)
@@ -134,8 +137,10 @@ def build_runner(config) -> Runner:
         "website": WebsiteFetcher(web_client),
         "telegram": TelegramFetcher(web_client),
         "instagram": InstagramFetcher(ig_pool, _http_client(config.request_timeout,
+                                                             config.contact_url,
                                                              config.proxies.get("instagram"))),
         "facebook": FacebookFetcher(fb_pool, _http_client(config.request_timeout,
+                                                          config.contact_url,
                                                           config.proxies.get("facebook"))),
     }
     extractor = get_extractor(config.extractor, require_discount=config.require_discount)
