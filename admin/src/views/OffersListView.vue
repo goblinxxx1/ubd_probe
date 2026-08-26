@@ -7,7 +7,7 @@ import { useModerationStore } from "@/stores/moderation";
 import * as offers from "@/api/offers";
 import { OFFER_STATUSES, OFFER_TYPES } from "@/constants/enums";
 import { enumLabel, statusTagType, isHttpUrl, supersedeSummary,
-         discountSummary } from "@/utils/format";
+         discountSummary, isJudgeRejected } from "@/utils/format";
 import { confirmDelete, confirmAction } from "@/utils/confirm";
 import { extractError } from "@/utils/errors";
 import DataTableToolbar from "@/components/DataTableToolbar.vue";
@@ -222,6 +222,10 @@ defineExpose({ onPublish, onReject, onRestore, onDelete, onBlockHost, preview, e
         <el-tag v-if="row.discounts?.length > 1" size="small" style="margin-top: 4px; margin-left: 4px">
           {{ `${row.discounts.length} ${pluralZnyzhka(row.discounts.length)}` }}
         </el-tag>
+        <div v-if="row.status === 'rejected' && isJudgeRejected(row)" style="margin-top: 4px">
+          <el-tag size="small" type="danger" effect="plain">Відхилив суддя</el-tag>
+          <span class="judge-reason">{{ row.rejection_reason }}</span>
+        </div>
       </template>
       <template #col-details="{ row }">
         <div class="details">
@@ -268,4 +272,5 @@ defineExpose({ onPublish, onReject, onRestore, onDelete, onBlockHost, preview, e
 .details .chip { margin: 0; }
 .more { color: var(--el-text-color-secondary); font-size: 12px; }
 .bulkbar { margin: 8px 0; }
+.judge-reason { margin-left: 6px; font-size: 12px; color: var(--el-text-color-secondary); }
 </style>

@@ -67,6 +67,13 @@ export function discountSummary(offer) {
   return label || "—";
 }
 
+// The judge (relevance-judge) auto-rejects with reviewed_by=NULL + rejection_reason set;
+// an admin reject always sets reviewed_by, so this distinguishes the two for the
+// "Відхилив суддя" transparency badge in the rejected tab.
+export function isJudgeRejected(offer) {
+  return !!offer && offer.reviewed_by == null && !!offer.rejection_reason;
+}
+
 export function supersedeSummary(offer) {
   const p = offer && offer.supersedes;
   if (!p) return "";

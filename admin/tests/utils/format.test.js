@@ -8,6 +8,7 @@ import {
   discountLabel,
   supersedeSummary,
   discountSummary,
+  isJudgeRejected,
 } from "@/utils/format";
 import { OFFER_STATUSES } from "@/constants/enums";
 
@@ -100,6 +101,18 @@ describe("supersedeSummary", () => {
   });
   it("returns empty for a plain offer", () => {
     expect(supersedeSummary({ supersedes: null })).toBe("");
+  });
+});
+
+describe("isJudgeRejected", () => {
+  it("true when reviewed_by is null and a rejection_reason is set (judge auto-reject)", () => {
+    expect(isJudgeRejected({ reviewed_by: null, rejection_reason: "суддя: junk" })).toBe(true);
+  });
+  it("false when reviewed_by is set (admin reject)", () => {
+    expect(isJudgeRejected({ reviewed_by: 3, rejection_reason: "суддя: junk" })).toBe(false);
+  });
+  it("false when there is no rejection_reason", () => {
+    expect(isJudgeRejected({ reviewed_by: null, rejection_reason: null })).toBe(false);
   });
 });
 

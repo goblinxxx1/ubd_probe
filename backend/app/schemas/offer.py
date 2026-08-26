@@ -170,7 +170,7 @@ class PendingUnjudgedOut(BaseModel):
 
 
 class OfferAdminOut(OfferOut):
-    """Admin serialization of an offer. Currently identical to OfferOut; kept as a
-    distinct type so admin endpoints can grow admin-only fields without touching the
-    public schema."""
-    pass
+    """Admin serialization of an offer. Adds admin-only fields (moderation trail) so
+    admin endpoints can grow without touching the public schema."""
+    reviewed_by: int | None = None
+    rejection_reason: str | None = None

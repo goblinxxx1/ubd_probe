@@ -34,6 +34,24 @@ def test_admin_offers_requires_auth(client):
     assert client.get("/api/admin/offers").status_code == 401
 
 
+def test_judge_rejected_offer_serializes_reviewed_by_none_and_reason(client, db_session):
+    # judge_reject sets status=rejected + reviewed_by=NULL + rejection_reason="суддя: ..."
+    token = _admin_token(db_session)
+    h = {"Authorization": f"Bearer {token}"}
+    o = offer_crud.create_offer(
+        db_session, OfferCreate(type=OfferType.discount, title="Judged", provider="P"),
+        created_by=CreatedBy.crawler, status=OfferStatus.pending_review)
+    offer_crud.judge_reject(db_session, o.id, "суддя: немає знижкового контексту")
+
+    resp = client.get("/api/admin/offers?status=rejected", headers=h)
+    assert resp.status_code == 200
+    items = resp.json()["items"]
+    assert len(items) == 1
+    row = items[0]
+    assert row["reviewed_by"] is None
+    assert row["rejection_reason"] == "суддя: немає знижкового контексту"
+
+
 def test_admin_sees_expired_published_offer(client, db_session):
     import datetime
     token = _admin_token(db_session)

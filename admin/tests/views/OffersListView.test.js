@@ -270,6 +270,28 @@ describe("OffersListView", () => {
     expect(offers.list).toHaveBeenCalledTimes(3);   // mount + reload after bulk + moderation badge refresh
   });
 
+  it("shows the judge-reject badge + reason for a judge-rejected row, not an admin-rejected one", async () => {
+    offers.list.mockResolvedValueOnce({
+      items: [
+        { id: 1, title: "Judged", provider: "P", type: "discount", status: "rejected", valid_until: null,
+          reviewed_by: null, rejection_reason: "суддя: немає знижкового контексту" },
+        { id: 2, title: "AdminRejected", provider: "P", type: "discount", status: "rejected", valid_until: null,
+          reviewed_by: 7, rejection_reason: "спам" },
+      ],
+      total: 2,
+    });
+    const router = makeRouter();
+    router.push("/");
+    await router.isReady();
+    const wrapper = mount(OffersListView, { global: { plugins: [router, ElementPlus] } });
+    await flushPromises();
+    const txt = wrapper.text();
+    expect(txt).toContain("Відхилив суддя");
+    expect(txt).toContain("суддя: немає знижкового контексту");
+    // only one badge — the admin-rejected row must not render it
+    expect(wrapper.findAll(".judge-reason").length).toBe(1);
+  });
+
   it("bulk-reject does nothing when confirm is cancelled", async () => {
     const { ElMessageBox } = await import("element-plus");
     ElMessageBox.confirm.mockRejectedValueOnce("cancel");
