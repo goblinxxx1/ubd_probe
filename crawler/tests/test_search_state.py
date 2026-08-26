@@ -449,3 +449,21 @@ def test_effective_ttl_backs_off_warm_dry_phrase_capped(tmp_path):
 def test_effective_ttl_unknown_phrase_is_base(tmp_path):
     s = _state(tmp_path, Clock())
     assert s.effective_ttl("невидана", 100.0) == 100.0
+
+
+def test_host_freq_and_coverage_counts(tmp_path):
+    s = _state(tmp_path, Clock())
+    for h in ["a.ua", "a.ua", "a.ua", "b.ua", "b.ua", "c.ua", "d.ua"]:
+        s.note_host(h)
+    # a=3 (neither), b=2 (doubleton), c=1, d=1 (singletons)
+    observed, f1, f2 = s.coverage_counts()
+    assert observed == 4
+    assert f1 == 2            # c, d
+    assert f2 == 1            # b
+
+
+def test_note_host_ignores_empty(tmp_path):
+    s = _state(tmp_path, Clock())
+    s.note_host("")
+    s.note_host(None)         # type: ignore[arg-type]
+    assert s.coverage_counts() == (0, 0, 0)

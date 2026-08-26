@@ -214,6 +214,24 @@ class SearchState:
         mult = min(mult_cap, 2.0 ** max(0, dry - cold_tries + 1))
         return base_ttl * mult
 
+    # --- global capture-recapture frequencies (coverage gauge) ---
+    def note_host(self, host: str | None) -> None:
+        """Зарахувати ще одне «спостереження» домену (для Chao1). Частота, не факт
+        наявності — тому інкремент щоразу, коли пошук виносить цей хост."""
+        if not host:
+            return
+        freq = self._data.setdefault("host_freq", {})
+        freq[host] = int(freq.get(host, 0)) + 1
+        self._save()
+
+    def coverage_counts(self) -> tuple[int, int, int]:
+        """(observed, f1, f2): різних доменів, singletons (=1), doubletons (=2)."""
+        freq = self._data.get("host_freq", {})
+        observed = len(freq)
+        f1 = sum(1 for v in freq.values() if int(v) == 1)
+        f2 = sum(1 for v in freq.values() if int(v) == 2)
+        return observed, f1, f2
+
     # --- keyword cache (page-aware; page 1 uses the bare key for back-compat) ---
     def is_fresh(self, keyword: str, ttl_seconds: float, page: int = 1) -> bool:
         """True iff a non-expired cache entry exists for `(keyword, page)`."""
