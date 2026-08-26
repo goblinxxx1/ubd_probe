@@ -450,3 +450,31 @@ def test_fetch_puts_logo_alt_on_items():
     f = _fetcher_returning(html)
     items, _ = f.fetch({"id": 1, "url_or_handle": "https://cafe.example"}, None)
     assert items and all(i.logo_alt == "Кафе Львів" for i in items)
+
+
+# --- <link rel=canonical> carried on RawItem ---
+
+def test_fetch_extracts_canonical_url():
+    html = ('<html><head><link rel="canonical" href="https://shop.ua/offer">'
+            '</head><body><div>Знижка 20% для військових у нашому магазині сьогодні</div>'
+            '</body></html>')
+    f = _fetcher_returning(html)
+    items, _ = f.fetch({"id": 1, "url_or_handle": "https://shop.ua/offer?utm=x"}, None)
+    assert items and items[0].canonical_url == "https://shop.ua/offer"
+
+
+def test_fetch_canonical_absent_is_none():
+    html = ('<html><body><div>Знижка 20% для військових у нашому магазині сьогодні'
+            '</div></body></html>')
+    f = _fetcher_returning(html)
+    items, _ = f.fetch({"id": 1, "url_or_handle": "https://shop.ua/offer"}, None)
+    assert items and items[0].canonical_url is None
+
+
+def test_fetch_canonical_rejects_unsafe_scheme():
+    html = ('<html><head><link rel="canonical" href="javascript:alert(1)">'
+            '</head><body><div>Знижка 20% для військових у нашому магазині сьогодні'
+            '</div></body></html>')
+    f = _fetcher_returning(html)
+    items, _ = f.fetch({"id": 1, "url_or_handle": "https://shop.ua/offer"}, None)
+    assert items and items[0].canonical_url is None

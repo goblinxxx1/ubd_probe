@@ -26,6 +26,7 @@ class RawItem:
     has_offer_schema: bool = False
     is_article: bool = False
     has_business_schema: bool = False
+    canonical_url: str | None = None  # <link rel="canonical"> — сайт сам оголошує ідентичність сторінки
 
 
 @dataclass

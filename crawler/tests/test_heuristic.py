@@ -440,3 +440,42 @@ def test_percent_extracted_with_typographic_minus_via_trigger():
     assert cand is not None
     assert cand.discount_type == "percent"
     assert cand.discount_value == "15"
+
+
+# --- canonical_url wins over the raw (utm/facet-carrying) url for page identity ---
+
+def _item_canonical(text, url, canonical_url):
+    return RawItem(source_id=1, platform="website", key="k", text=text,
+                    url=url, canonical_url=canonical_url)
+
+
+def test_article_url_prefers_canonical_over_raw_url():
+    ex = get_extractor("heuristic")
+    text = "Знижка 20% для ветеранів у нашому магазині сьогодні"
+    cand = ex.extract(_item_canonical(text, "https://shop.ua/offer?utm=x",
+                                       "https://shop.ua/offer"), "Крамниця", CATS)
+    assert cand is not None
+    assert cand.article_url == "https://shop.ua/offer"
+
+
+def test_article_url_falls_back_to_raw_url_without_canonical():
+    ex = get_extractor("heuristic")
+    text = "Знижка 20% для ветеранів у нашому магазині сьогодні"
+    cand = ex.extract(_item_canonical(text, "https://shop.ua/offer", None), "Крамниця", CATS)
+    assert cand is not None
+    assert cand.article_url == "https://shop.ua/offer"
+
+
+def test_page_identity_collapses_utm_variants_via_canonical():
+    # Same page reached with two different utm-tagged urls, both declaring the
+    # same canonical — must produce the SAME OfferCandidate.article_url (and
+    # therefore the same content_hash once aggregated), so dedup collapses them
+    # into one offer instead of two.
+    ex = get_extractor("heuristic")
+    text = "Знижка 20% для ветеранів у нашому магазині сьогодні"
+    cand_a = ex.extract(_item_canonical(text, "https://shop.ua/offer?utm=a",
+                                         "https://shop.ua/offer"), "Крамниця", CATS)
+    cand_b = ex.extract(_item_canonical(text, "https://shop.ua/offer?utm=b",
+                                         "https://shop.ua/offer"), "Крамниця", CATS)
+    assert cand_a is not None and cand_b is not None
+    assert cand_a.article_url == cand_b.article_url == "https://shop.ua/offer"

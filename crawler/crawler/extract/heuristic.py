@@ -167,7 +167,9 @@ class HeuristicExtractor:
             content_hash=content_hash(promo_title, provider, text),
             site_url=(f"{urlsplit(item.url).scheme}://{urlsplit(item.url).netloc}"
                       if item.url else None),
-            article_url=item.url,
+            # canonical > сира url — сайт сам згортає utm/фасети/пагінацію в одну
+            # ідентичність сторінки, тому дедуп бачить той самий офер.
+            article_url=(item.canonical_url or item.url),
             image_url=getattr(item, "image_url", None),
             logo_url=getattr(item, "logo_url", None),
             target_url=_pick_target(getattr(item, "links", None), item.url or ""),

@@ -65,6 +65,15 @@ def _extract_image(tree, base_url: str) -> str | None:
     return None
 
 
+def _extract_canonical(tree, base_url: str) -> str | None:
+    """Сайт сам оголошує канонічну URL сторінки (згортає фасети/пагінацію/utm-варіанти).
+    Використовуємо як ідентичність офера для дедупу, з fallback на нашу канонікалізацію."""
+    node = tree.css_first('link[rel="canonical"]')
+    if node is not None:
+        return _safe_url(base_url, node.attributes.get("href"))
+    return None
+
+
 def _find_logo(obj) -> str | None:
     """Recurse a parsed JSON-LD value for an Organization/LocalBusiness/WebSite
     `logo` (string or {url}). Handles list, @graph wrapper, and @type-as-list."""
@@ -328,6 +337,7 @@ class WebsiteFetcher:
             resp.raise_for_status()
 
             tree = HTMLParser(resp.text)
+            canonical = _extract_canonical(tree, url)
             image = _extract_image(tree, url)
             logo = _extract_logo(tree, url)
             logo_alt = _extract_logo_alt(tree)
@@ -364,7 +374,8 @@ class WebsiteFetcher:
                                      site_name=site_name, site_tagline=site_tagline,
                                      locality=locality, has_offer_schema=has_offer,
                                      is_article=is_article,
-                                     has_business_schema=has_business))
+                                     has_business_schema=has_business,
+                                     canonical_url=canonical))
             new_key = items[-1].key if items else last_seen_key
             return items, new_key
         except Exception as exc:  # noqa: BLE001 — never raise up the stack
