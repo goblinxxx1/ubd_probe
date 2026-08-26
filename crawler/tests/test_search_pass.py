@@ -302,3 +302,22 @@ def test_dry_phrase_gets_longer_effective_ttl_and_is_skipped(tmp_path):
     assert state.effective_ttl("B", 100.0, cold_tries=3) == 100.0
     # host_freq recorded B's domain at least once
     assert "b.ua" in state._data["host_freq"]
+
+
+def test_productive_phrase_breeds_terms_low_yield_does_not(tmp_path):
+    """Задача 5B: продуктивна фраза (>=promote_min нових кандидатів) розсіює
+    сервіс-терми зі своїх кандидат-назв у breed_sink; бідна на урожай фраза — ні."""
+    grid = QueryGrid(["стоматологія військовим", "квіти прикордонникам"])
+    clock = [0.0]
+    state = SearchState(str(tmp_path / "s.json"), clock=lambda: clock[0])
+    plan = _YieldPlan({"стоматологія військовим": [
+        _yield_cand("Стоматологія Люкс Дніпро", "https://lux.ua"),
+        _yield_cand("Стоматклініка Світ", "https://svit.ua")]})   # 2 new -> >= promote_min
+    bred = []
+    sp = SearchPass([plan], state, grid, block_size=2, ttl_seconds=100.0,
+                    page_cap=1, breed_sink=bred.append, promote_min=2)
+    clock[0] += 10.0
+    sp.run(known=set())
+    assert any("стоматолог" in t for t in bred)     # bred from the winning names
+    # the barren phrase produced nothing -> no breeding from it
+    assert all("квіт" not in t for t in bred)

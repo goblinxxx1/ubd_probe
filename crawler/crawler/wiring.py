@@ -146,15 +146,32 @@ def build_runner(config) -> Runner:
     harvester = None
     brand_feed = None
     state = None
+    bred_terms: set[str] = set()   # Задача 5B: спільний бекет reward-breeding термів
     if config.active_discovery:
         state = SearchState.load(config.search_state_path)
         plans = build_search_plans(config, state=state)
         if plans:
             grid = build_query_grid(config)
+            # Сінк для SearchPass: людський reject виграє одразу на додаванні (ще раз
+            # звіряється у Runner._flush_bred_terms на момент запису у файл кандидатів).
+            try:
+                rejected_at_wiring = {t.strip().casefold()
+                                      for t in (api.list_rejected_query_terms() or ()) if t}
+            except Exception:  # noqa: BLE001 — best-effort, як інші learn-фетчі при wiring
+                rejected_at_wiring = set()
+
+            def _breed_sink(term: str, _rejected=rejected_at_wiring, _bag=bred_terms) -> None:
+                t = (term or "").strip().casefold()
+                if not t or t in _rejected:
+                    return
+                _bag.add(t)
+
             search_pass = SearchPass(plans, state, grid,
                                      config.search_block_size, config.search_keywords,
                                      ttl_seconds=config.search_cache_ttl_hours * 3600,
-                                     page_cap=config.active_search_page_cap)
+                                     page_cap=config.active_search_page_cap,
+                                     breed_sink=_breed_sink,
+                                     promote_min=config.query_breed_promote_min)
             # Static fallback for the site: leg's discovery (used only when search_pass is None);
             # run_active recomputes the live provider each pass via provider_for_site_query().
             discovery = search_pass.provider_for_site_query()   # first available provider (DDG at wiring time)
@@ -271,4 +288,5 @@ def build_runner(config) -> Runner:
                   reject_ingestor=reject_ingestor,
                   first_crawl_budget=config.first_crawl_budget,
                   passive_workers=config.passive_workers,
-                  relevance_gate=relevance_gate)
+                  relevance_gate=relevance_gate,
+                  bred_terms=bred_terms)

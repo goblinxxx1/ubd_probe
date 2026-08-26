@@ -30,7 +30,7 @@ class Runner:
                  passive_schedule=None, now=time.time, revisit_cooldown_seconds=0,
                  reject_ingestor=None, first_crawl_budget=0,
                  passive_workers=1, executor_factory=None,
-                 relevance_gate=None):
+                 relevance_gate=None, bred_terms=None):
         self._api = api_client
         self._fetchers = fetchers
         self._extractor = extractor
@@ -61,6 +61,9 @@ class Runner:
         self._executor_factory = executor_factory or (
             lambda mw: ThreadPoolExecutor(max_workers=mw))
         self._gate = relevance_gate or RelevanceGate(NullJudge(), None)
+        # Задача 5B: спільна множина reward-breeding термів (наповнює SearchPass.breed_sink
+        # у wiring; тут лише прапор, чи є куди зливати — flush() відбувається на learn-тіку).
+        self._bred_terms = bred_terms if bred_terms is not None else set()
 
     def _fetch_for(self, source: dict, last_seen_key):
         fetcher = self._fetchers.get(source["type"])
@@ -85,8 +88,49 @@ class Runner:
             return
         recorder = self._corpus or CorpusRecorder(config.corpus_path, config.corpus_max_mb)
         bootstrap(config, self._api, recorder)          # mine → lexicon file + candidates
+        self._flush_bred_terms(config)                  # NEW (5B): domix reward-breeding терми
         self._submit_query_candidates(config)           # push candidates to backend audit
         self._search_pass.set_grid(build_query_grid(config))   # rebuild → go live
+
+    def _flush_bred_terms(self, config) -> None:
+        """Задача 5B: домішати reward-driven breeding-терми (накопичені SearchPass'ом
+        через breed_sink за минулі активні проходи) у файл кандидатів МАЙНЕРА, який
+        bootstrap() щойно перезаписав через run_query_miner. Людський reject виграє:
+        перевіряємо СВІЖИЙ список відхилених тут теж (термін міг бути відхилений
+        МІЖ появою в bred_terms і цим флашем — сінк у wiring перевіряв лише на момент
+        додавання). Best-effort: збій бекенда не має топити цикл навчання."""
+        if not self._bred_terms:
+            return
+        path = getattr(config, "query_candidates_path", None)
+        if not path:
+            self._bred_terms.clear()
+            return
+        try:
+            rejected = {t.strip().casefold()
+                       for t in (self._api.list_rejected_query_terms() or ()) if t}
+        except Exception:  # noqa: BLE001 — reject-refresh best-effort, як інші learn-тіки
+            rejected = set()
+        import json
+        import os
+        try:
+            with open(path, encoding="utf-8") as fh:
+                cands = json.load(fh)
+            if not isinstance(cands, list):
+                cands = []
+        except (OSError, ValueError):
+            cands = []
+        have = {c.get("term") for c in cands if isinstance(c, dict)}
+        for term in sorted(self._bred_terms):
+            if term in rejected or term in have:
+                continue
+            cands.append({"term": term, "z": 0.0, "support": 1})
+            have.add(term)
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+        tmp = f"{path}.tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(cands, fh, ensure_ascii=False, indent=2)
+        os.replace(tmp, path)
+        self._bred_terms.clear()
 
     def _submit_query_candidates(self, config) -> None:
         """Push the just-mined candidates to the backend audit queue so a moderator can

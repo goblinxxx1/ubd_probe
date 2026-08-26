@@ -12,7 +12,7 @@ class SearchPass:
     succeeded (a throttled/backed-off pass re-scans the same phrases next time)."""
 
     def __init__(self, plans, state, grid, block_size, static_keywords=None,
-                 ttl_seconds=0.0, page_cap=1):
+                 ttl_seconds=0.0, page_cap=1, breed_sink=None, promote_min=2):
         self._plans = list(plans)
         self._state = state
         self._grid = grid
@@ -20,6 +20,11 @@ class SearchPass:
         self._pins = list(static_keywords or [])
         self._ttl = ttl_seconds
         self._page_cap = max(1, int(page_cap))
+        # Задача 5B: reward-driven розмноження термів. breed_sink(term) — callback
+        # (зазвичай зі wiring), що додає термін у пул кандидатів майнера, сам
+        # відсіюючи відхилені людиною (людський reject виграє). None = вимкнено.
+        self._breed_sink = breed_sink
+        self._promote_min = promote_min
 
     def set_grid(self, grid) -> None:
         """Swap in a freshly rebuilt grid (after in-loop learning). The rotation
@@ -86,6 +91,24 @@ class SearchPass:
                 self._state.record_yield(p, new_by_phrase[p])          # NEW: productivity
             for c in out:                                              # NEW: recapture freq
                 self._state.note_host(bare_host(c.url_or_handle))
+            if self._breed_sink is not None:
+                # Задача 5B (ADD-половина): продуктивна фраза (>=promote_min нових
+                # кандидатів за цей прохід) розсіює сервіс-терми зі своїх переможних
+                # назв назад у пул кандидатів майнера. Сінк (wiring) сам відсіює
+                # відхилені людиною терми — людський reject виграє.
+                from crawler.learn.tokenize import service_terms
+                winners_by_phrase: dict[str, list[str]] = {p: [] for p in batch}
+                for c in out:
+                    suffix = (c.discovery_note.split(": ", 1)[1]
+                             if c.discovery_note and ": " in c.discovery_note else None)
+                    phrase = attribution.get(suffix) if suffix else None
+                    if phrase is not None:
+                        winners_by_phrase.setdefault(phrase, []).append(c.name or "")
+                for p in batch:
+                    if new_by_phrase[p] >= self._promote_min:
+                        for name in winners_by_phrase.get(p, []):
+                            for term in service_terms(name):
+                                self._breed_sink(term)
             self._state.set_grid_cursor(new_cursor)
         return out
 

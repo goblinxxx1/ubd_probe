@@ -93,6 +93,7 @@ class _RawSettings(BaseSettings):
     query_miner_min_logodds: float = 0.9      # legacy; v2 query miner no longer gates on z (degenerate on all-pass corpus)
     query_miner_min_pass_docs: int = 2        # v2: anti-typo hapax guard on raw PASS-doc frequency
     query_miner_max_candidates_per_run: int = 0   # v2: 0 = unlimited ("все зразу"); safety ceiling applied in run_query_miner
+    query_breed_promote_min: int = 2   # Задача 5B: поріг нових кандидатів/фразу для reward-breeding
     domain_rating_enabled: bool = True
     domain_registry_path: str = "/data/domain_registry.json"
     domain_feed_per_pass: int = 8
@@ -222,6 +223,7 @@ class Config:
     query_miner_min_logodds: float = 0.9      # legacy; v2 query miner no longer gates on z (degenerate on all-pass corpus)
     query_miner_min_pass_docs: int = 2        # v2: anti-typo hapax guard on raw PASS-doc frequency
     query_miner_max_candidates_per_run: int = 0   # v2: 0 = unlimited ("все зразу"); safety ceiling applied in run_query_miner
+    query_breed_promote_min: int = 2   # Задача 5B: поріг нових кандидатів/фразу для reward-breeding
     domain_rating_enabled: bool = True
     domain_registry_path: str = "/data/domain_registry.json"
     domain_feed_per_pass: int = 8
@@ -372,6 +374,7 @@ def from_settings(s: _RawSettings) -> Config:
         query_miner_min_domain_support=s.query_miner_min_domain_support,
         query_miner_min_logodds=s.query_miner_min_logodds,
         query_miner_min_pass_docs=s.query_miner_min_pass_docs,
+        query_breed_promote_min=s.query_breed_promote_min,
         query_miner_max_candidates_per_run=s.query_miner_max_candidates_per_run,
         domain_rating_enabled=s.domain_rating_enabled,
         domain_registry_path=s.domain_registry_path,
