@@ -107,6 +107,50 @@ def test_list_uncrawled_sources_sends_limit_and_key():
     assert captured[0].url.params.get("limit") == "7"
 
 
+def test_list_pending_unjudged_sends_limit_and_key():
+    captured = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        captured.append(request)
+        if request.url.path == "/api/internal/offers/pending-unjudged":
+            return httpx.Response(200, json=[
+                {"id": 9, "title": "t", "description": "d", "discount_type": "percent",
+                 "discount_value": 10, "article_url": "http://x/9", "content_hash": "h9"},
+            ])
+        return httpx.Response(404, json={"code": "not_found", "detail": "x"})
+
+    client = ApiClient("http://api", "secret", 10.0, transport=httpx.MockTransport(handle))
+    out = client.list_pending_unjudged(50)
+    assert out[0]["id"] == 9
+    assert captured[0].headers["X-API-Key"] == "secret"
+    assert captured[0].url.params.get("limit") == "50"
+
+
+def test_judge_reject_offer_posts_reason():
+    captured = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        captured.append(request)
+        if request.url.path == "/api/internal/offers/9/judge-reject" and request.method == "POST":
+            return httpx.Response(200, json={"id": 9, "status": "rejected"})
+        return httpx.Response(404, json={"code": "not_found", "detail": "x"})
+
+    client = ApiClient("http://api", "secret", 10.0, transport=httpx.MockTransport(handle))
+    client.judge_reject_offer(9, "junk")
+    body = json.loads(captured[0].content)
+    assert body == {"reason": "junk"}
+    assert captured[0].headers["X-API-Key"] == "secret"
+
+
+def test_judge_reject_offer_swallows_409():
+    # 409 = офер вже недоступний для судді (гонка з модератором) — не помилка, а no-op
+    def handle(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(409, json={"code": "conflict", "detail": "already handled"})
+
+    client = ApiClient("http://api", "secret", 10.0, transport=httpx.MockTransport(handle))
+    client.judge_reject_offer(9, "junk")  # не мусить кидати виняток
+
+
 def test_auto_block_host_posts_host():
     captured = []
     def handle(request: httpx.Request) -> httpx.Response:

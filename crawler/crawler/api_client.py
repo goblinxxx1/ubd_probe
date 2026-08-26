@@ -1,4 +1,8 @@
+import logging
+
 import httpx
+
+log = logging.getLogger(__name__)
 
 
 class ApiClient:
@@ -124,6 +128,20 @@ class ApiClient:
                               json={"host": host, "sample_url": sample_url})
         r.raise_for_status()
         return r.json()
+
+    def list_pending_unjudged(self, limit: int) -> list[dict]:
+        r = self._client.get("/api/internal/offers/pending-unjudged", params={"limit": limit})
+        r.raise_for_status()
+        return r.json()
+
+    def judge_reject_offer(self, offer_id: int, reason: str) -> None:
+        r = self._client.post(f"/api/internal/offers/{offer_id}/judge-reject",
+                              json={"reason": reason})
+        if r.status_code == 409:
+            # офер вже недоступний для судді (гонка з модератором) — це не помилка, а no-op
+            log.debug("judge_reject_offer: offer %s вже оброблено (409), пропускаємо", offer_id)
+            return
+        r.raise_for_status()
 
     # --- public (no key needed, but harmless to send) ---
     def list_target_categories(self) -> list[dict]:
