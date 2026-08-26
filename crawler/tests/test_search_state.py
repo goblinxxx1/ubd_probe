@@ -451,6 +451,18 @@ def test_effective_ttl_unknown_phrase_is_base(tmp_path):
     assert s.effective_ttl("невидана", 100.0) == 100.0
 
 
+def test_effective_ttl_backs_off_once_yielded_then_dry_phrase(tmp_path):
+    """Регресія: фраза, що дала урожай ОДИН раз давно, а потім довго суха, має
+    зрештою повернутись у backoff — інакше «retire once-good-now-dry» ніколи не
+    спрацьовує, бо EWMA лише асимптотично наближається до 0 (ніколи рівно 0.0)."""
+    s = _state(tmp_path, Clock())
+    s.record_yield("разова знахідка", 2)          # один реальний урожай...
+    for _ in range(10):
+        s.record_yield("разова знахідка", 0)      # ...потім довго суха (10 проходів)
+    ttl = s.effective_ttl("разова знахідка", 100.0, cold_tries=3)
+    assert ttl > 100.0                             # має повернутись у backoff, не залишитись base
+
+
 def test_host_freq_and_coverage_counts(tmp_path):
     s = _state(tmp_path, Clock())
     for h in ["a.ua", "a.ua", "a.ua", "b.ua", "b.ua", "c.ua", "d.ua"]:

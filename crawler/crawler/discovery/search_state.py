@@ -13,6 +13,16 @@ _EMPTY = {"version": 1, "cursor": 0, "grid_cursor": 0, "site_cursor": 0,
           "next_allowed_at": 0.0, "backends": {}, "cache": {}, "phrase_pages": {},
           "phrase_stats": {}, "host_freq": {}}
 
+# EWMA лише АСИМПТОТИЧНО наближається до 0 і ніколи не дорівнює йому рівно — фраза,
+# що дала урожай один раз давно, роками тягне мікроскопічний ewma>0 і ніколи не
+# повертається в backoff. Поріг «фактично сухо»: нижче нього фраза вважається сухою,
+# попри крихітний залишковий хвіст EWMA.
+_DRY_EPSILON = 0.05
+
+# Верхня межа host_freq (Chao1-гейдж — лише НАПРЯМОК тренду покриття, не точна
+# лічба) — обмежене прунення singleton-ів прийнятне, коли карта розростається.
+_HOST_FREQ_CAP = 50000
+
 
 class SearchState:
     """Persistent JSON state for anti-throttled search: per-backend cooldown,
@@ -208,7 +218,7 @@ class SearchState:
         e = self._data.get("phrase_stats", {}).get(self._key(phrase))
         if not e or int(e.get("tries", 0)) < cold_tries:
             return base_ttl
-        if float(e.get("ewma", 0.0)) > 0.0:
+        if float(e.get("ewma", 0.0)) >= _DRY_EPSILON:
             return base_ttl
         dry = int(e.get("dry_streak", 0))
         mult = min(mult_cap, 2.0 ** max(0, dry - cold_tries + 1))
