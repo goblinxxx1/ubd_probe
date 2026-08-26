@@ -11,6 +11,9 @@ vi.mock("@/api/queryTerms", () => ({
   reject: vi.fn(() => Promise.resolve({})),
   unreject: vi.fn(() => Promise.resolve({})),
   toPending: vi.fn(() => Promise.resolve({})),
+  manualAdd: vi.fn(() => Promise.resolve({})),
+  protect: vi.fn(() => Promise.resolve({})),
+  unprotect: vi.fn(() => Promise.resolve({})),
 }));
 vi.mock("element-plus", async (importOriginal) => {
   const actual = await importOriginal();
@@ -74,5 +77,59 @@ describe("QueryTermsView", () => {
     await flushPromises();
     expect(terms.unreject).toHaveBeenCalledWith(1);
     expect(terms.list).toHaveBeenCalledTimes(2);
+  });
+
+  it("manual add posts the term, clears the input and reloads (Задача 5C)", async () => {
+    const wrapper = mount(QueryTermsView, { global: { plugins: [ElementPlus] } });
+    await flushPromises();
+    wrapper.vm.newTerm = "  Ручний Терм  ";
+    await wrapper.vm.onManualAdd();
+    await flushPromises();
+    expect(terms.manualAdd).toHaveBeenCalledWith("Ручний Терм");
+    expect(wrapper.vm.newTerm).toBe("");
+    expect(terms.list).toHaveBeenCalledTimes(2);
+  });
+
+  it("blank manual add does not call the API", async () => {
+    const wrapper = mount(QueryTermsView, { global: { plugins: [ElementPlus] } });
+    await flushPromises();
+    wrapper.vm.newTerm = "   ";
+    await wrapper.vm.onManualAdd();
+    await flushPromises();
+    expect(terms.manualAdd).not.toHaveBeenCalled();
+  });
+
+  it("renders «Захистити» on an unprotected row; onProtect calls the API and reloads", async () => {
+    terms.list.mockResolvedValue([
+      { id: 3, term: "масаж", z: 1.0, support: 4, status: "approved", protected: false },
+    ]);
+    const wrapper = mount(QueryTermsView, { global: { plugins: [ElementPlus] } });
+    wrapper.vm.status = "approved";
+    await wrapper.vm.load();
+    await flushPromises();
+    // unprotected row surfaces the «Захистити» control
+    const labels = wrapper.findAll("button").map((b) => b.text());
+    expect(labels).toContain("Захистити");
+    await wrapper.vm.onProtect(3);
+    await flushPromises();
+    expect(terms.protect).toHaveBeenCalledWith(3);
+    expect(terms.list).toHaveBeenCalledTimes(3);
+  });
+
+  it("renders «Зняти захист» on a protected row; onUnprotect calls the API and reloads", async () => {
+    terms.list.mockResolvedValue([
+      { id: 4, term: "ручний терм", z: 0, support: 0, status: "approved", protected: true },
+    ]);
+    const wrapper = mount(QueryTermsView, { global: { plugins: [ElementPlus] } });
+    wrapper.vm.status = "approved";
+    await wrapper.vm.load();
+    await flushPromises();
+    // protected row surfaces «Зняти захист»
+    const labels = wrapper.findAll("button").map((b) => b.text());
+    expect(labels).toContain("Зняти захист");
+    await wrapper.vm.onUnprotect(4);
+    await flushPromises();
+    expect(terms.unprotect).toHaveBeenCalledWith(4);
+    expect(terms.list).toHaveBeenCalledTimes(3);
   });
 });

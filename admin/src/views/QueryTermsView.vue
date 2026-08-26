@@ -12,10 +12,12 @@ const items = ref([]);
 const { page, size, total, pageItems, setPage } = useClientPagination(items, 20);
 const loading = ref(false);
 const status = ref("pending");
+const newTerm = ref("");
 
 const columns = [
   { prop: "term", label: "Термін" },
   { prop: "support", label: "Бізнес-сайтів" },
+  { slot: "protected", label: "Захищений" },
 ];
 
 async function load() {
@@ -66,8 +68,40 @@ async function onToPending(id) {
     ElMessage.error(extractError(e));
   }
 }
+// Задача 5C: людський override — ручне додавання + захист від авто-ретайру
+async function onManualAdd() {
+  const t = newTerm.value.trim();
+  if (!t) return;
+  try {
+    await terms.manualAdd(t);
+    ElMessage.success("Додано вручну (захищений, у пошуковому гріді)");
+    newTerm.value = "";
+    await load();
+  } catch (e) {
+    ElMessage.error(extractError(e));
+  }
+}
+async function onProtect(id) {
+  try {
+    await terms.protect(id);
+    ElMessage.success("Захищено від авто-ретайру");
+    await load();
+  } catch (e) {
+    ElMessage.error(extractError(e));
+  }
+}
+async function onUnprotect(id) {
+  try {
+    await terms.unprotect(id);
+    ElMessage.success("Захист знято");
+    await load();
+  } catch (e) {
+    ElMessage.error(extractError(e));
+  }
+}
 
-defineExpose({ items, pageItems, page, total, setPage, load, onApprove, onReject, onUnreject, onToPending, status });
+defineExpose({ items, pageItems, page, total, setPage, load, newTerm,
+  onApprove, onReject, onUnreject, onToPending, onManualAdd, onProtect, onUnprotect, status });
 </script>
 
 <template>
@@ -75,6 +109,14 @@ defineExpose({ items, pageItems, page, total, setPage, load, onApprove, onReject
     <div class="header">
       <h2>Кандидати-терміни пошуку</h2>
       <div class="controls">
+        <el-input
+          v-model="newTerm"
+          placeholder="Додати термін вручну"
+          style="width: 220px"
+          clearable
+          @keyup.enter="onManualAdd"
+        />
+        <el-button type="primary" @click="onManualAdd">Додати</el-button>
         <el-select v-model="status" style="width: 160px" @change="load">
           <el-option v-for="s in SUGGESTION_STATUSES" :key="s.value" :label="s.label" :value="s.value" />
         </el-select>
@@ -89,7 +131,11 @@ defineExpose({ items, pageItems, page, total, setPage, load, onApprove, onReject
       @current-change="setPage"
     />
 
-    <ResponsiveTable :columns="columns" :rows="pageItems" :loading="loading" :actions-width="220">
+    <ResponsiveTable :columns="columns" :rows="pageItems" :loading="loading" :actions-width="320">
+      <template #col-protected="{ row }">
+        <el-tag v-if="row.protected" type="warning" size="small">Захищений</el-tag>
+        <span v-else class="muted">—</span>
+      </template>
       <template #actions="{ row }">
         <template v-if="row.status === 'pending'">
           <el-button size="small" type="success" @click="onApprove(row.id)">Затвердити</el-button>
@@ -102,6 +148,8 @@ defineExpose({ items, pageItems, page, total, setPage, load, onApprove, onReject
           Повернути в кандидати
         </el-button>
         <span v-else>{{ enumLabel(SUGGESTION_STATUSES, row.status) }}</span>
+        <el-button v-if="row.protected" size="small" @click="onUnprotect(row.id)">Зняти захист</el-button>
+        <el-button v-else size="small" type="warning" @click="onProtect(row.id)">Захистити</el-button>
       </template>
     </ResponsiveTable>
 
@@ -118,4 +166,5 @@ defineExpose({ items, pageItems, page, total, setPage, load, onApprove, onReject
 <style scoped lang="less">
 .header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
 .controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.muted { color: var(--el-text-color-secondary); }
 </style>
