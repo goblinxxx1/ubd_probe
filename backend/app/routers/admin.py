@@ -16,7 +16,7 @@ from app.models.enums import (BlockedHostStatus, CreatedBy, OfferStatus, OfferTy
                                QueryTermStatus, SuggestionStatus)
 from app.schemas.admin_user import AdminUserCreate, AdminUserOut
 from app.schemas.blocked_host import BlockedHostCreate, BlockedHostOut
-from app.schemas.query_term import QueryTermOut
+from app.schemas.query_term import QueryTermManualAdd, QueryTermOut
 from app.schemas.category import CategoryCreate, CategoryOut, CategoryUpdate
 from app.schemas.common import Page
 from app.schemas.offer import OfferAdminOut, OfferCreate, OfferOut, OfferUpdate
@@ -238,6 +238,28 @@ def query_term_to_pending(term_id: int, db: Session = Depends(get_db),
     """Remove an approved term from the search grid by returning it to the candidate
     queue (approved → pending). The crawler drops it on its next approved-terms refresh."""
     return query_term_crud.to_pending(db, term_id)
+
+
+@router.post("/query-terms", response_model=QueryTermOut)
+def add_manual_query_term(data: QueryTermManualAdd, db: Session = Depends(get_db),
+                          admin=Depends(get_current_admin)):
+    """Задача 5C: людський override — адмін вручну додає терм. Одразу approved +
+    protected, тож він входить у грід і краулер його ніколи не авто-ретайрить."""
+    return query_term_crud.manual_add(db, data.term, admin.id)
+
+
+@router.post("/query-terms/{term_id}/protect", response_model=QueryTermOut)
+def protect_query_term(term_id: int, db: Session = Depends(get_db),
+                       admin=Depends(get_current_admin)):
+    """Позначити терм захищеним — краулер ніколи його не авто-ретайрить."""
+    return query_term_crud.set_protected(db, term_id, True)
+
+
+@router.post("/query-terms/{term_id}/unprotect", response_model=QueryTermOut)
+def unprotect_query_term(term_id: int, db: Session = Depends(get_db),
+                         admin=Depends(get_current_admin)):
+    """Зняти захист — терм знову підпадає під авто-ретайр за сухими статистиками."""
+    return query_term_crud.set_protected(db, term_id, False)
 
 
 @router.post("/users", response_model=AdminUserOut)

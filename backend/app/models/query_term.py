@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, Float, Integer, String, func
+from sqlalchemy import Boolean, DateTime, Enum, Float, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base
@@ -20,6 +20,9 @@ class QueryTerm(Base):
     )
     z: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     support: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    # Задача 5C: людський override. Захищений терм ніколи не авто-ретайриться
+    # краулером (базовий TTL) і виживає незалежно від сухих статистик.
+    protected: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     reviewed_by: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), nullable=False

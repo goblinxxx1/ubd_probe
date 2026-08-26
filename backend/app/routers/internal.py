@@ -171,6 +171,13 @@ def list_rejected_query_terms(db: Session = Depends(get_db)):
     return query_term_crud.list_rejected_terms(db)
 
 
+@router.get("/query-terms/protected", response_model=list[str])
+def list_protected_query_terms(db: Session = Depends(get_db)):
+    """Захищені терми — краулер тягне їх поряд із approved/rejected, щоб НІКОЛИ
+    не авто-ретайрити (людський override у SearchPass.protected_terms)."""
+    return query_term_crud.list_protected_terms(db)
+
+
 @router.post("/blocked-hosts", response_model=BlockedHostOut)
 def auto_block_host(data: AutoBlockCreate, db: Session = Depends(get_db)):
     return blocked_host_crud.auto_block(db, data.host, data.sample_url)

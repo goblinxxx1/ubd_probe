@@ -75,6 +75,44 @@ def to_pending(db: Session, term_id: int) -> QueryTerm:
     return obj
 
 
+def manual_add(db: Session, term: str, reviewed_by: int) -> QueryTerm:
+    """Задача 5C: людський override — адмін вручну додає терм. Одразу approved +
+    protected (людина хоче його в гріді назавжди, поза авто-петлею). Якщо терм уже
+    існує — підіймаємо в approved і ставимо protected (людське рішення виграє)."""
+    key = term.strip().lower()
+    if not key:
+        raise not_found("empty term")
+    obj = db.query(QueryTerm).filter(QueryTerm.term == key).first()
+    if obj is None:
+        obj = QueryTerm(term=key, status=QueryTermStatus.approved, protected=True)
+        db.add(obj)
+    else:
+        obj.status = QueryTermStatus.approved
+        obj.protected = True
+    obj.reviewed_by = reviewed_by
+    obj.reviewed_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(obj)
+    return obj
+
+
+def set_protected(db: Session, term_id: int, protected: bool) -> QueryTerm:
+    """Перемкнути захист терма (людський override проти авто-ретайру)."""
+    obj = get(db, term_id)
+    obj.protected = protected
+    db.commit()
+    db.refresh(obj)
+    return obj
+
+
+def list_protected_terms(db: Session) -> list[str]:
+    """Захищені терми — краулер тягне їх, щоб НІКОЛИ не авто-ретайрити (базовий TTL
+    завжди). Дзеркало list_approved_terms/list_rejected_terms."""
+    rows = (db.query(QueryTerm)
+            .filter(QueryTerm.protected.is_(True)).all())
+    return [r.term for r in rows]
+
+
 def list_approved_terms(db: Session) -> list[str]:
     rows = (db.query(QueryTerm)
             .filter(QueryTerm.status == QueryTermStatus.approved).all())

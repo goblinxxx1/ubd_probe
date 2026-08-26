@@ -60,3 +60,42 @@ def test_query_terms_admin_requires_auth(client, db_session):
     assert client.get("/api/admin/query-terms").status_code == 401
     assert client.post("/api/admin/query-terms/1/approve").status_code == 401
     assert client.post("/api/admin/query-terms/1/to-pending").status_code == 401
+    assert client.post("/api/admin/query-terms").status_code == 401
+    assert client.post("/api/admin/query-terms/1/protect").status_code == 401
+
+
+def test_manual_add_protected_term_is_returned_and_flagged(client, db_session):
+    """Задача 5C: адмін вручну додає терм → approved + protected; краулер тягне його
+    у protected-фід, і він потрапляє в approved-грід."""
+    token = _admin_token(db_session)
+    h = {"Authorization": f"Bearer {token}"}
+    add = client.post("/api/admin/query-terms", headers=h, json={"term": "Ручний Терм"})
+    assert add.status_code == 200
+    body = add.json()
+    assert body["term"] == "ручний терм"          # normalized lower
+    assert body["status"] == "approved"
+    assert body["protected"] is True
+
+    # crawler reads the protected feed (internal)
+    prot = client.get("/api/internal/query-terms/protected", headers=_KEY)
+    assert prot.status_code == 200 and prot.json() == ["ручний терм"]
+    # and it's live in the approved grid too
+    appr = client.get("/api/internal/query-terms/approved", headers=_KEY).json()
+    assert "ручний терм" in appr
+
+
+def test_protect_unprotect_toggle(client, db_session):
+    """protect/unprotect перемикає прапорець, не чіпаючи approve/reject."""
+    client.post("/api/internal/query-terms", headers=_KEY, json={"candidates": [
+        {"term": "масаж", "z": 1.0, "support": 4}]})
+    token = _admin_token(db_session)
+    h = {"Authorization": f"Bearer {token}"}
+    tid = client.get("/api/admin/query-terms?status=pending", headers=h).json()[0]["id"]
+
+    pr = client.post(f"/api/admin/query-terms/{tid}/protect", headers=h)
+    assert pr.status_code == 200 and pr.json()["protected"] is True
+    assert client.get("/api/internal/query-terms/protected", headers=_KEY).json() == ["масаж"]
+
+    un = client.post(f"/api/admin/query-terms/{tid}/unprotect", headers=h)
+    assert un.status_code == 200 and un.json()["protected"] is False
+    assert client.get("/api/internal/query-terms/protected", headers=_KEY).json() == []

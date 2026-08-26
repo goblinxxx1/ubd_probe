@@ -15,6 +15,12 @@ class QueryTermsSubmit(BaseModel):
     candidates: list[QueryTermCandidate]
 
 
+class QueryTermManualAdd(BaseModel):
+    """Ручне додавання терма адміном (людський override). За замовчуванням
+    одразу approved + protected: людина хоче цей терм у гріді назавжди."""
+    term: str
+
+
 class QueryTermOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
@@ -22,5 +28,6 @@ class QueryTermOut(BaseModel):
     status: QueryTermStatus
     z: float
     support: int
+    protected: bool = False
     created_at: datetime
     reviewed_at: datetime | None = None
