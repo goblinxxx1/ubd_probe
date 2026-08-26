@@ -251,6 +251,78 @@ def test_rejected_offers_requires_api_key(client):
     assert client.get("/api/internal/rejected-offers").status_code == 401
 
 
+def test_pending_unjudged_returns_lean_dto_with_content_hash(client, db_session):
+    from app.models import Offer
+    from app.models.enums import CreatedBy, DiscountType, OfferStatus, OfferType
+    o = Offer(type=OfferType.discount, title="Знижка 15%", description="для студентів",
+              provider="Shop", discount_type=DiscountType.percent, discount_value=15,
+              article_url="https://shop.ua/promo", content_hash="deadbeef",
+              status=OfferStatus.pending_review, created_by=CreatedBy.crawler)
+    db_session.add(o); db_session.commit()
+    r = client.get("/api/internal/offers/pending-unjudged",
+                   headers={"X-API-Key": settings.crawler_api_key})
+    assert r.status_code == 200
+    row = next(x for x in r.json() if x["id"] == o.id)
+    assert row == {
+        "id": o.id,
+        "title": "Знижка 15%",
+        "description": "для студентів",
+        "discount_type": "percent",
+        "discount_value": "15.00",
+        "article_url": "https://shop.ua/promo",
+        "content_hash": "deadbeef",
+    }
+
+
+def test_pending_unjudged_excludes_published_and_admin(client, db_session):
+    from app.models import Offer
+    from app.models.enums import CreatedBy, OfferStatus, OfferType
+    db_session.add_all([
+        Offer(type=OfferType.discount, title="Published", provider="P",
+              status=OfferStatus.published, created_by=CreatedBy.crawler),
+        Offer(type=OfferType.discount, title="AdminPending", provider="P",
+              status=OfferStatus.pending_review, created_by=CreatedBy.admin),
+    ])
+    db_session.commit()
+    r = client.get("/api/internal/offers/pending-unjudged",
+                   headers={"X-API-Key": settings.crawler_api_key})
+    assert r.status_code == 200
+    titles = [row["title"] for row in r.json()]
+    assert "Published" not in titles
+    assert "AdminPending" not in titles
+
+
+def test_pending_unjudged_requires_api_key(client):
+    assert client.get("/api/internal/offers/pending-unjudged").status_code == 401
+
+
+def test_judge_reject_soft_rejects_crawler_offer(client, db_session):
+    from app.models import Offer
+    from app.models.enums import CreatedBy, OfferStatus, OfferType
+    o = Offer(type=OfferType.discount, title="Junk", provider="P",
+              status=OfferStatus.pending_review, created_by=CreatedBy.crawler)
+    db_session.add(o); db_session.commit()
+    r = client.post(f"/api/internal/offers/{o.id}/judge-reject",
+                    json={"reason": "не про знижку для аудиторії"},
+                    headers={"X-API-Key": settings.crawler_api_key})
+    assert r.status_code == 200
+    assert r.json()["status"] == "rejected"
+    db_session.refresh(o)
+    assert o.status == OfferStatus.rejected
+    assert o.reviewed_by is None
+    assert o.rejection_reason == "не про знижку для аудиторії"
+
+
+def test_judge_reject_requires_api_key(client, db_session):
+    from app.models import Offer
+    from app.models.enums import CreatedBy, OfferStatus, OfferType
+    o = Offer(type=OfferType.discount, title="Junk", provider="P",
+              status=OfferStatus.pending_review, created_by=CreatedBy.crawler)
+    db_session.add(o); db_session.commit()
+    r = client.post(f"/api/internal/offers/{o.id}/judge-reject", json={"reason": "x"})
+    assert r.status_code == 401
+
+
 def test_auto_block_host_creates_approved_row(client):
     h = {"X-API-Key": settings.crawler_api_key}
     r = client.post("/api/internal/blocked-hosts",

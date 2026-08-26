@@ -21,7 +21,7 @@ from app.schemas.query_term import QueryTermsSubmit
 from app.schemas.bot_account import BotAccountOut, BotAccountStateUpdate
 from app.schemas.category import CategoryCreate, CategoryOut
 from app.schemas.crawl_state import CrawlStateOut, CrawlStateUpdate
-from app.schemas.offer import OfferCreate, OfferOut
+from app.schemas.offer import OfferCreate, OfferOut, PendingUnjudgedOut
 from app.schemas.source import SourceOut
 from app.schemas.suggested_source import SuggestedSourceCreate, SuggestedSourceOut
 
@@ -52,6 +52,20 @@ def create_offer(data: InternalOfferCreate, db: Session = Depends(get_db)):
     return offer_crud.create_offer(db, payload, CreatedBy.crawler,
                                    OfferStatus.pending_review, source_id=data.source_id,
                                    content_hash=data.content_hash)
+
+
+@router.get("/offers/pending-unjudged", response_model=list[PendingUnjudgedOut])
+def list_pending_unjudged(limit: int = 50, db: Session = Depends(get_db)):
+    return offer_crud.list_pending_unjudged_for_crawler(db, limit)
+
+
+class JudgeRejectRequest(BaseModel):
+    reason: str
+
+
+@router.post("/offers/{offer_id}/judge-reject", response_model=OfferOut)
+def judge_reject_offer(offer_id: int, data: JudgeRejectRequest, db: Session = Depends(get_db)):
+    return offer_crud.judge_reject(db, offer_id, data.reason)
 
 
 class ExpireStaleRequest(BaseModel):

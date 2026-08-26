@@ -155,6 +155,20 @@ class OfferOut(BaseModel):
     discounts: list[DiscountOut] = []
 
 
+class PendingUnjudgedOut(BaseModel):
+    """Лаконічне DTO для судді (relevance judge) на повторний прогон (re-queue sweep):
+    лише поля потрібні для верифікації + content_hash для звірки з verdict-кешем краулера."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    title: str
+    description: str
+    discount_type: DiscountType | None
+    discount_value: Decimal | None
+    article_url: str | None
+    content_hash: str | None
+
+
 class OfferAdminOut(OfferOut):
     """Admin serialization of an offer. Currently identical to OfferOut; kept as a
     distinct type so admin endpoints can grow admin-only fields without touching the
