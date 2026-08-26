@@ -47,6 +47,48 @@ def test_refresh_noop_without_search_pass():
     Runner(_Api(), {}, object(), None).refresh_grid_from_approved(config=object())  # no search_pass -> no-op
 
 
+def test_refresh_grid_from_approved_also_flows_protected_terms(monkeypatch):
+    """Задача 5C: той самий ~6h tick тягне ще й protected-терми в живий search_pass,
+    без рестарту краулера — людський override діє одразу."""
+    import crawler.wiring as wiring
+
+    monkeypatch.setattr(wiring, "build_query_grid", lambda cfg: ["GRID"])
+
+    class _SP:
+        def __init__(self): self.protected = []
+        def set_grid(self, g): pass
+        def set_protected_terms(self, terms): self.protected.append(terms)
+
+    class _Api:
+        def list_approved_query_terms(self): return []
+        def list_protected_query_terms(self): return ["ручний термін"]
+
+    sp = _SP()
+    r = Runner(_Api(), {}, object(), None, search_pass=sp)
+    r.refresh_grid_from_approved(config=object())
+    assert sp.protected == [frozenset({"ручний термін"})]
+
+
+def test_refresh_protected_terms_fetch_best_effort(monkeypatch):
+    """Мережа впала при фетчі protected — refresh не падає, грід все одно рефрешиться."""
+    import crawler.wiring as wiring
+    monkeypatch.setattr(wiring, "build_query_grid", lambda cfg: ["GRID"])
+
+    class _SP:
+        def __init__(self): self.grids = []
+        def set_grid(self, g): self.grids.append(g)
+        def set_protected_terms(self, terms): raise AssertionError("must not be reached")
+
+    class _Api:
+        def list_approved_query_terms(self): return []
+        def list_protected_query_terms(self): raise RuntimeError("net down")
+
+    sp = _SP()
+    r = Runner(_Api(), {}, object(), None, search_pass=sp)
+    r.refresh_grid_from_approved(config=object())   # must not raise
+    assert sp.grids == [["GRID"]]
+
+
 def test_flush_bred_terms_merges_and_refilters_fresh_rejects(tmp_path):
     """Задача 5B: _flush_bred_terms мусить (1) домішати bred-терми до вже написаних
     bootstrap'ом кандидатів БЕЗ втрати наявних (merge, не overwrite), (2) відсіяти

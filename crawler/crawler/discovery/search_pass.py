@@ -12,7 +12,8 @@ class SearchPass:
     succeeded (a throttled/backed-off pass re-scans the same phrases next time)."""
 
     def __init__(self, plans, state, grid, block_size, static_keywords=None,
-                 ttl_seconds=0.0, page_cap=1, breed_sink=None, promote_min=2):
+                 ttl_seconds=0.0, page_cap=1, breed_sink=None, promote_min=2,
+                 protected_terms=frozenset()):
         self._plans = list(plans)
         self._state = state
         self._grid = grid
@@ -20,11 +21,21 @@ class SearchPass:
         self._pins = list(static_keywords or [])
         self._ttl = ttl_seconds
         self._page_cap = max(1, int(page_cap))
+        # Задача 5C: людський override. Захищені фрази (адмін-помічені `protected`)
+        # НІКОЛИ не авто-ретайряться — завжди отримують базовий TTL, попри dry-streak
+        # у phrase_stats. Рішення людини виграє в автомата.
+        self._protected_terms = frozenset(protected_terms or ())
         # Задача 5B: reward-driven розмноження термів. breed_sink(term) — callback
         # (зазвичай зі wiring), що додає термін у пул кандидатів майнера, сам
         # відсіюючи відхилені людиною (людський reject виграє). None = вимкнено.
         self._breed_sink = breed_sink
         self._promote_min = promote_min
+
+    def set_protected_terms(self, terms) -> None:
+        """Задача 5C: живий перемикач захисту (без рестарту краулера) — той самий
+        періодичний tick, що рефрешить грід з approved-термів, підміняє й цю
+        множину, щойно адмін позначив/зняв `protected` у бекенді."""
+        self._protected_terms = frozenset(terms or ())
 
     def set_grid(self, grid) -> None:
         """Swap in a freshly rebuilt grid (after in-loop learning). The rotation
@@ -121,12 +132,20 @@ class SearchPass:
         scanned = 0
         while scanned < size and len(batch) < self._bs:
             kw = self._grid.at(cursor)
-            ttl = self._state.effective_ttl(kw, self._ttl)
+            ttl = self._effective_ttl_for(kw)
             if not self._state.is_fresh(kw, ttl, self._state.current_page(kw)):
                 batch.append(kw)
             cursor = (cursor + 1) % size
             scanned += 1
         return batch, cursor
+
+    def _effective_ttl_for(self, kw: str) -> float:
+        """Adaptive freshness-TTL для фрази, з людським override. Захищена фраза
+        завжди отримує базовий TTL (ніколи не душиться беком), решта — делегує
+        адаптивний backoff у SearchState (сухі фрази = довший TTL)."""
+        if kw in self._protected_terms:
+            return self._ttl                       # human-protected: never suppressed
+        return self._state.effective_ttl(kw, self._ttl)
 
     def any_provider_available(self) -> bool:
         return any(p.available() for p in self._plans)

@@ -160,6 +160,15 @@ def build_runner(config) -> Runner:
             except Exception:  # noqa: BLE001 — best-effort, як інші learn-фетчі при wiring
                 rejected_at_wiring = set()
 
+            # Задача 5C: людський override. Захищені терми (адмін-помічені `protected`)
+            # НІКОЛИ не авто-ретайряться — SearchPass._effective_ttl_for їх обходить.
+            try:
+                protected_at_wiring = frozenset(
+                    t.strip().casefold()
+                    for t in (api.list_protected_query_terms() or ()) if t)
+            except Exception:  # noqa: BLE001 — best-effort, як rejected_at_wiring вище
+                protected_at_wiring = frozenset()
+
             def _breed_sink(term: str, _rejected=rejected_at_wiring, _bag=bred_terms) -> None:
                 t = (term or "").strip().casefold()
                 if not t or t in _rejected:
@@ -171,7 +180,8 @@ def build_runner(config) -> Runner:
                                      ttl_seconds=config.search_cache_ttl_hours * 3600,
                                      page_cap=config.active_search_page_cap,
                                      breed_sink=_breed_sink,
-                                     promote_min=config.query_breed_promote_min)
+                                     promote_min=config.query_breed_promote_min,
+                                     protected_terms=protected_at_wiring)
             # Static fallback for the site: leg's discovery (used only when search_pass is None);
             # run_active recomputes the live provider each pass via provider_for_site_query().
             discovery = search_pass.provider_for_site_query()   # first available provider (DDG at wiring time)

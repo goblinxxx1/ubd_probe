@@ -166,6 +166,15 @@ class Runner:
             self._search_pass.set_grid(build_query_grid(config))
         except Exception as exc:  # noqa: BLE001 — refresh is best-effort
             log.warning("refresh grid from approved failed: %s", exc)
+        # Задача 5C: людський override. Той самий тік підтягує протектед-терми з
+        # бекенда — окремий try/except, щоб збій ЦЬОГО фетчу не топив рефреш гріда
+        # вище (і навпаки).
+        try:
+            protected = frozenset(t.strip().casefold()
+                                  for t in (self._api.list_protected_query_terms() or ()) if t)
+            self._search_pass.set_protected_terms(protected)
+        except Exception as exc:  # noqa: BLE001 — refresh is best-effort
+            log.warning("refresh protected terms failed: %s", exc)
 
     def search_available(self) -> bool:
         """Whether ANY search provider (DDG or SearXNG) is currently healthy — used by the

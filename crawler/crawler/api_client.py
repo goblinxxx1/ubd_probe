@@ -114,6 +114,11 @@ class ApiClient:
         r.raise_for_status()
         return r.json()
 
+    def list_protected_query_terms(self) -> list[str]:
+        r = self._client.get("/api/internal/query-terms/protected")
+        r.raise_for_status()
+        return r.json()
+
     def auto_block_host(self, host: str, sample_url: str | None = None) -> dict:
         r = self._client.post("/api/internal/blocked-hosts",
                               json={"host": host, "sample_url": sample_url})

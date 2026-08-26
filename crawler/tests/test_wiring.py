@@ -447,6 +447,27 @@ def test_build_runner_grid_includes_seed_and_learned_services(tmp_path, monkeypa
     assert len(runner._search_pass._grid) == 1662 + (len(SEED_SERVICES) + 2) * per_svc
 
 
+def test_build_runner_fetches_protected_terms_into_search_pass(tmp_path, monkeypatch):
+    """Задача 5C: wiring тягне захищені терми поряд із rejected і передає їх у
+    SearchPass, щоб людський override реально діяв (не лише параметр існує)."""
+    import crawler.wiring as w
+    monkeypatch.setattr(w.ApiClient, "list_protected_query_terms",
+                        lambda self: ["ручний термін"], raising=False)
+    cfg = _base_cfg(tmp_path, active_discovery=True, search_providers=["duckduckgo"])
+    runner = build_runner(cfg)
+    assert runner._search_pass._protected_terms == frozenset({"ручний термін"})
+
+
+def test_build_runner_protected_terms_fetch_best_effort(monkeypatch, tmp_path):
+    """Мережа впала при фетчі protected — wiring не падає, просто пустий фрозенсет."""
+    import crawler.wiring as w
+    def boom(self): raise RuntimeError("net down")
+    monkeypatch.setattr(w.ApiClient, "list_protected_query_terms", boom, raising=False)
+    cfg = _base_cfg(tmp_path, active_discovery=True, search_providers=["duckduckgo"])
+    runner = build_runner(cfg)   # must not raise
+    assert runner._search_pass._protected_terms == frozenset()
+
+
 def test_build_runner_query_lexicon_disabled_is_base(tmp_path, monkeypatch):
     import crawler.discovery.query_lexicon as ql
     monkeypatch.setattr(ql, "reload_learned", lambda *_a, **_k: None)

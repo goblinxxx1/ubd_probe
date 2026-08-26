@@ -321,3 +321,30 @@ def test_productive_phrase_breeds_terms_low_yield_does_not(tmp_path):
     assert any("стоматолог" in t for t in bred)     # bred from the winning names
     # the barren phrase produced nothing -> no breeding from it
     assert all("квіт" not in t for t in bred)
+
+
+def test_protected_phrase_never_retired(tmp_path):
+    grid = QueryGrid(["ручний термін"])
+    clock = [0.0]
+    state = SearchState(str(tmp_path / "s.json"), clock=lambda: clock[0])
+    # make it look chronically dry
+    for _ in range(10):
+        state.record_yield("ручний термін", 0)
+    sp = SearchPass([], state, grid, block_size=1, ttl_seconds=100.0,
+                    protected_terms=frozenset({"ручний термін"}))
+    # protected => due-walk uses base TTL, not the backed-off one
+    assert sp._effective_ttl_for("ручний термін") == 100.0
+
+
+def test_set_protected_terms_updates_live_without_rebuild(tmp_path):
+    """Задача 5C: адмін захищає термін ПІД ЧАС роботи краулера (без рестарту) —
+    set_protected_terms підмінює множину так само, як set_grid підмінює грід."""
+    grid = QueryGrid(["новий термін"])
+    clock = [0.0]
+    state = SearchState(str(tmp_path / "s.json"), clock=lambda: clock[0])
+    for _ in range(10):
+        state.record_yield("новий термін", 0)
+    sp = SearchPass([], state, grid, block_size=1, ttl_seconds=100.0)
+    assert sp._effective_ttl_for("новий термін") > 100.0     # dry-backed-off before protect
+    sp.set_protected_terms(frozenset({"новий термін"}))
+    assert sp._effective_ttl_for("новий термін") == 100.0    # base TTL right after the tick
