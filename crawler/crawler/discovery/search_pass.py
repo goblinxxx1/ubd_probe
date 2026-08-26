@@ -1,5 +1,6 @@
 from crawler.discovery.query_grid import merge_queries
 from crawler.models import SourceCandidate
+from crawler.util.hosts import bare_host
 
 
 class SearchPass:
@@ -82,18 +83,23 @@ class SearchPass:
         if any_success:
             for p in batch:
                 self._state.record_page_result(p, pages[p], new_by_phrase[p], self._page_cap)
+                self._state.record_yield(p, new_by_phrase[p])          # NEW: productivity
+            for c in out:                                              # NEW: recapture freq
+                self._state.note_host(bare_host(c.url_or_handle))
             self._state.set_grid_cursor(new_cursor)
         return out
 
     def _collect_due(self, cursor, size):
         """Scan forward from cursor collecting up to block_size due phrases; a phrase is
-        due when its CURRENT SERP page is not cache-fresh. return (batch, next_cursor);
-        next_cursor is past every phrase scanned (fresh skipped ones included), wrapping."""
+        due when its CURRENT SERP page is not cache-fresh UNDER ITS ADAPTIVE TTL. Dry
+        phrases carry a longer effective TTL, so the walk self-concentrates on productive
+        ones. next_cursor is past every phrase scanned (fresh skipped included), wrapping."""
         batch: list[str] = []
         scanned = 0
         while scanned < size and len(batch) < self._bs:
             kw = self._grid.at(cursor)
-            if not self._state.is_fresh(kw, self._ttl, self._state.current_page(kw)):
+            ttl = self._state.effective_ttl(kw, self._ttl)
+            if not self._state.is_fresh(kw, ttl, self._state.current_page(kw)):
                 batch.append(kw)
             cursor = (cursor + 1) % size
             scanned += 1

@@ -159,6 +159,9 @@ class _State:
     def set_grid_cursor(self, v): self.grid_cursor = v
     def current_page(self, phrase): return 1
     def record_page_result(self, phrase, page, new_count, page_cap): pass
+    def record_yield(self, phrase, new_count, alpha=0.3): pass
+    def effective_ttl(self, phrase, base_ttl, *, cold_tries=3, mult_cap=8.0): return base_ttl
+    def note_host(self, host): pass
     @staticmethod
     def _key(keyword, page=1):
         base = keyword.strip().casefold()
@@ -247,3 +250,55 @@ def test_no_provider_available():
     sp = SearchPass([ddg, sx], _State(), _Grid(["x"]), block_size=1, ttl_seconds=0.0)
     assert sp.any_provider_available() is False
     assert sp.provider_for_site_query() is None
+
+
+class _YieldPlan:
+    """Fake plan matching the real SearchProviderPlan surface (discovery.run + succeeded/
+    available), used to verify record_yield/note_host wiring and adaptive TTL end-to-end."""
+    include_pins = False
+    def __init__(self, results_by_kw):
+        self._by = results_by_kw
+        self._ok = True
+    def available(self):
+        return True
+    def succeeded(self):
+        return self._ok
+    class _Disc:
+        pass
+    @property
+    def discovery(self):
+        d = _YieldPlan._Disc()
+        d.run = self._run
+        return d
+    def _run(self, keywords, known, pages):
+        # return the canned candidates whose phrase is in this batch
+        out = []
+        for kw in keywords:
+            for c in self._by.get(kw, []):
+                c.discovery_note = f"ddg: {kw}"
+                out.append(c)
+        return out
+
+
+def _yield_cand(name, url):
+    return SourceCandidate(name=name, type="website", url_or_handle=url,
+                           discovered_from_source_id=None)
+
+
+def test_dry_phrase_gets_longer_effective_ttl_and_is_skipped(tmp_path):
+    # grid of two phrases; phrase A always dry, phrase B productive.
+    grid = QueryGrid(["A", "B"])
+    clock = [0.0]
+    state = SearchState(str(tmp_path / "s.json"), clock=lambda: clock[0])
+    plan = _YieldPlan({"B": [_yield_cand("shopB", "https://b.ua")]})   # A yields nothing
+    sp = SearchPass([plan], state, grid, block_size=2, ttl_seconds=100.0,
+                    page_cap=1)
+    # run several passes; advance clock a little each time (< base ttl)
+    for _ in range(6):
+        clock[0] += 10.0
+        sp.run(known=set())
+    # A drifted to a longer effective TTL (dry backoff); B stays base.
+    assert state.effective_ttl("A", 100.0, cold_tries=3) > 100.0
+    assert state.effective_ttl("B", 100.0, cold_tries=3) == 100.0
+    # host_freq recorded B's domain at least once
+    assert "b.ua" in state._data["host_freq"]
