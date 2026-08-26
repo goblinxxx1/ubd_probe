@@ -50,6 +50,10 @@ class Offer(Base):
     status: Mapped[OfferStatus] = mapped_column(Enum(OfferStatus), nullable=False)
     created_by: Mapped[CreatedBy] = mapped_column(Enum(CreatedBy), nullable=False)
     reviewed_by: Mapped[int | None] = mapped_column(ForeignKey("admin_users.id"), nullable=True)
+    # Причина відхилення. Також слугує маркером "відхилено суддею": judge_reject виставляє
+    # status=rejected + reviewed_by=NULL + rejection_reason=<текст>; адмінське відхилення
+    # (set_status) ставить reviewed_by і не чіпає це поле.
+    rejection_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
     supersedes_offer_id: Mapped[int | None] = mapped_column(
         ForeignKey("offers.id", ondelete="SET NULL"), nullable=True
     )

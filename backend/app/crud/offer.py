@@ -3,7 +3,7 @@ from datetime import date, datetime, timedelta
 
 from sqlalchemy.orm import Session, selectinload
 
-from app.core.errors import not_found, validation_error
+from app.core.errors import conflict, not_found, validation_error
 from app.core.urlnorm import canonicalize_target_url
 from app.crud.blocked_host import bare_host, list_approved_hosts
 from app.models import Offer, OfferCategory, OfferDiscount, OfferLocation, TargetCategory
@@ -528,6 +528,39 @@ def set_status(db: Session, offer_id: int, status: OfferStatus, reviewed_by: int
     db.commit()
     db.refresh(obj)
     return obj
+
+
+_CRAWLER_CREATED_BY = (CreatedBy.crawler, CreatedBy.crawler_suggestion)
+
+
+def judge_reject(db: Session, offer_id: int, reason: str) -> Offer:
+    """Суддя (LLM relevance judge) відхиляє непрожований crawler-офер: status=rejected,
+    reviewed_by=None (не адмін), rejection_reason=reason. Guard: чіпає ЛИШЕ pending_review
+    офери, створені краулером (crawler / crawler_suggestion) — адмінські, опубліковані чи
+    вже прожовані офери суддя не чіпає (raise замість тихого no-op, щоб виклик не думав,
+    що спрацювало)."""
+    obj = get_offer(db, offer_id)
+    if obj.status != OfferStatus.pending_review or obj.created_by not in _CRAWLER_CREATED_BY:
+        raise conflict(
+            f"judge_reject: offer {offer_id} is not an unjudged crawler offer "
+            f"(status={obj.status}, created_by={obj.created_by})"
+        )
+    obj.status = OfferStatus.rejected
+    obj.reviewed_by = None
+    obj.rejection_reason = reason
+    db.commit()
+    db.refresh(obj)
+    return obj
+
+
+def list_pending_unjudged_for_crawler(db: Session, limit: int) -> list[Offer]:
+    """pending_review офери від краулера (crawler / crawler_suggestion), найстаріші перші,
+    обмежені limit — черга для судді на повторний прогон (re-queue sweep)."""
+    return (db.query(Offer)
+            .filter(Offer.status == OfferStatus.pending_review,
+                    Offer.created_by.in_(_CRAWLER_CREATED_BY))
+            .order_by(Offer.created_at.asc(), Offer.id.asc())
+            .limit(limit).all())
 
 
 def delete_offer(db: Session, offer_id: int) -> None:
