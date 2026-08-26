@@ -89,6 +89,16 @@ class DomainRegistry:
             return False
         return e.get("media_streak", 0) >= int(k)
 
+    def editorial_block_due(self, host) -> bool:
+        """Сильний СТРУКТУРНИЙ редакційний сигнал (NewsArticle+RSS+0 комерц) → блок на
+        ПЕРШОМУ хіті. Але НЕ блокуємо хост, що колись показував provider-evidence
+        (provider_ever=True → це бізнес), або вже заблокований. Невідомий хост (нема
+        запису) → True: сильний сигнал сам по собі достатній."""
+        e = self._data["domains"].get(_host(host))
+        if e is None:
+            return True
+        return not e.get("provider_ever") and not e.get("media_blocked")
+
     def mark_media_blocked(self, host) -> None:
         """Latch a host as blocked so media_block_due stops firing for it. Call ONLY
         after MediaAutoBlocker.block() confirms success. No-op for an unknown host."""

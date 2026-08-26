@@ -523,3 +523,31 @@ def test_429_calls_throttle_sink_with_retry_after():
     WebsiteFetcher(C(), throttle_sink=lambda host, s: hits.append((host, s))).fetch(
         {"id": 1, "url_or_handle": "https://a.ua/x"}, None)
     assert hits == [("a.ua", 42.0)]
+
+
+def _html_client(html):
+    def handle(request):
+        return httpx.Response(200, text=html)
+    return httpx.Client(transport=httpx.MockTransport(handle))
+
+
+def test_detects_news_schema_and_feed():
+    html = (
+        '<html><head>'
+        '<link rel="alternate" type="application/rss+xml" href="/feed/">'
+        '<script type="application/ld+json">{"@type":"NewsArticle","headline":"x"}</script>'
+        '</head><body><div>Громада підтримала мобілізованих захисників у місті сьогодні</div>'
+        '</body></html>')
+    items, _ = WebsiteFetcher(_html_client(html)).fetch({"id": 1, "url_or_handle": "http://p"}, None)
+    assert items
+    assert items[0].has_news_schema is True
+    assert items[0].has_feed is True
+
+
+def test_no_news_schema_or_feed_on_plain_page():
+    html = ('<html><head><title>Магазин</title></head>'
+            '<body><div>Знижка 20% для військових на весь асортимент сьогодні у нас</div></body></html>')
+    items, _ = WebsiteFetcher(_html_client(html)).fetch({"id": 1, "url_or_handle": "http://p"}, None)
+    assert items
+    assert items[0].has_news_schema is False
+    assert items[0].has_feed is False

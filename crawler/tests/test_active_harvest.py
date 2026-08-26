@@ -573,13 +573,15 @@ class FakeBlocker:
         return True
 
 
-def _schema_item(text, url, business=False, offer_schema=False):
+def _schema_item(text, url, business=False, offer_schema=False,
+                 is_article=False, news_schema=False, has_feed=False):
     # site_name is required so build_page_ctx() derives a non-None ctx.brand —
     # otherwise attribute() has no first-party fallback and every page drops
     # silently (no offer ever recorded, independent of the schema flags under test).
     return RawItem(source_id=None, platform="website", key=text[:8], text=text,
                    url=url, links=[], site_name="Site", has_business_schema=business,
-                   has_offer_schema=offer_schema)
+                   has_offer_schema=offer_schema, is_article=is_article,
+                   has_news_schema=news_schema, has_feed=has_feed)
 
 
 def _reg(tmp_path):
@@ -604,6 +606,44 @@ def test_media_host_blocked_after_k_crawls(tmp_path):
         h.harvest([_cand(url="https://novadumka.press")], cats=None, known=set(),
                   summary=_summary())
     assert blocker.blocked == ["novadumka.press"]
+    blocklist.reload_learned(None)
+
+
+def test_news_portal_blocked_on_first_hit(tmp_path):
+    # vmisti-подібний місто-портал: NewsArticle-schema + RSS-фід + 0 комерц-schema.
+    # is_news_host за іменем його НЕ ловить → раніше active-search фетчив знову й знову.
+    # Тепер — блок хоста на ПЕРШОМУ хіті (не чекаючи K поведінкових краулів).
+    blocklist.reload_learned(None)
+    api = FakeApi()
+    reg = _reg(tmp_path)
+    blocker = FakeBlocker()
+    item = _schema_item("Громада підтримала мобілізованих захисників",
+                        "https://vmisti.cherk.example/eco/a.html",
+                        is_article=True, news_schema=True, has_feed=True)
+    h = ActiveHarvester(api, {"website": FakeFetcher([item])}, GateExtractor(),
+                        rate_limiter=None, fetch_budget=5, domain_registry=reg,
+                        media_blocker=blocker, media_autoblock_crawls=3)  # K=3, а блок з 1-го
+    h.harvest([_cand(url="https://vmisti.cherk.example")], cats=None, known=set(),
+              summary=_summary())
+    assert blocker.blocked == ["vmisti.cherk.example"]
+    assert api.offers == []          # редакційна сторінка офер не дає
+    blocklist.reload_learned(None)
+
+
+def test_news_schema_with_commercial_not_blocked(tmp_path):
+    # Навіть з NewsArticle+фідом: якщо присутня комерц-schema (бізнес із блогом) —
+    # це НЕ чистий новинний портал → НЕ блокуємо (editorial-гейт не спрацьовує).
+    blocklist.reload_learned(None)
+    api = FakeApi()
+    reg = _reg(tmp_path)
+    blocker = FakeBlocker()
+    item = _schema_item("Знижка 20% для військових", "https://shop.example/blog/a.html",
+                        business=True, is_article=True, news_schema=True, has_feed=True)
+    h = ActiveHarvester(api, {"website": FakeFetcher([item])}, GateExtractor(),
+                        rate_limiter=None, fetch_budget=5, domain_registry=reg,
+                        media_blocker=blocker, media_autoblock_crawls=3)
+    h.harvest([_cand(url="https://shop.example")], cats=None, known=set(), summary=_summary())
+    assert blocker.blocked == []
     blocklist.reload_learned(None)
 
 

@@ -254,3 +254,18 @@ def test_record_is_thread_safe_no_lost_updates(tmp_path):
 
     assert r._data["domains"]["silpo.ua"]["offers"] == n
     assert r._data["domains"]["silpo.ua"]["passes"] == n
+
+
+def test_editorial_block_due(tmp_path):
+    r = _reg(tmp_path)
+    # невідомий хост — сильний editorial-сигнал сам достатній для блоку
+    assert r.editorial_block_due("fresh.example") is True
+    # хост, що показав provider-evidence → це бізнес, НЕ блокуємо
+    r.record("biz.example", offers=1, errors=0, structural_provider=True)
+    assert r.editorial_block_due("biz.example") is False
+    # хост без provider → блок дозволено
+    r.record("news.example", offers=1, errors=0, structural_provider=False)
+    assert r.editorial_block_due("news.example") is True
+    # уже заблокований → більше не блокуємо повторно
+    r.mark_media_blocked("news.example")
+    assert r.editorial_block_due("news.example") is False

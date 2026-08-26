@@ -14,7 +14,7 @@ from crawler.extract.categories import resolve_offer_categories
 from crawler.judge.base import NullJudge
 from crawler.judge.gate import RelevanceGate
 from crawler.payloads import offer_payload
-from crawler.util.hosts import is_foreign_host, is_ru_by_geo
+from crawler.util.hosts import bare_host, is_foreign_host, is_ru_by_geo
 
 log = logging.getLogger(__name__)
 
@@ -26,6 +26,21 @@ def _is_editorial_page(items) -> bool:
     Article or og:type=article) AND carries no commercial schema (Offer/LocalBusiness/
     Organization). Such a page is never an offer source."""
     if not any(getattr(it, "is_article", False) for it in items):
+        return False
+    return not any(getattr(it, "has_offer_schema", False)
+                   or getattr(it, "has_business_schema", False) for it in items)
+
+
+def _is_news_portal_page(items) -> bool:
+    """Сильний СТРУКТУРНИЙ сигнал новинного ВИДАВЦЯ: schema.org NewsArticle + RSS/Atom-фід
+    + 0 комерц-schema. Достатньо для МИТТЄВОГО media-блоку домену (best-practice: розрізняти
+    медіа структурно — schema+фіди, а не за іменем хоста). Точніше за голий is_article
+    (бізнес-блог на BlogPosting сюди не потрапляє), тож безпечно блокувати на першому хіті.
+    Закриває active-search-витік типу vmisti.cherkasy.ua (місто-портал, який is_news_host
+    за іменем не ловить)."""
+    if not any(getattr(it, "has_news_schema", False) for it in items):
+        return False
+    if not any(getattr(it, "has_feed", False) for it in items):
         return False
     return not any(getattr(it, "has_offer_schema", False)
                    or getattr(it, "has_business_schema", False) for it in items)
@@ -200,6 +215,15 @@ class ActiveHarvester:
                         and _is_editorial_page(items)):
                     # News/blog portal page with no commercial schema — abandon the whole
                     # domain rather than walk its remaining (all-editorial) pages.
+                    # Сильний сигнал (NewsArticle+RSS+0 комерц) → ще й ПЕРСИСТЕНТНО блокуємо
+                    # хост (не лише кидаємо walk), щоб active-search більше туди не повертався.
+                    # provider_ever-запобіжник у registry береже бізнес, що колись дав provider.
+                    news_host = bare_host(cand.url_or_handle)
+                    if (self._media_blocker is not None and _is_news_portal_page(items)
+                            and self._registry is not None
+                            and self._registry.editorial_block_due(news_host)):
+                        if self._media_blocker.block(news_host, cand.url_or_handle):
+                            self._registry.mark_media_blocked(news_host)
                     break
                 if self._process_page(cand, items, cats, known, summary):
                     structural = True

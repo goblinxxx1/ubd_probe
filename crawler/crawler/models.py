@@ -27,6 +27,8 @@ class RawItem:
     is_article: bool = False
     has_business_schema: bool = False
     canonical_url: str | None = None  # <link rel="canonical"> — сайт сам оголошує ідентичність сторінки
+    has_news_schema: bool = False  # schema.org NewsArticle — саме НОВИННИЙ видавець (не бізнес-блог)
+    has_feed: bool = False         # RSS/Atom <link> у <head> — сильний медіа-маркер
 
 
 @dataclass

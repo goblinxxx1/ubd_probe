@@ -300,6 +300,25 @@ def _has_article_schema(tree) -> bool:
     return False
 
 
+# NewsArticle САМЕ — маркер новинного ВИДАВЦЯ (не бізнес-блог на BlogPosting/Article).
+# Сильніший за is_article: слугує сигналом для миттєвого media-блоку домену.
+_NEWS_TYPE = re.compile(r'"@type"\s*:\s*"[^"]*NewsArticle', re.IGNORECASE)
+
+
+def _has_news_schema(tree) -> bool:
+    for node in tree.css('script[type="application/ld+json"]'):
+        if _NEWS_TYPE.search(node.text() or ""):
+            return True
+    return False
+
+
+def _has_feed(tree) -> bool:
+    """RSS/Atom <link> у <head> — практично завжди новинний/блог-ресурс, майже ніколи
+    бізнес-сторінка знижки. Структурний медіа-маркер (не текст)."""
+    return bool(tree.css_first('link[type="application/rss+xml"]')
+                or tree.css_first('link[type="application/atom+xml"]'))
+
+
 def _has_article_og(tree) -> bool:
     """OpenGraph og:type=article — set by most news/blog CMSes even with no
     schema.org JSON-LD. Schema-independent media signal."""
@@ -369,6 +388,8 @@ class WebsiteFetcher:
             has_offer = _has_offer_schema(tree)
             is_article = (_has_article_schema(tree) or _has_article_og(tree)
                           or _url_dated_permalink(url))
+            has_news = _has_news_schema(tree)
+            has_feed = _has_feed(tree)
             has_business = _has_business_schema(tree)
             items: list[RawItem] = []
             seen_keys: set[str] = set()
@@ -397,7 +418,8 @@ class WebsiteFetcher:
                                      locality=locality, has_offer_schema=has_offer,
                                      is_article=is_article,
                                      has_business_schema=has_business,
-                                     canonical_url=canonical))
+                                     canonical_url=canonical,
+                                     has_news_schema=has_news, has_feed=has_feed))
             new_key = items[-1].key if items else last_seen_key
             return items, new_key
         except Exception as exc:  # noqa: BLE001 — never raise up the stack
