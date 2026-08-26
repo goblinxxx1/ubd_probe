@@ -630,6 +630,42 @@ def test_news_portal_blocked_on_first_hit(tmp_path):
     blocklist.reload_learned(None)
 
 
+def test_news_portal_blocked_feed_only(tmp_path):
+    # Портал БЕЗ NewsArticle-schema, але з RSS-фідом (типовий випадок) — теж блок.
+    blocklist.reload_learned(None)
+    api = FakeApi()
+    reg = _reg(tmp_path)
+    blocker = FakeBlocker()
+    item = _schema_item("Місцева новина про громаду та військових сьогодні вранці",
+                        "https://region24.example/eco/a.html",
+                        is_article=True, news_schema=False, has_feed=True)
+    h = ActiveHarvester(api, {"website": FakeFetcher([item])}, GateExtractor(),
+                        rate_limiter=None, fetch_budget=5, domain_registry=reg,
+                        media_blocker=blocker, media_autoblock_crawls=3)
+    h.harvest([_cand(url="https://region24.example")], cats=None, known=set(),
+              summary=_summary())
+    assert blocker.blocked == ["region24.example"]
+    blocklist.reload_learned(None)
+
+
+def test_news_portal_blocked_news_schema_only(tmp_path):
+    # Портал з NewsArticle-schema, але без RSS-фіда — теж блок.
+    blocklist.reload_learned(None)
+    api = FakeApi()
+    reg = _reg(tmp_path)
+    blocker = FakeBlocker()
+    item = _schema_item("Новина міста про підтримку захисників сьогодні у центрі",
+                        "https://misto-visnyk.example/a.html",
+                        is_article=True, news_schema=True, has_feed=False)
+    h = ActiveHarvester(api, {"website": FakeFetcher([item])}, GateExtractor(),
+                        rate_limiter=None, fetch_budget=5, domain_registry=reg,
+                        media_blocker=blocker, media_autoblock_crawls=3)
+    h.harvest([_cand(url="https://misto-visnyk.example")], cats=None, known=set(),
+              summary=_summary())
+    assert blocker.blocked == ["misto-visnyk.example"]
+    blocklist.reload_learned(None)
+
+
 def test_news_schema_with_commercial_not_blocked(tmp_path):
     # Навіть з NewsArticle+фідом: якщо присутня комерц-schema (бізнес із блогом) —
     # це НЕ чистий новинний портал → НЕ блокуємо (editorial-гейт не спрацьовує).

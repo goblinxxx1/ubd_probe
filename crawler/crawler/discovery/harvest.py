@@ -32,15 +32,17 @@ def _is_editorial_page(items) -> bool:
 
 
 def _is_news_portal_page(items) -> bool:
-    """Сильний СТРУКТУРНИЙ сигнал новинного ВИДАВЦЯ: schema.org NewsArticle + RSS/Atom-фід
-    + 0 комерц-schema. Достатньо для МИТТЄВОГО media-блоку домену (best-practice: розрізняти
-    медіа структурно — schema+фіди, а не за іменем хоста). Точніше за голий is_article
-    (бізнес-блог на BlogPosting сюди не потрапляє), тож безпечно блокувати на першому хіті.
-    Закриває active-search-витік типу vmisti.cherkasy.ua (місто-портал, який is_news_host
-    за іменем не ловить)."""
-    if not any(getattr(it, "has_news_schema", False) for it in items):
-        return False
-    if not any(getattr(it, "has_feed", False) for it in items):
+    """Новинний портал за СТРУКТУРНИМ сигналом: сильний медіа-маркер — schema.org
+    NewsArticle АБО RSS/Atom-фід — за відсутності комерц-schema. RSS майже завжди є в
+    новинних/блог-CMS і майже ніколи на бізнес-сторінці знижки, тож «schema АБО фід»
+    ловить ПРАКТИЧНО ВСІ портали (не лише ті, що декларують NewsArticle). Викликається
+    лише всередині editorial-гейта (is_article+0 комерц уже підтверджено), а миттєвий
+    блок додатково береже registry.editorial_block_due (хост, що колись показав provider
+    = бізнес, не блокується). Best-practice: розрізняти медіа структурно, не за іменем
+    хоста (is_news_host не ловив vmisti.cherkasy.ua)."""
+    strong_media = any(getattr(it, "has_news_schema", False)
+                       or getattr(it, "has_feed", False) for it in items)
+    if not strong_media:
         return False
     return not any(getattr(it, "has_offer_schema", False)
                    or getattr(it, "has_business_schema", False) for it in items)
