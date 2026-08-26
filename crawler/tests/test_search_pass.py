@@ -388,6 +388,25 @@ def test_protected_service_term_exempts_real_build_grid_phrase(tmp_path):
         assert sp._effective_ttl_for(p) == 100.0
 
 
+def test_last_productivity_reports_new_domains_and_query_count(tmp_path):
+    """Задача 8: саморозказаний продуктивність-гейдж (new/query) — SearchPass
+    памʼятає (new_domains, queries) останнього run(), щоб runner.py логував
+    їх поруч із saturation-гейджем Задачі 7."""
+    grid = QueryGrid(["A", "B"])
+    state = SearchState(str(tmp_path / "s.json"))
+    plan = _YieldPlan({"B": [_yield_cand("shopB", "https://b.ua")]})   # A суха, B дає 1
+    sp = SearchPass([plan], state, grid, block_size=2, ttl_seconds=0.0)
+    sp.run(known=set())
+    assert sp.last_productivity() == (1, 2)     # 1 новий кандидат за прохід з 2 фраз
+
+
+def test_last_productivity_defaults_to_zero_when_noop(tmp_path):
+    state = SearchState(str(tmp_path / "s.json"))
+    sp = SearchPass([], state, QueryGrid(["A"]), block_size=1)
+    sp.run(known=set())
+    assert sp.last_productivity() == (0, 0)
+
+
 def test_set_protected_terms_updates_live_without_rebuild(tmp_path):
     """Задача 5C: адмін захищає термін ПІД ЧАС роботи краулера (без рестарту) —
     set_protected_terms підмінює множину так само, як set_grid підмінює грід."""

@@ -241,12 +241,26 @@ class Runner:
                 # Observability only: гейдж насичення Chao1 (НАПРЯМНИЙ показник — таргетована
                 # вибірка зміщує оцінку, тому НЕ гілкуємо планування на цьому значенні).
                 cov_state = getattr(self._search_pass, "_state", None)
+                sat_pct = None
                 if cov_state is not None and hasattr(cov_state, "coverage_counts"):
                     obs, f1, f2 = cov_state.coverage_counts()
                     if obs:
                         from crawler.discovery.coverage import saturation as _sat
+                        sat_pct = 100.0 * _sat(obs, f1, f2)
                         log.info("active coverage: observed=%d saturation=%.1f%%",
-                                 obs, 100.0 * _sat(obs, f1, f2))
+                                 obs, sat_pct)
+                # Задача 8: саморозказана продуктивність активного циклу (new/query) —
+                # успіх/деградація планувальника видно самим grep'ом логів за 48h, без
+                # ручного порівняння з baseline. Лише коли цей прохід реально шукав
+                # (ddg_allowed=True, тобто SearchPass.run() відпрацював) — на drain-шляху
+                # (DDG backoff) last_productivity() було б застарілим значенням минулого
+                # циклу, а не цього.
+                if ddg_allowed and hasattr(self._search_pass, "last_productivity"):
+                    new_domains, queries = self._search_pass.last_productivity()
+                    sat_txt = f"saturation={sat_pct:.1f}%" if sat_pct is not None else "saturation=n/a"
+                    log.info(
+                        "active productivity: new_domains=%d / queries=%d (%.2f new/query) | %s",
+                        new_domains, queries, new_domains / max(1, queries), sat_txt)
             if self._brand_feed is not None:
                 feeds.append(self._brand_feed.candidates(known))
             if self._osm_feed is not None:

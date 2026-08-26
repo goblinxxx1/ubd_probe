@@ -36,6 +36,11 @@ class SearchPass:
         self._cold_tries = cold_tries
         self._mult_cap = mult_cap
         self._alpha = alpha
+        # Задача 8: саморозказана продуктивність (new_domains, queries) з ОСТАННЬОГО
+        # run() — сирі числа для гейджа new/query, що runner.py логує поруч із
+        # saturation-гейджем Задачі 7 (без ручного порівняння baseline).
+        self._last_new_domains = 0
+        self._last_queries = 0
 
     def set_protected_terms(self, terms) -> None:
         """Задача 5C: живий перемикач захисту (без рестарту краулера) — той самий
@@ -60,10 +65,17 @@ class SearchPass:
             out.extend(cands)
         return out
 
+    def last_productivity(self) -> tuple[int, int]:
+        """Задача 8: (new_domains, queries) останнього run() — used by runner.py
+        для self-reported active productivity gauge (new/query)."""
+        return (self._last_new_domains, self._last_queries)
+
     def run(self, known) -> list[SourceCandidate]:
         out: list[SourceCandidate] = []
         size = len(self._grid)
         if size == 0 or not self._plans:
+            self._last_new_domains = 0
+            self._last_queries = 0
             return out
         # 1) DRAIN once (no re-search): re-surface cached-but-unharvested candidates.
         out.extend(self.drain())
@@ -101,6 +113,10 @@ class SearchPass:
             out.extend(searched)
             if plan.succeeded():
                 any_success = True
+        # Задача 8: продуктивність цього циклу — незалежно від any_success, бо
+        # new_by_phrase уже відображає фактично знайдені нові кандидати за батч.
+        self._last_new_domains = sum(new_by_phrase.values())
+        self._last_queries = len(batch)
         # advance the grid cursor AND each phrase's page cursor only on a covered batch
         if any_success:
             for p in batch:

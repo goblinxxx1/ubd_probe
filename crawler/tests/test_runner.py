@@ -694,6 +694,62 @@ def test_run_active_logs_coverage_saturation_gauge(caplog):
     assert "active coverage: observed=4 saturation=66.7%" in msgs
 
 
+def test_run_active_logs_productivity_metric(caplog):
+    """Задача 8: саморозказаний продуктивність-гейдж — не потрібен ручний аналіз,
+    лише grep 'active productivity' по логах (48h wiring перевіряється тут)."""
+    class _CovState:
+        def coverage_counts(self): return (4, 2, 1)   # -> saturation=66.7%
+    class _SP:
+        _state = _CovState()
+        def run(self, known): return []
+        def provider_for_site_query(self): return None
+        def last_productivity(self): return (3, 5)    # 3 нових домени за 5 запитів
+    api = FakeApi([])
+    runner = Runner(api, {"website": FakeFetcher([])}, get_extractor("heuristic"), _rl(),
+                    harvester=_RecordingHarvester(), search_pass=_SP())
+    with caplog.at_level("INFO", logger="crawler.runner"):
+        runner.run_active()
+    msgs = [r.getMessage() for r in caplog.records if r.name == "crawler.runner"]
+    assert ("active productivity: new_domains=3 / queries=5 (0.60 new/query) "
+            "| saturation=66.7%") in msgs
+
+
+def test_run_active_skips_productivity_log_when_search_pass_lacks_accessor():
+    """Existing fakes without last_productivity() must not crash run_active
+    (guarded, back-compat with pre-Задача-8 test doubles)."""
+    class _CovState:
+        def coverage_counts(self): return (4, 2, 1)
+    class _SP:
+        _state = _CovState()
+        def run(self, known): return []
+        def provider_for_site_query(self): return None
+    api = FakeApi([])
+    runner = Runner(api, {"website": FakeFetcher([])}, get_extractor("heuristic"), _rl(),
+                    harvester=_RecordingHarvester(), search_pass=_SP())
+    summary = runner.run_active()          # no last_productivity() -> guarded, no crash
+    assert summary["errors"] == 0
+
+
+def test_run_active_skips_productivity_log_on_drain_path(caplog):
+    """ddg_allowed=False means SearchPass.drain() ran, not run() — last_productivity()
+    would be stale/carried over from a previous cycle, so the productivity log must
+    not fire for this cycle at all."""
+    class _CovState:
+        def coverage_counts(self): return (4, 2, 1)
+    class _SP:
+        _state = _CovState()
+        def drain(self): return []
+        def provider_for_site_query(self): return None
+        def last_productivity(self): return (99, 1)   # stale value from a prior cycle
+    api = FakeApi([])
+    runner = Runner(api, {"website": FakeFetcher([])}, get_extractor("heuristic"), _rl(),
+                    harvester=_RecordingHarvester(), search_pass=_SP())
+    with caplog.at_level("INFO", logger="crawler.runner"):
+        runner.run_active(ddg_allowed=False)
+    msgs = [r.getMessage() for r in caplog.records if r.name == "crawler.runner"]
+    assert not any("active productivity" in m for m in msgs)
+
+
 def test_run_active_skips_coverage_log_when_state_lacks_coverage_counts():
     """Existing fakes (e.g. mark_harvested-only _state) must not crash run_active."""
     class _State:
