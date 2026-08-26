@@ -92,3 +92,27 @@ def test_domain_rate_limiter_lock_is_per_domain_not_global():
 
     release_a.set()
     assert a_done.wait(timeout=5)
+
+
+class _Clock:
+    def __init__(self): self.t = 0.0; self.slept = []
+    def monotonic(self): return self.t
+    def sleep(self, s):
+        self.slept.append(s); self.t += s
+
+
+def test_penalize_forces_wait_until_retry_after():
+    c = _Clock()
+    rl = DomainRateLimiter(min_delay=0.0, sleep=c.sleep, monotonic=c.monotonic)
+    rl.wait("shop.ua")                 # first call, no wait
+    rl.penalize("shop.ua", 30.0)       # server said Retry-After: 30
+    rl.wait("shop.ua")                 # must sleep ~30s
+    assert c.slept and abs(sum(c.slept) - 30.0) < 1e-6
+
+
+def test_penalize_ignores_nonpositive():
+    c = _Clock()
+    rl = DomainRateLimiter(min_delay=0.0, sleep=c.sleep, monotonic=c.monotonic)
+    rl.penalize("x.ua", 0.0)
+    rl.wait("x.ua")
+    assert c.slept == []

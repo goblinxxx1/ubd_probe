@@ -33,6 +33,7 @@ class DomainRateLimiter:
         self._sleep = sleep
         self._monotonic = monotonic
         self._last: dict[str, float] = {}
+        self._penalty_until: dict[str, float] = {}
         self._guard = threading.Lock()
         self._locks: dict[str, threading.Lock] = {}
 
@@ -44,6 +45,15 @@ class DomainRateLimiter:
                 self._locks[domain] = lock
             return lock
 
+    def penalize(self, domain: str, seconds: float) -> None:
+        """Продовжити паузу для домену (напр. HTTP 429/503 Retry-After). Наступний
+        wait() цього домену чекатиме щонайменше до penalty_until."""
+        if seconds <= 0:
+            return
+        with self._domain_lock(domain):
+            until = self._monotonic() + seconds
+            self._penalty_until[domain] = max(self._penalty_until.get(domain, 0.0), until)
+
     def wait(self, domain: str, delay: float | None = None) -> None:
         effective = max(self._min_delay, delay or 0.0)
         with self._domain_lock(domain):
@@ -54,4 +64,8 @@ class DomainRateLimiter:
                 if remaining > 0:
                     self._sleep(remaining)
                     now = self._monotonic() if self._monotonic() > now else now + remaining
+            penalty = self._penalty_until.get(domain, 0.0)
+            if penalty > now:
+                self._sleep(penalty - now)
+                now = penalty
             self._last[domain] = now
