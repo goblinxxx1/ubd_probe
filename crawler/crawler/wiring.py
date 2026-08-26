@@ -21,6 +21,7 @@ from crawler.discovery.search_pass import SearchPass
 from crawler.discovery.query_grid import QueryGrid, build_grid
 from crawler.discovery.robots import RobotsPolicy
 from crawler.discovery.search_state import SearchState
+from crawler.discovery.validator_store import ValidatorStore
 from crawler.discovery.walker import DomainWalker
 from crawler.extract.base import get_extractor
 from crawler.fetchers.facebook import FacebookFetcher
@@ -133,16 +134,6 @@ def build_runner(config) -> Runner:
     ig_pool = AccountPool("instagram", ig_creds, api)
     fb_pool = AccountPool("facebook", fb_creds, api)
 
-    fetchers = {
-        "website": WebsiteFetcher(web_client),
-        "telegram": TelegramFetcher(web_client),
-        "instagram": InstagramFetcher(ig_pool, _http_client(config.request_timeout,
-                                                             config.contact_url,
-                                                             config.proxies.get("instagram"))),
-        "facebook": FacebookFetcher(fb_pool, _http_client(config.request_timeout,
-                                                          config.contact_url,
-                                                          config.proxies.get("facebook"))),
-    }
     extractor = get_extractor(config.extractor, require_discount=config.require_discount)
     rate_limiter = RateLimiter(config.min_delay_seconds)
 
@@ -225,6 +216,22 @@ def build_runner(config) -> Runner:
                                  cooldown_seconds=revisit_cooldown)
         if walker is None:
             walker, domain_rl = _build_walker(config, web_client)   # passive deep-walk needs it
+
+    # Задача 12: conditional GET (ETag/Last-Modified) + 429/503 Retry-After → домену-
+    # рейт-лімітеру. throttle_sink потребує domain_rl, тож fetchers будуємо тут, ПІСЛЯ
+    # того як domain_rl остаточно визначений (walker/domain_rl вище).
+    validator_store = ValidatorStore(config.validator_store_path)
+    throttle_sink = (lambda host, s: domain_rl.penalize(host, s)) if domain_rl is not None else None
+    fetchers = {
+        "website": WebsiteFetcher(web_client, store=validator_store, throttle_sink=throttle_sink),
+        "telegram": TelegramFetcher(web_client),
+        "instagram": InstagramFetcher(ig_pool, _http_client(config.request_timeout,
+                                                             config.contact_url,
+                                                             config.proxies.get("instagram"))),
+        "facebook": FacebookFetcher(fb_pool, _http_client(config.request_timeout,
+                                                          config.contact_url,
+                                                          config.proxies.get("facebook"))),
+    }
 
     reject_ingestor = None
     if config.domain_rating_enabled and config.rejection_feedback_enabled:

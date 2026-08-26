@@ -9,6 +9,7 @@ from selectolax.parser import HTMLParser
 
 from crawler.discovery.geo import find_city
 from crawler.models import RawItem
+from crawler.util.hosts import bare_host
 
 log = logging.getLogger(__name__)
 _MIN_LEN = 30
@@ -327,14 +328,35 @@ def _has_business_schema(tree) -> bool:
 class WebsiteFetcher:
     platform = "website"
 
-    def __init__(self, client: httpx.Client):
+    def __init__(self, client: httpx.Client, store=None, throttle_sink=None):
         self._client = client
+        self._store = store            # ValidatorStore: conditional GET (ETag/Last-Modified)
+        self._throttle = throttle_sink  # (host, retry_after_seconds) -> None; 429/503 backoff
 
     def fetch(self, source: dict, last_seen_key: str | None):
         url = source["url_or_handle"]
+        headers = {}
+        if self._store is not None:
+            v = self._store.get(url) or {}
+            if v.get("etag"):
+                headers["If-None-Match"] = v["etag"]
+            if v.get("last_modified"):
+                headers["If-Modified-Since"] = v["last_modified"]
         try:
-            resp = self._client.get(url, follow_redirects=True)
+            resp = self._client.get(url, follow_redirects=True, headers=headers or None)
+            if resp.status_code in (429, 503) and self._throttle is not None:
+                try:
+                    secs = float(resp.headers.get("Retry-After", "") or 0.0)
+                except ValueError:
+                    secs = 0.0
+                self._throttle(bare_host(url), secs)
+                return [], last_seen_key
+            if resp.status_code == 304:
+                return [], last_seen_key            # незмінна сторінка — дешево
             resp.raise_for_status()
+            if self._store is not None:
+                self._store.put(url, resp.headers.get("ETag"),
+                                resp.headers.get("Last-Modified"))
 
             tree = HTMLParser(resp.text)
             canonical = _extract_canonical(tree, url)

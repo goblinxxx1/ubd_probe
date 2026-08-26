@@ -139,6 +139,7 @@ class _RawSettings(BaseSettings):
     phrase_ttl_mult_cap: float = 8.0  # стеля множника TTL для сухих фраз
     phrase_ewma_alpha: float = 0.3    # вага EWMA продуктивності фрази
     crawler_contact: str = "https://ubd.example"   # Задача 11: реальний контакт власника краулера в UA
+    validator_store_path: str = "/data/validators.json"   # Задача 12: ETag/Last-Modified per-URL
 
 
 @dataclass
@@ -273,6 +274,7 @@ class Config:
     phrase_ttl_mult_cap: float = 8.0
     phrase_ewma_alpha: float = 0.3
     contact_url: str = "https://ubd.example"
+    validator_store_path: str = "/data/validators.json"
 
 
 def _parse_accounts(platform: str, raw: str) -> list[BotCredential]:
@@ -429,6 +431,7 @@ def from_settings(s: _RawSettings) -> Config:
         phrase_ttl_mult_cap=s.phrase_ttl_mult_cap,
         phrase_ewma_alpha=s.phrase_ewma_alpha,
         contact_url=s.crawler_contact,
+        validator_store_path=s.validator_store_path,
     )
 
 

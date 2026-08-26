@@ -168,10 +168,12 @@ def test_offer_schema_flag_set(monkeypatch):
 
     class _Resp:
         text = html
+        status_code = 200
+        headers = {}
         def raise_for_status(self): pass
 
     class _Client:
-        def get(self, url, follow_redirects=True): return _Resp()
+        def get(self, url, follow_redirects=True, headers=None): return _Resp()
 
     items, _ = WebsiteFetcher(_Client()).fetch(
         {"id": 1, "url_or_handle": "http://shop.ua"}, None)
@@ -190,10 +192,12 @@ def test_offer_schema_flag_not_set_for_incidental_word():
 
     class _Resp:
         text = html
+        status_code = 200
+        headers = {}
         def raise_for_status(self): pass
 
     class _Client:
-        def get(self, url, follow_redirects=True): return _Resp()
+        def get(self, url, follow_redirects=True, headers=None): return _Resp()
 
     items, _ = WebsiteFetcher(_Client()).fetch(
         {"id": 1, "url_or_handle": "http://shop.ua"}, None)
@@ -478,3 +482,44 @@ def test_fetch_canonical_rejects_unsafe_scheme():
     f = _fetcher_returning(html)
     items, _ = f.fetch({"id": 1, "url_or_handle": "https://shop.ua/offer"}, None)
     assert items and items[0].canonical_url is None
+
+
+# --- conditional GET (304) + 429/503 Retry-After host backoff ---
+
+class _Resp:
+    """Мінімальний httpx.Response-подібний обʼєкт для тестів статус-кодів/хедерів."""
+    def __init__(self, text="", status=200, headers=None):
+        self.text = text
+        self.status_code = status
+        self.headers = headers or {}
+
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            raise RuntimeError(f"status {self.status_code}")
+
+
+from crawler.discovery.validator_store import ValidatorStore
+
+
+def test_304_short_circuits_without_parsing(tmp_path):
+    store = ValidatorStore(str(tmp_path / "v.json"))
+    store.put("https://a.ua", etag='"v1"', last_modified=None)
+    sent = {}
+    class C:
+        def get(self, url, follow_redirects=True, headers=None):
+            sent.update(headers or {})
+            return _Resp("", status=304, headers={"ETag": '"v1"'})
+    items, key = WebsiteFetcher(C(), store=store).fetch(
+        {"id": 1, "url_or_handle": "https://a.ua"}, "prev-key")
+    assert sent.get("If-None-Match") == '"v1"'
+    assert items == [] and key == "prev-key"          # nothing changed, cheap
+
+
+def test_429_calls_throttle_sink_with_retry_after():
+    hits = []
+    class C:
+        def get(self, url, follow_redirects=True, headers=None):
+            return _Resp("", status=429, headers={"Retry-After": "42"})
+    WebsiteFetcher(C(), throttle_sink=lambda host, s: hits.append((host, s))).fetch(
+        {"id": 1, "url_or_handle": "https://a.ua/x"}, None)
+    assert hits == [("a.ua", 42.0)]
