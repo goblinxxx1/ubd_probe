@@ -2,6 +2,7 @@ from crawler.discovery.search_pass import SearchPass
 from crawler.discovery.search_state import SearchState
 from crawler.discovery.query_grid import QueryGrid
 from crawler.models import SourceCandidate
+from crawler.util.hosts import bare_host
 
 
 class _Disc:
@@ -160,8 +161,10 @@ class _State:
     def current_page(self, phrase): return 1
     def record_page_result(self, phrase, page, new_count, page_cap): pass
     def record_yield(self, phrase, new_count, alpha=0.3): pass
+    def record_yields(self, new_by_phrase, alpha=0.3): pass
     def effective_ttl(self, phrase, base_ttl, *, cold_tries=3, mult_cap=8.0): return base_ttl
     def note_host(self, host): pass
+    def note_hosts(self, hosts): pass
     @staticmethod
     def _key(keyword, page=1):
         base = keyword.strip().casefold()
@@ -405,6 +408,62 @@ def test_last_productivity_defaults_to_zero_when_noop(tmp_path):
     sp = SearchPass([], state, QueryGrid(["A"]), block_size=1)
     sp.run(known=set())
     assert sp.last_productivity() == (0, 0)
+
+
+def test_run_batches_saves_independent_of_candidate_count(tmp_path):
+    """Fix 2: run() must persist via a save-count that depends only on the batch
+    size (record_page_result per phrase + ONE record_yields + ONE note_hosts),
+    NOT on how many candidates were found -- the pre-fix per-candidate note_host()
+    and per-phrase record_yield() each _save()d individually."""
+    phrases = ["альфа", "бета", "гамма"]
+
+    def _run_with(n_cands_per_phrase):
+        st = SearchState(str(tmp_path / f"s{n_cands_per_phrase}.json"), clock=lambda: 1000.0)
+        grid = QueryGrid(list(phrases))
+        cands = {p: [_yield_cand(f"{p}{i}", f"https://{p}{i}.ua")
+                     for i in range(n_cands_per_phrase)] for p in phrases}
+        plan = _YieldPlan(cands)
+        sp = SearchPass([plan], st, grid, block_size=3, ttl_seconds=0.0)
+        calls = []
+        orig_save = st._save
+        def counting_save():
+            calls.append(1)
+            orig_save()
+        st._save = counting_save
+        sp.run(known=set())
+        return len(calls)
+
+    saves_few = _run_with(2)     # 2 candidates/phrase = 6 total
+    saves_many = _run_with(20)   # 20 candidates/phrase = 60 total
+    assert saves_few == saves_many                # save count independent of candidate volume
+    # record_page_result x3 (per phrase) + ONE record_yields + ONE note_hosts + ONE set_grid_cursor
+    assert saves_few == len(phrases) + 3
+
+
+def test_run_batch_state_matches_manual_per_item_application(tmp_path):
+    """The batched record_yields/note_hosts path used by run() must produce
+    phrase_stats/host_freq identical to manually replaying record_yield/note_host
+    once per phrase/candidate (the pre-fix per-item semantics), for the same
+    inputs — batching must not change WHAT gets recorded, only how often it saves."""
+    phrases = ["альфа", "бета", "гамма"]
+    cands = {p: [_yield_cand(f"{p}{i}", f"https://{p}{i}.ua") for i in range(2)]
+             for p in phrases}
+
+    st_batch = SearchState(str(tmp_path / "batch.json"), clock=lambda: 1000.0)
+    grid = QueryGrid(list(phrases))
+    plan = _YieldPlan(cands)
+    sp = SearchPass([plan], st_batch, grid, block_size=3, ttl_seconds=0.0)
+    sp.run(known=set())
+
+    st_manual = SearchState(str(tmp_path / "manual.json"), clock=lambda: 1000.0)
+    for p in phrases:
+        st_manual.record_yield(p, len(cands[p]), alpha=0.3)
+    for p in phrases:
+        for c in cands[p]:
+            st_manual.note_host(bare_host(c.url_or_handle))
+
+    assert st_batch._data["phrase_stats"] == st_manual._data["phrase_stats"]
+    assert st_batch._data["host_freq"] == st_manual._data["host_freq"]
 
 
 def test_set_protected_terms_updates_live_without_rebuild(tmp_path):

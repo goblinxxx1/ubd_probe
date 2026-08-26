@@ -121,9 +121,11 @@ class SearchPass:
         if any_success:
             for p in batch:
                 self._state.record_page_result(p, pages[p], new_by_phrase[p], self._page_cap)
-                self._state.record_yield(p, new_by_phrase[p], alpha=self._alpha)  # NEW: productivity
-            for c in out:                                              # NEW: recapture freq
-                self._state.note_host(bare_host(c.url_or_handle))
+            # Fix 2: батч-запис — ОДИН _save() на прохід замість одного на фразу
+            # (record_yield) чи одного на кандидата (note_host), що раніше давало
+            # O(batch)/O(candidates) перезаписів файлу стану за прохід.
+            self._state.record_yields(new_by_phrase, alpha=self._alpha)          # NEW: productivity
+            self._state.note_hosts([bare_host(c.url_or_handle) for c in out])    # NEW: recapture freq
             if self._breed_sink is not None:
                 # Задача 5B (ADD-половина): продуктивна фраза (>=promote_min нових
                 # кандидатів за цей прохід) розсіює сервіс-терми зі своїх переможних

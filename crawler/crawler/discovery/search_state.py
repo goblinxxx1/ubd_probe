@@ -209,6 +209,21 @@ class SearchState:
         stats[k] = e
         self._save()
 
+    def record_yields(self, new_by_phrase: dict[str, int], alpha: float = 0.3) -> None:
+        """Батч-версія record_yield: та сама EWMA/tries/dry_streak-логіка для
+        КОЖНОЇ фрази пачки (включно з new_count==0 — dry_streak мусить просуватись),
+        але ОДИН _save() на увесь прохід замість одного на фразу."""
+        stats = self._data.setdefault("phrase_stats", {})
+        for phrase, new_count in new_by_phrase.items():
+            k = self._key(phrase)
+            e = stats.get(k) or {"tries": 0, "ewma": 0.0, "dry_streak": 0}
+            e["tries"] = int(e.get("tries", 0)) + 1
+            prev = float(e.get("ewma", 0.0))
+            e["ewma"] = (1.0 - alpha) * prev + alpha * float(new_count)
+            e["dry_streak"] = 0 if new_count > 0 else int(e.get("dry_streak", 0)) + 1
+            stats[k] = e
+        self._save()
+
     def effective_ttl(self, phrase: str, base_ttl: float, *,
                       cold_tries: int = 3, mult_cap: float = 8.0) -> float:
         """Адаптивний freshness-TTL. Молоду фразу (tries<cold_tries) НІКОЛИ не
@@ -232,6 +247,25 @@ class SearchState:
             return
         freq = self._data.setdefault("host_freq", {})
         freq[host] = int(freq.get(host, 0)) + 1
+        self._save()
+
+    def note_hosts(self, hosts: list[str | None]) -> None:
+        """Батч-версія note_host: інкрементує ВСІ хости пачки, ОДИН _save() на
+        прохід — головний винуватець O(candidates) перезапису файлу за прохід
+        був саме тут (по одному note_host на кандидата). Після інкременту, якщо
+        карта переросла _HOST_FREQ_CAP, топимо singleton-и (freq==1) — Chao1 тут
+        лише НАПРЯМОК тренду покриття, тож обмежене прунення прийнятне."""
+        freq = self._data.setdefault("host_freq", {})
+        for host in hosts:
+            if not host:
+                continue
+            freq[host] = int(freq.get(host, 0)) + 1
+        if len(freq) > _HOST_FREQ_CAP:
+            for host in list(freq.keys()):
+                if len(freq) <= _HOST_FREQ_CAP:
+                    break
+                if freq[host] == 1:
+                    del freq[host]
         self._save()
 
     def coverage_counts(self) -> tuple[int, int, int]:

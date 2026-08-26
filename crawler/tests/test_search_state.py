@@ -479,3 +479,64 @@ def test_note_host_ignores_empty(tmp_path):
     s.note_host("")
     s.note_host(None)         # type: ignore[arg-type]
     assert s.coverage_counts() == (0, 0, 0)
+
+
+def _counting_save(state):
+    """Wrap state._save so we can assert on the number of persist calls."""
+    calls = []
+    orig = state._save
+    def counting():
+        calls.append(1)
+        orig()
+    state._save = counting
+    return calls
+
+
+def test_record_yields_batch_matches_per_item_and_saves_once(tmp_path):
+    per = SearchState(str(tmp_path / "per.json"), clock=lambda: 1000.0)
+    batch = SearchState(str(tmp_path / "batch.json"), clock=lambda: 1000.0)
+    data = {"фраза А": 3, "фраза Б": 0, "фраза В": 5}
+    for k, v in data.items():
+        per.record_yield(k, v, alpha=0.3)
+
+    calls = _counting_save(batch)
+    batch.record_yields(data, alpha=0.3)
+
+    assert len(calls) == 1                                    # ONE _save() for the whole batch
+    assert batch._data["phrase_stats"] == per._data["phrase_stats"]
+
+
+def test_record_yields_advances_dry_streak_for_zero_yield_entries(tmp_path):
+    s = _state(tmp_path, Clock())
+    s.record_yields({"суха фраза": 0})
+    e = s._data["phrase_stats"][s._key("суха фраза")]
+    assert e["tries"] == 1
+    assert e["dry_streak"] == 1                                # 0-yield entries still advance
+
+
+def test_note_hosts_batch_matches_per_item_and_saves_once(tmp_path):
+    per = SearchState(str(tmp_path / "per.json"), clock=Clock())
+    batch = SearchState(str(tmp_path / "batch.json"), clock=Clock())
+    hosts = ["a.ua", "a.ua", "b.ua", "", None, "c.ua"]
+    for h in hosts:
+        per.note_host(h)
+
+    calls = _counting_save(batch)
+    batch.note_hosts(hosts)
+
+    assert len(calls) == 1                                     # ONE _save() for the whole batch
+    assert batch._data["host_freq"] == per._data["host_freq"]
+
+
+def test_note_hosts_prunes_singletons_over_cap(tmp_path, monkeypatch):
+    import crawler.discovery.search_state as ss_mod
+    monkeypatch.setattr(ss_mod, "_HOST_FREQ_CAP", 3)
+    s = _state(tmp_path, Clock())
+    # 2 doubletons (never pruned) + 3 singletons -> 5 entries, over the cap of 3
+    s.note_hosts(["d1.ua", "d1.ua", "d2.ua", "d2.ua", "s1.ua", "s2.ua", "s3.ua"])
+    freq = s._data["host_freq"]
+    assert len(freq) <= 3                                      # pruned back down toward the cap
+    assert freq.get("d1.ua") == 2 and freq.get("d2.ua") == 2   # doubletons always survive
+    observed, f1, f2 = s.coverage_counts()
+    assert observed == len(freq)
+    assert f2 == 2                                             # both doubletons retained
