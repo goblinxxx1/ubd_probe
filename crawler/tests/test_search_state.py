@@ -423,3 +423,29 @@ def test_record_yield_survives_reload(tmp_path):
     SearchState(p, clock=lambda: 1.0).record_yield("акція ЗСУ", 3)
     reloaded = SearchState.load(p, clock=lambda: 2.0)
     assert reloaded._data["phrase_stats"][reloaded._key("акція ЗСУ")]["tries"] == 1
+
+
+def test_effective_ttl_explores_young_phrases(tmp_path):
+    s = _state(tmp_path, Clock())
+    s.record_yield("рідкісна фраза", 0)          # tries=1 < cold_tries
+    assert s.effective_ttl("рідкісна фраза", 100.0, cold_tries=3) == 100.0
+
+
+def test_effective_ttl_keeps_base_for_productive(tmp_path):
+    s = _state(tmp_path, Clock())
+    for _ in range(5):
+        s.record_yield("врожайна", 3)            # ewma stays > 0
+    assert s.effective_ttl("врожайна", 100.0, cold_tries=3) == 100.0
+
+
+def test_effective_ttl_backs_off_warm_dry_phrase_capped(tmp_path):
+    s = _state(tmp_path, Clock())
+    for _ in range(10):
+        s.record_yield("суха фраза", 0)          # tries=10, ewma=0, dry_streak=10
+    ttl = s.effective_ttl("суха фраза", 100.0, cold_tries=3, mult_cap=8.0)
+    assert ttl == 800.0                          # capped at base * mult_cap
+
+
+def test_effective_ttl_unknown_phrase_is_base(tmp_path):
+    s = _state(tmp_path, Clock())
+    assert s.effective_ttl("невидана", 100.0) == 100.0

@@ -199,6 +199,21 @@ class SearchState:
         stats[k] = e
         self._save()
 
+    def effective_ttl(self, phrase: str, base_ttl: float, *,
+                      cold_tries: int = 3, mult_cap: float = 8.0) -> float:
+        """Адаптивний freshness-TTL. Молоду фразу (tries<cold_tries) НІКОЛИ не
+        душимо (exploration). Продуктивну (ewma>0) вертаємо на базовій каденції.
+        Теплу-але-суху — експоненційно рідше (backoff, capped = reprobe-floor),
+        той самий патерн, що quarantine/reprobe для бекендів."""
+        e = self._data.get("phrase_stats", {}).get(self._key(phrase))
+        if not e or int(e.get("tries", 0)) < cold_tries:
+            return base_ttl
+        if float(e.get("ewma", 0.0)) > 0.0:
+            return base_ttl
+        dry = int(e.get("dry_streak", 0))
+        mult = min(mult_cap, 2.0 ** max(0, dry - cold_tries + 1))
+        return base_ttl * mult
+
     # --- keyword cache (page-aware; page 1 uses the bare key for back-compat) ---
     def is_fresh(self, keyword: str, ttl_seconds: float, page: int = 1) -> bool:
         """True iff a non-expired cache entry exists for `(keyword, page)`."""
