@@ -45,3 +45,28 @@ def test_refresh_noop_without_search_pass():
     class _Api:
         def list_approved_query_terms(self): raise AssertionError("must not be called")
     Runner(_Api(), {}, object(), None).refresh_grid_from_approved(config=object())  # no search_pass -> no-op
+
+
+def test_flush_bred_terms_merges_and_refilters_fresh_rejects(tmp_path):
+    """Задача 5B: _flush_bred_terms мусить (1) домішати bred-терми до вже написаних
+    bootstrap'ом кандидатів БЕЗ втрати наявних (merge, не overwrite), (2) відсіяти
+    свіжовідхилений терм за допомогою list_rejected_query_terms() навіть якщо той
+    прийшов у bred_terms ще ДО відхилення, і (3) не створювати дублікатів."""
+    p = tmp_path / "cand.json"
+    p.write_text(json.dumps([{"term": "стоматологія", "z": 2.0, "support": 5}]),
+                 encoding="utf-8")
+
+    class _Api:
+        def list_rejected_query_terms(self): return ["казино"]
+
+    r = Runner(_Api(), {}, object(), None, bred_terms={"манікюр", "казино"})
+    r._flush_bred_terms(types.SimpleNamespace(query_candidates_path=str(p)))
+
+    cands = json.loads(p.read_text(encoding="utf-8"))
+    terms = [c["term"] for c in cands]
+
+    assert "стоматологія" in terms  # bootstrap-кандидат вижив (merge, не overwrite)
+    assert "манікюр" in terms       # звичайний bred-терм додано
+    assert "казино" not in terms    # свіжовідхилений bred-терм виключено
+    assert len(terms) == len(set(terms))  # без дублікатів
+    assert r._bred_terms == set()   # множина очищена після флашу
