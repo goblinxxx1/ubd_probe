@@ -107,16 +107,16 @@ describe("QueryTermsView", () => {
     wrapper.vm.status = "approved";
     await wrapper.vm.load();
     await flushPromises();
-    // unprotected row surfaces the «Захистити» control
+    // unprotected row surfaces the «Закріпити» control
     const labels = wrapper.findAll("button").map((b) => b.text());
-    expect(labels).toContain("Захистити");
+    expect(labels).toContain("Закріпити");
     await wrapper.vm.onProtect(3);
     await flushPromises();
     expect(terms.protect).toHaveBeenCalledWith(3);
     expect(terms.list).toHaveBeenCalledTimes(3);
   });
 
-  it("renders «Зняти захист» on a protected row; onUnprotect calls the API and reloads", async () => {
+  it("renders «Відкріпити» on a protected row; onUnprotect calls the API and reloads", async () => {
     terms.list.mockResolvedValue([
       { id: 4, term: "ручний терм", z: 0, support: 0, status: "approved", protected: true },
     ]);
@@ -124,9 +124,9 @@ describe("QueryTermsView", () => {
     wrapper.vm.status = "approved";
     await wrapper.vm.load();
     await flushPromises();
-    // protected row surfaces «Зняти захист»
+    // protected row surfaces «Відкріпити»
     const labels = wrapper.findAll("button").map((b) => b.text());
-    expect(labels).toContain("Зняти захист");
+    expect(labels).toContain("Відкріпити");
     await wrapper.vm.onUnprotect(4);
     await flushPromises();
     expect(terms.unprotect).toHaveBeenCalledWith(4);

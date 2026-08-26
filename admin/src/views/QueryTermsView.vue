@@ -17,7 +17,7 @@ const newTerm = ref("");
 const columns = [
   { prop: "term", label: "Термін" },
   { prop: "support", label: "Бізнес-сайтів" },
-  { slot: "protected", label: "Захищений" },
+  { slot: "protected", label: "Закріплено" },
 ];
 
 async function load() {
@@ -74,7 +74,7 @@ async function onManualAdd() {
   if (!t) return;
   try {
     await terms.manualAdd(t);
-    ElMessage.success("Додано вручну (захищений, у пошуковому гріді)");
+    ElMessage.success("Додано вручну (закріплено в пошуку)");
     newTerm.value = "";
     await load();
   } catch (e) {
@@ -133,7 +133,7 @@ defineExpose({ items, pageItems, page, total, setPage, load, newTerm,
 
     <ResponsiveTable :columns="columns" :rows="pageItems" :loading="loading" :actions-width="320">
       <template #col-protected="{ row }">
-        <el-tag v-if="row.protected" type="warning" size="small">Захищений</el-tag>
+        <el-tag v-if="row.protected" type="warning" size="small">Закріплено</el-tag>
         <span v-else class="muted">—</span>
       </template>
       <template #actions="{ row }">
@@ -148,8 +148,10 @@ defineExpose({ items, pageItems, page, total, setPage, load, newTerm,
           Повернути в кандидати
         </el-button>
         <span v-else>{{ enumLabel(SUGGESTION_STATUSES, row.status) }}</span>
-        <el-button v-if="row.protected" size="small" @click="onUnprotect(row.id)">Зняти захист</el-button>
-        <el-button v-else size="small" type="warning" @click="onProtect(row.id)">Захистити</el-button>
+        <el-button v-if="row.protected" size="small" @click="onUnprotect(row.id)"
+                   title="Відкріпити: дозволити авто-керування — термін може ретайритись, якщо перестане давати нові офери">Відкріпити</el-button>
+        <el-button v-else size="small" type="warning" @click="onProtect(row.id)"
+                   title="Закріпити в пошуку: планувальник ЗАВЖДИ шукатиме цей термін і не прибиратиме його автоматично, навіть якщо тимчасово без нових оферів">Закріпити</el-button>
       </template>
     </ResponsiveTable>
 
