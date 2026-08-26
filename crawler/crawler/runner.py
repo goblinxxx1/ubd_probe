@@ -176,6 +176,24 @@ class Runner:
         except Exception as exc:  # noqa: BLE001 — refresh is best-effort
             log.warning("refresh protected terms failed: %s", exc)
 
+    def rejudge_tick(self, config) -> None:
+        """Періодичний доганяльний прохід судді (Задача 5, RejudgeSweep) — рідший
+        прохід, окремий від основного краулінгу (гейт: rejudge_enabled + judge_enabled).
+        Best-effort, ніколи не валить луп/тік. Перевикористовує ТОЙ САМИЙ суддя+кеш, що
+        й RelevanceGate (self._gate) — без другого llama-клієнта."""
+        if not (config.judge_enabled and config.rejudge_enabled):
+            return
+        from crawler.discovery.rejudge import RejudgeSweep
+        try:
+            counts = RejudgeSweep(self._api, self._gate.judge, self._gate.cache,
+                                  budget=config.rejudge_budget).run()
+        except Exception as exc:  # noqa: BLE001 — rejudge tick must not kill the loop
+            log.warning("rejudge sweep failed: %s", exc)
+            return
+        log.info("rejudge: scanned=%d kept=%d rejected=%d skipped=%d",
+                 counts.get("scanned", 0), counts.get("kept", 0),
+                 counts.get("rejected", 0), counts.get("skipped", 0))
+
     def search_available(self) -> bool:
         """Whether ANY search provider (DDG or SearXNG) is currently healthy — used by the
         scheduler to decide degraded-vs-full active pass. True when there's no search pass

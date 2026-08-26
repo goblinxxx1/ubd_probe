@@ -171,3 +171,40 @@ def test_run_loop_refresh_fires_on_first_iteration():
              iterations=1, refresh=lambda: refreshed.append(1),
              refresh_interval_seconds=1000, now=lambda: 0.0, **_kw())
     assert refreshed == [1]
+
+
+def test_run_loop_rejudge_fires_on_first_iteration():
+    r, rejudged = _Runner(), []
+    run_loop(r, lambda: _State(False), _Passive(), sleep=lambda _s: None,
+             iterations=1, rejudge=lambda: rejudged.append(1),
+             rejudge_interval_seconds=1000, now=lambda: 0.0, **_kw())
+    assert rejudged == [1]
+
+
+def test_run_loop_rejudge_gated_by_interval():
+    r, rejudged = _Runner(), []
+    times = iter([0.0, 10.0, 1000.0])   # one now() per iteration
+    run_loop(r, lambda: _State(False), _Passive(), sleep=lambda _s: None,
+             iterations=3, rejudge=lambda: rejudged.append(1),
+             rejudge_interval_seconds=1000, now=lambda: next(times), **_kw())
+    # t=0 fires (first); t=10 gated (10<1000 since last); t=1000 fires again
+    assert len(rejudged) == 2
+
+
+def test_run_loop_no_rejudge_when_interval_zero():
+    r, rejudged = _Runner(), []
+    run_loop(r, lambda: _State(False), _Passive(), sleep=lambda _s: None,
+             iterations=2, rejudge=lambda: rejudged.append(1),
+             rejudge_interval_seconds=0, now=lambda: 0.0, **_kw())
+    assert rejudged == []           # interval 0 disables the tick
+
+
+def test_run_loop_rejudge_never_kills_loop():
+    r = _Runner()
+
+    def boom():
+        raise RuntimeError("rejudge blew up")
+
+    run_loop(r, lambda: _State(False), _Passive(), sleep=lambda _s: None,
+             iterations=1, rejudge=boom, rejudge_interval_seconds=1, now=lambda: 0.0, **_kw())
+    assert r.calls == ["active"]   # the crawl pass still ran despite rejudge failure

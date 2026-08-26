@@ -42,7 +42,8 @@ def step(runner, state, passive_schedule, *, active_delay, backoff_max_sleep, ha
 def run_loop(runner, state_loader, passive_schedule, *, active_delay, backoff_max_sleep,
              hard_factor, sleep=time.sleep, iterations=None,
              learn=None, learn_interval_seconds=0, now=time.monotonic,
-             search_available=None, refresh=None, refresh_interval_seconds=0):
+             search_available=None, refresh=None, refresh_interval_seconds=0,
+             rejudge=None, rejudge_interval_seconds=0):
     """Drive step() forever (or `iterations` times in tests), reloading search state each
     pass so a freshly-persisted next_allowed_at is always seen. A failing pass is logged
     and skipped — it must never kill the loop.
@@ -50,10 +51,15 @@ def run_loop(runner, state_loader, passive_schedule, *, active_delay, backoff_ma
     If `learn` is given and `learn_interval_seconds` > 0, it is invoked on the first
     iteration and then every interval — a self-learning tick that re-mines the query
     lexicon and rebuilds the live grid. It is best-effort: a failure is logged and
-    never kills the loop nor blocks the crawl pass."""
+    never kills the loop nor blocks the crawl pass.
+
+    `rejudge` (Задача 5) follows the same on-its-own-interval pattern: a periodic
+    RejudgeSweep tick over `rejudge_interval_seconds`, best-effort — a failure is
+    logged and never kills the loop."""
     n = 0
     last_learn = None
     last_refresh = None
+    last_rejudge = None
     while iterations is None or n < iterations:
         if learn is not None and learn_interval_seconds > 0:
             t = now()
@@ -71,6 +77,14 @@ def run_loop(runner, state_loader, passive_schedule, *, active_delay, backoff_ma
                     refresh()
                 except Exception as exc:  # noqa: BLE001 — refresh must not kill the loop
                     log.warning("scheduler refresh tick failed: %s", exc)
+        if rejudge is not None and rejudge_interval_seconds > 0:
+            t = now()
+            if last_rejudge is None or (t - last_rejudge) >= rejudge_interval_seconds:
+                last_rejudge = t
+                try:
+                    rejudge()
+                except Exception as exc:  # noqa: BLE001 — rejudge must not kill the loop
+                    log.warning("scheduler rejudge tick failed: %s", exc)
         try:
             state = state_loader()
             secs = step(runner, state, passive_schedule, active_delay=active_delay,

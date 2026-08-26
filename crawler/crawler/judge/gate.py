@@ -24,6 +24,16 @@ class RelevanceGate:
         self._enabled = bool(enabled)
         self._broken = False
 
+    @property
+    def judge(self):
+        """Задача 5: доступ до того самого суддя для RejudgeSweep (без другого клієнта)."""
+        return self._judge
+
+    @property
+    def cache(self):
+        """Задача 5: доступ до того самого VerdictCache для RejudgeSweep."""
+        return self._cache
+
     def reset_breaker(self) -> None:
         self._broken = False
 

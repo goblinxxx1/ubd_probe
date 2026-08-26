@@ -109,3 +109,36 @@ def test_judge_error_skips_candidate_and_continues(tmp_path):
     assert cache.get("bad-body-hash") is None        # лишається на наступний прохід
     assert cache.get("genuine-hash-2").genuine is True
     assert counts == {"scanned": 2, "kept": 1, "rejected": 0, "skipped": 1}
+
+
+def test_reject_api_error_logs_and_continues_sweep(tmp_path):
+    """Task-4 review (hardening): non-409 HTTP помилка на ОДНОМУ judge_reject_offer
+    не має обривати весь sweep — решта кандидатів мусить дообробитись."""
+    cache = VerdictCache(str(tmp_path / "c.json"))
+    offers = [
+        _offer(1, "junk offer", "junk-hash"),
+        _offer(2, "also junk offer", "also-junk-hash"),
+    ]
+    judge = FakeJudge(verdicts={
+        "junk offer": Verdict(False, True, "не для цієї аудиторії"),
+        "also junk offer": Verdict(False, True, "теж не для цієї аудиторії"),
+    })
+
+    class _FlakyApi(FakeApi):
+        def judge_reject_offer(self, offer_id, reason):
+            if offer_id == 1:
+                raise RuntimeError("500 backend error")
+            super().judge_reject_offer(offer_id, reason)
+
+    api = _FlakyApi(offers)
+
+    sweep = RejudgeSweep(api, judge, cache, budget=30)
+    counts = sweep.run()
+
+    assert judge.calls == ["junk offer", "also junk offer"]   # обидва дійшли до судді
+    assert api.rejected == [(2, "суддя: теж не для цієї аудиторії")]  # 1-й впав, 2-й пройшов
+    assert cache.get("junk-hash") is None          # НЕ закешовано — retry наступного sweep
+    assert cache.get("also-junk-hash") is not None
+    assert counts["scanned"] == 2
+    assert counts["rejected"] == 1
+    assert counts["skipped"] == 1

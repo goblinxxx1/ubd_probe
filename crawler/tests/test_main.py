@@ -15,6 +15,8 @@ def test_loop_command_dispatches_run_loop(monkeypatch):
     assert rc == 0
     assert "ran" in called
     assert called["ran"][1]["search_available"] == fake_runner.search_available
+    assert callable(called["ran"][1]["rejudge"])
+    assert called["ran"][1]["rejudge_interval_seconds"] == 3600  # config default
 
 
 def test_run_command_still_one_shot(monkeypatch):

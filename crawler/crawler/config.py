@@ -140,6 +140,9 @@ class _RawSettings(BaseSettings):
     phrase_ewma_alpha: float = 0.3    # вага EWMA продуктивності фрази
     crawler_contact: str = "https://ubd.example"   # Задача 11: реальний контакт власника краулера в UA
     validator_store_path: str = "/data/validators.json"   # Задача 12: ETag/Last-Modified per-URL
+    rejudge_enabled: bool = True         # Задача 5 (judge-requeue-sweep): доганяльний прохід судді
+    rejudge_interval_seconds: int = 3600  # 1h; кожен тік = окремий RejudgeSweep.run()
+    rejudge_budget: int = 30              # макс. pending-unjudged офферів за один sweep
 
 
 @dataclass
@@ -275,6 +278,9 @@ class Config:
     phrase_ewma_alpha: float = 0.3
     contact_url: str = "https://ubd.example"
     validator_store_path: str = "/data/validators.json"
+    rejudge_enabled: bool = True
+    rejudge_interval_seconds: int = 3600
+    rejudge_budget: int = 30
 
 
 def _parse_accounts(platform: str, raw: str) -> list[BotCredential]:
@@ -432,6 +438,9 @@ def from_settings(s: _RawSettings) -> Config:
         phrase_ewma_alpha=s.phrase_ewma_alpha,
         contact_url=s.crawler_contact,
         validator_store_path=s.validator_store_path,
+        rejudge_enabled=s.rejudge_enabled,
+        rejudge_interval_seconds=s.rejudge_interval_seconds,
+        rejudge_budget=s.rejudge_budget,
     )
 
 

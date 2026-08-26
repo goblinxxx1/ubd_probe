@@ -62,7 +62,16 @@ class RejudgeSweep:
                     self._cache.put(content_hash, verdict)
                 counts["kept"] += 1
             else:
-                self._api.judge_reject_offer(offer["id"], reason=f"суддя: {verdict.reason}")
+                try:
+                    self._api.judge_reject_offer(offer["id"], reason=f"суддя: {verdict.reason}")
+                except Exception as exc:  # noqa: BLE001 — один невдалий reject (напр. HTTP 5xx)
+                    # не має топити весь sweep (Task-4 review). НЕ кешуємо вердикт і НЕ
+                    # рахуємо як rejected — офер лишається pending-unjudged, наступний
+                    # sweep спробує відхилити знову.
+                    log.warning("re-judge: reject офера %s не вдався, лишаємо на наступний sweep: %s",
+                                offer.get("id"), exc)
+                    counts["skipped"] += 1
+                    continue
                 if content_hash:
                     self._cache.put(content_hash, verdict)
                 counts["rejected"] += 1

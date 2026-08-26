@@ -1,6 +1,7 @@
 import json
 import types
 
+from crawler.judge.gate import RelevanceGate
 from crawler.runner import Runner
 
 
@@ -112,3 +113,75 @@ def test_flush_bred_terms_merges_and_refilters_fresh_rejects(tmp_path):
     assert "казино" not in terms    # свіжовідхилений bred-терм виключено
     assert len(terms) == len(set(terms))  # без дублікатів
     assert r._bred_terms == set()   # множина очищена після флашу
+
+
+def _patch_rejudge_sweep(monkeypatch, run_result=None, run_exc=None):
+    """Підміняє RejudgeSweep у crawler.discovery.rejudge (модуль, звідки Runner
+    її локально імпортує) фейком, що записує аргументи конструктора та або
+    повертає run_result, або кидає run_exc."""
+    import crawler.discovery.rejudge as rejudge_mod
+
+    calls = []
+
+    class _FakeSweep:
+        def __init__(self, api, judge, cache, *, budget):
+            calls.append({"api": api, "judge": judge, "cache": cache, "budget": budget})
+
+        def run(self):
+            if run_exc is not None:
+                raise run_exc
+            return run_result if run_result is not None else {
+                "scanned": 0, "kept": 0, "rejected": 0, "skipped": 0}
+
+    monkeypatch.setattr(rejudge_mod, "RejudgeSweep", _FakeSweep)
+    return calls
+
+
+def test_rejudge_tick_runs_sweep_with_shared_judge_and_cache_when_enabled(monkeypatch):
+    calls = _patch_rejudge_sweep(
+        monkeypatch, run_result={"scanned": 2, "kept": 1, "rejected": 1, "skipped": 0})
+
+    class _Api:
+        pass
+
+    api = _Api()
+    judge = object()
+    cache = object()
+    gate = RelevanceGate(judge, cache, enabled=True)
+    r = Runner(api, {}, object(), None, relevance_gate=gate)
+    config = types.SimpleNamespace(judge_enabled=True, rejudge_enabled=True, rejudge_budget=30)
+
+    r.rejudge_tick(config)
+
+    assert calls == [{"api": api, "judge": judge, "cache": cache, "budget": 30}]
+
+
+def test_rejudge_tick_noop_when_rejudge_disabled(monkeypatch):
+    calls = _patch_rejudge_sweep(monkeypatch)
+    gate = RelevanceGate(object(), object(), enabled=True)
+    r = Runner(object(), {}, object(), None, relevance_gate=gate)
+    config = types.SimpleNamespace(judge_enabled=True, rejudge_enabled=False, rejudge_budget=30)
+
+    r.rejudge_tick(config)
+
+    assert calls == []
+
+
+def test_rejudge_tick_noop_when_judge_disabled(monkeypatch):
+    calls = _patch_rejudge_sweep(monkeypatch)
+    gate = RelevanceGate(object(), object(), enabled=False)
+    r = Runner(object(), {}, object(), None, relevance_gate=gate)
+    config = types.SimpleNamespace(judge_enabled=False, rejudge_enabled=True, rejudge_budget=30)
+
+    r.rejudge_tick(config)
+
+    assert calls == []
+
+
+def test_rejudge_tick_never_raises_on_sweep_failure(monkeypatch):
+    _patch_rejudge_sweep(monkeypatch, run_exc=RuntimeError("суддя недоступний назавжди"))
+    gate = RelevanceGate(object(), object(), enabled=True)
+    r = Runner(object(), {}, object(), None, relevance_gate=gate)
+    config = types.SimpleNamespace(judge_enabled=True, rejudge_enabled=True, rejudge_budget=30)
+
+    r.rejudge_tick(config)   # must not raise

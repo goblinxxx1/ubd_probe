@@ -34,6 +34,25 @@ def test_scheduler_config_defaults(monkeypatch, tmp_path):
     assert c.passive_hard_overdue_factor == 3.0
 
 
+def test_rejudge_config_defaults(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)      # no .env -> defaults apply
+    c = load_config()
+    assert c.rejudge_enabled is True
+    assert c.rejudge_interval_seconds == 3600
+    assert c.rejudge_budget == 30
+
+
+def test_rejudge_config_env_override(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("REJUDGE_ENABLED", "false")
+    monkeypatch.setenv("REJUDGE_INTERVAL_SECONDS", "120")
+    monkeypatch.setenv("REJUDGE_BUDGET", "5")
+    c = load_config()
+    assert c.rejudge_enabled is False
+    assert c.rejudge_interval_seconds == 120
+    assert c.rejudge_budget == 5
+
+
 def test_search_antithrottle_defaults(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)      # no .env -> defaults apply
     cfg = load_config()
