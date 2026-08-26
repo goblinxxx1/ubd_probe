@@ -2,11 +2,13 @@
 GET. Незмінна сторінка на переобході коштує 304 (кілька байт) замість повного body."""
 import json
 import os
+import threading
 
 
 class ValidatorStore:
     def __init__(self, path: str):
         self._path = path
+        self._lock = threading.Lock()
         try:
             with open(path, encoding="utf-8") as f:
                 self._data = json.load(f)
@@ -16,13 +18,17 @@ class ValidatorStore:
             self._data = {}
 
     def get(self, url: str) -> dict | None:
-        return self._data.get(url)
+        with self._lock:
+            return self._data.get(url)
 
     def put(self, url: str, etag: str | None, last_modified: str | None) -> None:
         if not etag and not last_modified:
             return
-        self._data[url] = {"etag": etag, "last_modified": last_modified}
-        self._save()
+        # Лок тримається і крізь _save(), інакше інший потік може мутувати
+        # self._data під час json.dump() -> "dict changed size during iteration".
+        with self._lock:
+            self._data[url] = {"etag": etag, "last_modified": last_modified}
+            self._save()
 
     def _save(self) -> None:
         directory = os.path.dirname(self._path)
