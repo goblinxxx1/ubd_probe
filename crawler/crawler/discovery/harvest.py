@@ -3,7 +3,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from crawler.discovery.attribution import attribute, build_page_ctx, _outbound_hosts
 from crawler.discovery.blocklist import is_blocked_host
-from crawler.discovery.host_quality import is_low_value_host, is_news_host
+from crawler.discovery.host_quality import is_directory_page, is_low_value_host, is_news_host
+from crawler.discovery.subsearch import extract_business
 from crawler.util.text_lang import is_non_ukrainian
 from crawler.discovery.brand_feed import _host
 from crawler.discovery.passive import normalize_ref
@@ -58,7 +59,7 @@ class ActiveHarvester:
                  lang_block_store=None, editorial_gate_enabled=True,
                  source_hint_enabled=True,
                  active_workers=1, executor_factory=None,
-                 relevance_gate=None):
+                 relevance_gate=None, register_directory_host=None):
         self._api = api
         self._fetchers = fetchers
         self._extractor = extractor
@@ -83,6 +84,23 @@ class ActiveHarvester:
         self._executor_factory = executor_factory or (
             lambda mw: ThreadPoolExecutor(max_workers=mw))
         self._gate = relevance_gate or RelevanceGate(NullJudge(), None)
+        self._directory_businesses = []
+        self._register_directory_host_cb = register_directory_host or (lambda host: None)
+
+    def take_directory_businesses(self):
+        """Забрати й очистити чергу (name, city) з каталог-сторінок для ізольованого
+        підпошуку (SubSearch)."""
+        out = self._directory_businesses
+        self._directory_businesses = []
+        return out
+
+    def _register_directory_host(self, host):
+        # Реєстрація — best-effort: падіння колбека не має валити харвест.
+        try:
+            if host:
+                self._register_directory_host_cb(host)
+        except Exception as exc:  # noqa: BLE001 — реєстрація best-effort, ніколи не топить харвест
+            log.warning("не вдалося зареєструвати каталог-хост %s: %s", host, exc)
 
     def harvest(self, candidates, cats, known, summary, known_hosts=None) -> int:
         known_hosts = known_hosts or set()
@@ -246,6 +264,17 @@ class ActiveHarvester:
             if is_offer:
                 passing.append(it)
         ctx = build_page_ctx(cand, passing)
+        title = next((getattr(it, "title", None) for it in items
+                     if getattr(it, "title", None)), None)
+        if is_directory_page(cand.url_or_handle, title):
+            # Каталог-сторінка описує ЧУЖИЙ бізнес, не власника домену — офер з неї
+            # НЕ емітимо; замість цього збираємо (name, city) для ізольованого
+            # підпошуку (SubSearch) і best-effort реєструємо хост-каталог.
+            self._register_directory_host(ctx.host)
+            name, city = extract_business(items, cand)
+            if name:
+                self._directory_businesses.append((name, city))
+            return structural_provider
         if self._aggregator_store is not None and is_blocked_host(ctx.host):
             hosts = _outbound_hosts(passing)
             if hosts:
