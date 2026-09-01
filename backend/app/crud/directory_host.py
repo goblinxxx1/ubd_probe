@@ -17,7 +17,9 @@ def list_hosts(db) -> list[str]:
 
 def is_directory(db, host) -> bool:
     h = bare_host(host)
-    return h is not None and h != "" and db.query(DirectoryHost).filter(DirectoryHost.host == h).first() is not None
+    if not h:
+        return False
+    return db.query(DirectoryHost).filter(DirectoryHost.host == h).first() is not None
 
 
 def _sweep(db, host) -> None:

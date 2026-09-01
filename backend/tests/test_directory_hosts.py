@@ -25,3 +25,12 @@ def test_register_sweeps_existing_crawler_pending_offers(db_session):
     assert victim.status == OfferStatus.rejected
     assert keep_pub.status == OfferStatus.published      # published untouched
     assert keep_other.status == OfferStatus.pending_review  # other host untouched
+
+
+def test_register_sweep_leaves_non_crawler_offer_untouched(db_session):
+    """Sweep must NOT touch admin-created offers (only crawlers are swept)."""
+    admin_offer = _mk_offer(db_session, "myhelp.com.ua",
+                            status=OfferStatus.pending_review, created_by=CreatedBy.admin)
+    dh.register(db_session, "myhelp.com.ua")
+    db_session.refresh(admin_offer)
+    assert admin_offer.status == OfferStatus.pending_review  # non-crawler untouched
