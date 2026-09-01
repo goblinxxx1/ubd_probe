@@ -6,6 +6,7 @@ const props = defineProps({
   modelValue: { type: Object, default: () => ({}) },
   targetCategories: { type: Array, default: () => [] },
   offerCategories: { type: Array, default: () => [] },
+  types: { type: Array, default: () => [] },
   locations: { type: Array, default: () => [] },
 });
 const emit = defineEmits(["apply"]);
@@ -43,8 +44,15 @@ const activeCount = computed(() => {
 
 const filteredLocations = computed(() => {
   const term = locSearch.value.trim().toLowerCase();
-  return term ? props.locations.filter((c) => c.toLowerCase().includes(term)) : props.locations;
+  return term ? props.locations.filter((c) => c.name.toLowerCase().includes(term)) : props.locations;
 });
+
+// Мапа значення типу офера на людський лейбл, тіп-опції керуються контекстними
+// лічильниками з пропсів (не статичним константним списком).
+const TYPE_LABELS = Object.fromEntries(OFFER_TYPES.map((t) => [t.value, t.label]));
+const typeOptions = computed(() =>
+  props.types.map((t) => ({ value: t.value, count: t.count, label: TYPE_LABELS[t.value] || t.value })),
+);
 
 function clean() {
   const out = {};
@@ -88,7 +96,8 @@ defineExpose({ sel, apply, reset, activeCount, filteredLocations, locSearch });
       <legend class="filters__label">Для кого</legend>
       <label v-for="c in targetCategories" :key="c.id" class="filters__opt">
         <input type="checkbox" :value="String(c.id)" v-model="sel.target_category" @change="apply" />
-        <span>{{ c.name }}</span>
+        <span class="filters__opt-name">{{ c.name }}</span>
+        <span class="filters__cnt">{{ c.count }}</span>
       </label>
     </fieldset>
 
@@ -96,15 +105,17 @@ defineExpose({ sel, apply, reset, activeCount, filteredLocations, locSearch });
       <legend class="filters__label">Тематика</legend>
       <label v-for="c in offerCategories" :key="c.id" class="filters__opt">
         <input type="checkbox" :value="String(c.id)" v-model="sel.offer_category" @change="apply" />
-        <span>{{ c.name }}</span>
+        <span class="filters__opt-name">{{ c.name }}</span>
+        <span class="filters__cnt">{{ c.count }}</span>
       </label>
     </fieldset>
 
     <fieldset class="filters__group">
       <legend class="filters__label">Тип</legend>
-      <label v-for="t in OFFER_TYPES" :key="t.value" class="filters__opt">
+      <label v-for="t in typeOptions" :key="t.value" class="filters__opt">
         <input type="checkbox" :value="t.value" v-model="sel.type" @change="apply" />
-        <span>{{ t.label }}</span>
+        <span class="filters__opt-name">{{ t.label }}</span>
+        <span class="filters__cnt">{{ t.count }}</span>
       </label>
     </fieldset>
 
@@ -113,9 +124,10 @@ defineExpose({ sel, apply, reset, activeCount, filteredLocations, locSearch });
       <input v-if="locations.length > 8" v-model="locSearch" type="text"
              class="filters__search filters__search--sm" placeholder="Пошук міста" />
       <div class="filters__scroll">
-        <label v-for="c in filteredLocations" :key="c" class="filters__opt">
-          <input type="checkbox" :value="c" v-model="sel.location" @change="apply" />
-          <span>{{ c }}</span>
+        <label v-for="c in filteredLocations" :key="c.name" class="filters__opt">
+          <input type="checkbox" :value="c.name" v-model="sel.location" @change="apply" />
+          <span class="filters__opt-name">{{ c.name }}</span>
+          <span class="filters__cnt">{{ c.count }}</span>
         </label>
       </div>
     </fieldset>
@@ -144,5 +156,7 @@ defineExpose({ sel, apply, reset, activeCount, filteredLocations, locSearch });
   display: flex; align-items: center; gap: 9px; font-size: 14px; color: @text; cursor: pointer;
 }
 .filters__opt input { flex: none; width: 17px; height: 17px; cursor: pointer; }
+.filters__opt-name { flex: 1 1 auto; min-width: 0; }
+.filters__cnt { flex: none; color: @meta-muted; font-size: 12px; font-variant-numeric: tabular-nums; }
 .filters__scroll { max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
 </style>
