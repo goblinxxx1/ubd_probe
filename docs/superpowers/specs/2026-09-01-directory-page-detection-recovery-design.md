@@ -30,16 +30,23 @@ School». Таких оферів з myhelp — **11** (9 pending + 2 rejected),
    пошук → звичайний пайплайн сам витягує офер із САЙТУ бізнесу (правильна
    атрибуція). Не знайшли / нема знижки на сайті → офера просто нема — ок.
 3. **Нема офера з резолвленого домену → видалити домен із пошуку.**
-4. **Retro:** відхилити 11 наявних myhelp-оферів + прогнати їхні назви через п.2.
+4. **Retro (автономно, БЕЗ людини/кнопок):** наявні каталог-офери (11 myhelp)
+   авто-відхиляються бекенд-sweep'ом при реєстрації directory-хоста; їхні назви
+   краулер прогоняє через п.2.
 
 **Інваріант** ([[ubd-crawler-autonomy-invariant]]): усе автоматично, безкоштовно,
-без людини. Тому — жодних платних API (Google Places тощо), лише наявний
-DDG/SearXNG-пошук. LLM-суддя (Qwen, $0) СВІДОМО поза v1 (див. «Не в скоупі»).
+**без участі людини і без жодної нової UI-кнопки**. Жодних платних API (Google
+Places тощо) — лише наявний DDG/SearXNG-пошук. LLM-суддя (Qwen, $0) СВІДОМО поза
+v1 (див. «Не в скоупі»). Наявна bulk-reject кнопка оферів
+([[ubd-admin-query-term-bulk-actions]]) — окрема фіча, цим треком НЕ
+використовується і НЕ розширюється.
 
 ## Дизайн
 
-Усе в краулері (`crawler/crawler/discovery/`). Точка вбудови — `_process_page`
-у `harvest.py` (там, де вже стоять editorial-suppression і source_hint).
+Переважно краулер (`crawler/crawler/discovery/`), головна точка вбудови —
+`_process_page` у `harvest.py` (там, де editorial-suppression і source_hint);
+плюс невелика бекенд-частина (п.7) для автономного авто-відхилення наявних/майбутніх
+каталог-оферів.
 
 ### 1. Детектор каталог-сторінки — `is_directory_page(cand, items)`
 
@@ -62,10 +69,13 @@ Byte-стабільність і word-start матч слагів — за на�
 На початку `_process_page`, після обчислення `ctx`:
 ```
 if is_directory_page(cand, items):
-    self._recover_business(items, ctx)   # best-effort, side-effect only
-    return structural_provider           # НЕ емітимо офери з цієї сторінки
+    self._register_directory_host(ctx.host)  # internal API, ідемпотентно (п.7)
+    self._recover_business(items, ctx)       # best-effort, side-effect only
+    return structural_provider               # НЕ емітимо офери з цієї сторінки
 ```
 Дзеркалить editorial-suppression: офери не збираються, домен не «отруюється».
+Реєстрація хоста (п.7) — first-detection тригер бекенд-sweep'у наявних оферів;
+обидва виклики best-effort (див. «Робастність»).
 
 ### 3. Витяг ідентичності — `extract_business(items, cand)`
 
@@ -106,17 +116,32 @@ Best-effort, $0, реюз наявного пошук-провайдера (`pro
   наявним empty-skip (не чіпаємо їх поведінку).
 - `AggregatorDomainStore.remove(host)`: видалити зі списку, скоригувати cursor.
 
-### 7. Retro-пас (одноразово)
+### 7. Directory-хост: реєстрація + бекенд авто-відхилення (повністю автономно)
 
-Дві частини (краулер admin-прав не має — ходить лише через X-API-Key internal):
-- **Admin-крок:** 11 наявних myhelp-оферів відхиляє людина новою bulk-reject
-  кнопкою ([[ubd-admin-query-term-bulk-actions]] — той самий патерн для оферів
-  уже є в `OffersListView`). Або, якщо myhelp додати в host-блокліст — наявне
-  авто-відхилення за хостом-джерелом підхопить ([[ubd-backend-auto-reject-blocked-source]]).
-- **Краулер-крок (разова CLI-функція):** для кожного з 11
-  `article_url`/`title` → `extract_business` → `resolve_business_site` →
-  `aggregator_store.add`. Заразом real-data валідація
-  ([[feedback-validate-full-pipeline-real-data]]).
+Коли краулер вперше детектить directory-сторінку (п.2), він **реєструє хост як
+directory** через наявний internal API (X-API-Key; краулер admin-прав не має).
+Бекенд на реєстрації робить ДВІ речі — це і є автономне «retro без кнопок»:
+
+- **Sweep наявних:** soft-reject усіх уже наявних оферів цього хоста, СУВОРО
+  scoped — `created_by=crawler` **І** `status=pending_review` **І** точний хост
+  (site_url/article_url) == directory-хост. Мітка причини «directory-source».
+  Це відхиляє 11 myhelp-оферів без людини. Published / людино-курійовані —
+  недоторкані. Reversible (rejected = мʼякий кошик). Ідемпотентно (повторна
+  реєстрація нічого нового не робить).
+- **Gate майбутніх:** `create_offer` відхиляє нові офери, чий хост-джерело —
+  зареєстрований directory-хост (belt-and-suspenders до крауперної suppression;
+  дзеркало наявного `_blocked_source_host`, [[ubd-backend-auto-reject-blocked-source]]).
+
+**ВАЖЛИВО — directory-хост ≠ no-fetch блокліст.** Directory-хост лишається
+**fetchable**: краулер і далі бачить його сторінки через active-search і
+recover'ить з них бізнеси (п.2-5). No-fetch зупинив би recovery. Directory-список
+персиститься окремо від `blocked_hosts` (той — no-fetch); нова таблиця/поле
+`directory_hosts` АБО прапорець на blocked_host з reason=`directory`+`fetchable`.
+
+Retro для 11 myhelp = природний наслідок: перша ж детекція myhelp-сторінки
+реєструє хост → sweep прибирає 11, а `resolve_business_site` по їхніх назвах
+підіймає реальні бізнеси. Заразом real-data валідація
+([[feedback-validate-full-pipeline-real-data]]).
 
 ## Крайові випадки
 
@@ -127,6 +152,28 @@ Best-effort, $0, реюз наявного пошук-провайдера (`pro
 - Сайт бізнесу сам іноземний/блокований → наявні geo/lang-гейти дропнуть при
   краулі → 0 оферів → п.6 видаляє домен.
 - Пошук нічого не дав → `None`, домен не додається — ок.
+
+## Робастність (автономно і не ламатися)
+
+Ключова вимога: працює само, без людини, і збій однієї частини не валить пайплайн.
+
+- **Recovery — суто side-effect, best-effort:** `_recover_business` загорнутий у
+  `try/except` (як наявний per-page `except` у `_harvest_one`); будь-яка помилка
+  (пошук, парсинг, мережа) логується і НЕ зупиняє harvest. Офери інших сторінок
+  не страждають.
+- **Sweep — вузько scoped + reversible + ідемпотентний:** чіпає лише
+  crawler+pending+точний-хост; повторна реєстрація no-op; помилково зачеплене
+  відновлюється (мʼякий кошик). Не може знищити published/курійоване.
+- **Directory-хост fetchable** — recovery не самоблокується (no-fetch зупинив би
+  її). Список directory окремо від no-fetch blocklist.
+- **Detection вузький** — сид-хост + конкретний URL-патерн + « | »; низькі
+  false-positives, щоб не глушити реальні first-party офери.
+- **Dedupe + removal** тримають систему обмеженою: назва не резолвиться двічі,
+  мертвий домен видаляється — без нескінченного росту роботи/фіду.
+- **Все на наявних гейтах** (geo/lang/blocklist/registry) — resolver не вводить
+  нового шляху довіри; іноземне/рос/блоковане відсікається як і раніше.
+- **Internal API, не admin** — краулерна реєстрація directory-хоста йде через
+  X-API-Key internal-ендпоінт (краулер не має і не потребує admin-прав).
 
 ## Не в скоупі (v1)
 
@@ -145,7 +192,16 @@ Best-effort, $0, реюз наявного пошук-провайдера (`pro
 - `extract_business`: 452 → («vinnytsia language school», «Вінниця»); ще 2-3 з 11.
 - `resolve_business_site`: mock-пошук → домен (з фільтрацією блоклістів) / None
   (порожній результат, лише агрегатори/соц).
-- Гейт `_process_page`: директорна сторінка → 0 `submit_offer`, виклик recovery.
+- Гейт `_process_page`: директорна сторінка → 0 `submit_offer`, виклик recovery
+  + реєстрація хоста.
 - `aggregator_store.remove`: додати→видалити, cursor коректний; empty-pass hook
   видаляє лише recovery-origin домен.
 - dedupe: та сама назва двічі → один resolve.
+- **Бекенд sweep (автономне retro):** реєстрація directory-хоста → наявні
+  crawler+pending офери цього хоста стають `rejected`; published/інший-хост/
+  не-crawler — недоторкані; повторна реєстрація ідемпотентна.
+- **Бекенд create-gate:** новий crawler-офер із зареєстрованого directory-хоста
+  → відхиляється на створенні.
+- **Робастність:** `_recover_business`, що кидає виняток, НЕ валить `_harvest_one`
+  (офери решти сторінок емітяться); падіння internal-реєстрації логується й не
+  зупиняє harvest.
