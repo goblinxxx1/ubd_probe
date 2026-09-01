@@ -55,7 +55,7 @@ def _search_returning(*hosts):
 
 def test_resolve_picks_first_clean_business_host():
     search = _search_returning("facebook.com", "vinnytsia-language-school.com.ua")
-    # facebook is a blocked/social host → skipped; business host wins
+    # facebook — блокований/соціальний хост → пропущений; перемагає бізнес-хост
     host = resolve_business_site("vinnytsia language school", "Вінниця", search)
     assert host == "vinnytsia-language-school.com.ua"
 
@@ -67,7 +67,7 @@ def test_resolve_none_when_only_aggregators_and_social():
 
 def test_resolve_r1_generic_name_without_city_returns_none():
     search = _search_returning("planetfitness.com")
-    # ≤2 tokens ("планета фітнес") + city=None → refuse to guess (homonym risk)
+    # ≤2 токени ("планета фітнес") + city=None → відмова гадати (ризик омонімів)
     assert resolve_business_site("планета фітнес", None, search) is None
 
 
@@ -75,3 +75,11 @@ def test_resolve_r1_generic_name_with_city_allowed():
     search = _search_returning("planet-fitness-vinnytsia.com.ua")
     host = resolve_business_site("планета фітнес", "Вінниця", search)
     assert host == "planet-fitness-vinnytsia.com.ua"
+
+
+def test_resolve_returns_none_when_search_raises():
+    # пошук піднімає виключення → обробник ловить, повертає None
+    def search(kw):
+        raise RuntimeError("network down")
+    # довга унікальна назва + місто щоб R1 не скоротив-схемив до пошуку
+    assert resolve_business_site("vinnytsia language school", "Вінниця", search) is None

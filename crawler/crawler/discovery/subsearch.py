@@ -35,7 +35,7 @@ _SOCIAL = frozenset({"facebook.com", "instagram.com", "t.me", "tiktok.com",
 def _rejected_host(h: str) -> bool:
     if not h or "." not in h:
         return True
-    if h in DIRECTORY_HOST_SEEDS or h in _SOCIAL:
+    if h in DIRECTORY_HOST_SEEDS:
         return True
     if any(h == s or h.endswith("." + s) for s in _SOCIAL):
         return True
@@ -51,11 +51,11 @@ def resolve_business_site(name, city, search) -> str | None:
         return None
     tokens = [t for t in name.split() if len(t) > 1]
     if len(tokens) <= 2 and not city:
-        return None                                  # R1: homonym guard
+        return None                                  # R1: гард проти омонімів
     keyword = f'"{name}" {city}' if city else f'"{name}"'
     try:
         results = search(keyword)
-    except Exception as exc:  # noqa: BLE001 — search is best-effort
+    except Exception as exc:  # noqa: BLE001 — пошук best-effort
         log.warning("subsearch resolve failed for %r: %s", name, exc)
         return None
     for cand in results or []:
