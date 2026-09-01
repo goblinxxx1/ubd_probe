@@ -5,16 +5,22 @@ import { discountText } from "@/utils/format";
 import OfferBadge from "@/components/OfferBadge.vue";
 
 const props = defineProps({ offer: { type: Object, required: true } });
-// One image per card: prefer the brand logo, fall back to the hero photo, then placeholder.
-const image = computed(() => props.offer.logo_url || props.offer.image_url || placeholderDataUri(props.offer));
-const placeholder = computed(() => placeholderDataUri(props.offer));
-// Що реально в <img src>. Стартуємо з бажаної картинки; якщо вона не вантажиться
-// (мертвий/403/404/зламаний зовнішній URL логотипа), @error відкочує на placeholder —
-// інакше браузер показує іконку «бите зображення». Скидаємо, коли змінюється офер.
-const displaySrc = ref(image.value);
-watch(image, (v) => { displaySrc.value = v; });
+// Впорядкований ланцюг кандидатів на єдину картинку картки: спершу бренд-лого,
+// далі hero-фото, і завжди placeholder в кінці (data-URI, ніколи не падає). @error
+// переходить до наступного — тож мертве лого пробує фото, і лише потім placeholder,
+// а не показує іконку «бите зображення».
+const candidates = computed(() => {
+  const list = [];
+  if (props.offer.logo_url) list.push(props.offer.logo_url);
+  if (props.offer.image_url) list.push(props.offer.image_url);
+  list.push(placeholderDataUri(props.offer));
+  return list;
+});
+const idx = ref(0);
+watch(candidates, () => { idx.value = 0; });   // новий офер → з початку ланцюга
+const displaySrc = computed(() => candidates.value[Math.min(idx.value, candidates.value.length - 1)]);
 function onImageError() {
-  if (displaySrc.value !== placeholder.value) displaySrc.value = placeholder.value;  // guard від циклу
+  if (idx.value < candidates.value.length - 1) idx.value += 1;   // наступний кандидат
 }
 const discounts = computed(() => props.offer.discounts || []);
 const showList = computed(() => discounts.value.length > 1);

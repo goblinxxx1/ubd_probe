@@ -198,6 +198,20 @@ describe("OfferCard", () => {
     expect(src.startsWith("data:image/svg+xml,")).toBe(true);              // degraded to placeholder, not a broken icon
   });
 
+  it("on a dead logo, tries the hero photo before the placeholder", async () => {
+    const w = mountCard({
+      id: 41, type: "discount", title: "T", provider: "P", description: "d",
+      logo_url: "https://dead.example/logo.svg", image_url: "https://live.example/hero.jpg",
+      target_categories: [], offer_categories: [], locations: [],
+    });
+    const img = w.get("img.card__photo");
+    expect(img.attributes("src")).toBe("https://dead.example/logo.svg");   // logo first
+    await img.trigger("error");
+    expect(w.get("img.card__photo").attributes("src")).toBe("https://live.example/hero.jpg"); // then hero
+    await w.get("img.card__photo").trigger("error");
+    expect(w.get("img.card__photo").attributes("src").startsWith("data:image/svg+xml,")).toBe(true); // then placeholder
+  });
+
   it("falls back to the hero photo when there is no logo", () => {
     const w = mountCard({
       id: 31, type: "discount", title: "T", provider: "P", description: "d",
