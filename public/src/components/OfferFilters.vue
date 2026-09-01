@@ -47,7 +47,7 @@ const filteredLocations = computed(() => {
   return term ? props.locations.filter((c) => c.name.toLowerCase().includes(term)) : props.locations;
 });
 
-// Мапа значення типу офера на людський лейбл, тіп-опції керуються контекстними
+// Мапа значення типу офера на людський лейбл, тип-опції керуються контекстними
 // лічильниками з пропсів (не статичним константним списком).
 const TYPE_LABELS = Object.fromEntries(OFFER_TYPES.map((t) => [t.value, t.label]));
 const typeOptions = computed(() =>
