@@ -88,4 +88,20 @@ describe("useOffers", () => {
     await flushPromises();
     expect(wrapper.vm.items).toEqual([{ id: 1 }]);   // fresh page 1, not appended
   });
+
+  it("discards an in-flight loadMore when filters change mid-request", async () => {
+    const { wrapper, router } = await mountAt({});   // page 1 -> [{id:1}], total 3
+    let resolveSlow;
+    const slow = new Promise((r) => { resolveSlow = r; });
+    offers.list.mockReturnValueOnce(slow);           // the loadMore fetch hangs
+    const morePromise = wrapper.vm.loadMore();
+    await router.push({ path: "/", query: { q: "x" } });   // load() resets the list
+    await flushPromises();
+    // stale loadMore now resolves with old-context data — must be discarded
+    resolveSlow({ items: [{ id: 99 }], total: 3, page: 2, size: 12 });
+    await morePromise;
+    await flushPromises();
+    expect(wrapper.vm.items).toEqual([{ id: 1 }]);   // reset list, no stale append
+    expect(wrapper.vm.loadingMore).toBe(false);
+  });
 });
