@@ -8,6 +8,7 @@ from app.models import OfferCategory, TargetCategory
 from app.models.enums import OfferStatus, OfferType
 from app.schemas.category import CategoryOut
 from app.schemas.common import Page
+from app.schemas.facets import CategoryFacet, FacetsOut, LocationFacet, TypeFacet
 from app.schemas.offer import OfferOut
 
 router = APIRouter(prefix="/api", tags=["public"])
@@ -26,6 +27,31 @@ def list_offer_categories(db: Session = Depends(get_db)):
 @router.get("/locations", response_model=list[str])
 def list_locations(db: Session = Depends(get_db)):
     return offer_crud.list_distinct_locations(db)
+
+
+@router.get("/facets", response_model=FacetsOut)
+def list_facets(type: list[OfferType] | None = Query(None),
+                target_category: list[int] | None = Query(None),
+                offer_category: list[int] | None = Query(None),
+                location: list[str] | None = Query(None),
+                q: str | None = None, db: Session = Depends(get_db)):
+    # Маркетплейс-стиль контекстних фасетів: лічильники кожного фасету враховують усі ІНШІ
+    # активні фасети, але ігнорують власний вибір (дизʼюнктивність) — щоб опції ніколи
+    # не занулювали самі себе.
+    tc = offer_crud.facet_target_categories(db, types=type, offer_category_ids=offer_category,
+                                            locations=location, search=q, selected_ids=target_category)
+    oc = offer_crud.facet_offer_categories(db, types=type, target_category_ids=target_category,
+                                           locations=location, search=q, selected_ids=offer_category)
+    tp = offer_crud.facet_types(db, target_category_ids=target_category, offer_category_ids=offer_category,
+                                locations=location, search=q, selected=type)
+    loc = offer_crud.facet_locations(db, types=type, target_category_ids=target_category,
+                                     offer_category_ids=offer_category, search=q, selected=location)
+    return FacetsOut(
+        target_categories=[CategoryFacet(id=i, name=n, count=c) for i, n, c in tc],
+        offer_categories=[CategoryFacet(id=i, name=n, count=c) for i, n, c in oc],
+        types=[TypeFacet(value=v, count=c) for v, c in tp],
+        locations=[LocationFacet(name=n, count=c) for n, c in loc],
+    )
 
 
 @router.get("/offers", response_model=Page[OfferOut])
