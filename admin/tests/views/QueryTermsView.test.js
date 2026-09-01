@@ -196,6 +196,19 @@ describe("QueryTermsView", () => {
     expect(terms.bulk).not.toHaveBeenCalled();
   });
 
+  it("shows more than 20 terms per page (default 50) and setSize widens to all", async () => {
+    terms.list.mockResolvedValue(
+      Array.from({ length: 120 }, (_, i) => ({ id: i + 1, term: `t${i}`, support: 1, status: "pending" })),
+    );
+    const wrapper = mount(QueryTermsView, { global: { plugins: [ElementPlus] } });
+    await wrapper.vm.load();
+    await flushPromises();
+    expect(wrapper.vm.pageItems.length).toBe(50);      // >20 per page by default
+    wrapper.vm.setSize(200);
+    await flushPromises();
+    expect(wrapper.vm.pageItems.length).toBe(120);     // one page holds everything → 1 bulk pass
+  });
+
   it("clicking bulk «Затвердити вибрані» sends the approve action", async () => {
     const wrapper = mount(QueryTermsView, { global: { plugins: [ElementPlus] } });
     await flushPromises();
