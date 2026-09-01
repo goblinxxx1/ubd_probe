@@ -10,10 +10,10 @@ export function useOffers() {
   const route = useRoute();
   const items = ref([]);
   const total = ref(0);
-  const loading = ref(false);        // initial / reset load
-  const loadingMore = ref(false);    // appending load ("Завантажити ще")
+  const loading = ref(false);        // початкове/скидне завантаження
+  const loadingMore = ref(false);    // довантаження (кнопка «Завантажити ще»)
   const error = ref(null);
-  const page = computed(() => Number(route.query.page) || 1);   // base page for the numbered pager
+  const page = computed(() => Number(route.query.page) || 1);   // базова сторінка для нумерованого пейджера
   const loadedPage = ref(page.value);
   const hasMore = computed(() => items.value.length < total.value);
 
