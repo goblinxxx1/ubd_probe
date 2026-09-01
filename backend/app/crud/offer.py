@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.core.errors import conflict, not_found, validation_error
 from app.core.urlnorm import canonicalize_target_url
 from app.crud.blocked_host import bare_host, list_approved_hosts
+from app.crud import directory_host as directory_host_crud
 from app.models import Offer, OfferCategory, OfferDiscount, OfferLocation, TargetCategory
 from app.models.enums import CreatedBy, DiscountType, OfferStatus, OfferType, VALUE_DISCOUNT_TYPES
 from app.core.config import settings
@@ -34,6 +35,17 @@ def _blocked_source_host(db: Session, data) -> str | None:
                 getattr(data, "provider", None)):
         h = _source_host(val)
         if _host_blocked(h, approved):
+            return h
+    return None
+
+
+def _directory_source_host(db: Session, data) -> str | None:
+    """Джерело офера — зареєстрований хост-каталог (Task 6/7): такий офер належить
+    каталогу-агрегатору, а не бізнесу, і в модерацію не має потрапляти (belt-and-suspenders
+    до краулерного пригнічення)."""
+    for val in (getattr(data, "site_url", None), getattr(data, "article_url", None)):
+        h = _source_host(val)
+        if h and directory_host_crud.is_directory(db, h):
             return h
     return None
 
@@ -115,9 +127,10 @@ def create_offer(db: Session, data: OfferCreate, created_by: CreatedBy,
     canon = canonicalize_target_url(data.target_url) if data.target_url else None
     canon_article = canonicalize_target_url(data.article_url) if data.article_url else None
     crawler = created_by == CreatedBy.crawler
-    blocked = crawler and _blocked_source_host(db, data) is not None
+    blocked = crawler and (_blocked_source_host(db, data) is not None
+                           or _directory_source_host(db, data) is not None)
     if blocked:
-        status = OfferStatus.rejected   # force-reject a blocked-source offer
+        status = OfferStatus.rejected   # force-reject a blocked- or directory-source offer
 
     # 1) Unchanged (or idempotent repeat of an existing shadow): same source + content_hash.
     # NOTE: intentionally NOT guarded with `and not blocked` — this branch only bumps

@@ -134,6 +134,14 @@ class ApiClient:
         r.raise_for_status()
         return r.json()
 
+    def register_directory_host(self, host: str) -> None:
+        # best-effort: реєстрація хоста в каталозі не мусить зупиняти harvest-цикл
+        try:
+            r = self._client.post("/api/internal/directory-hosts", json={"host": host})
+            r.raise_for_status()
+        except Exception as exc:  # noqa: BLE001 — best-effort, ніколи не кидаємо далі
+            log.warning("register_directory_host: не вдалось зареєструвати хост %s: %s", host, exc)
+
     def judge_reject_offer(self, offer_id: int, reason: str) -> None:
         r = self._client.post(f"/api/internal/offers/{offer_id}/judge-reject",
                               json={"reason": reason})

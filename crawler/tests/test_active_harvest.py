@@ -1070,6 +1070,75 @@ def test_active_default_gate_keeps():
     assert len(api.offers) == 1               # дефолтний NullJudge-гейт лишає (зворотна сумісність)
 
 
+def test_directory_page_suppresses_offer_and_collects_business():
+    # Каталог-сторінка (myhelp-тип): title має " | " і host — у DIRECTORY_HOST_SEEDS
+    # → офер НЕ емітиться, замість цього (name, city) кладеться в чергу для
+    # ізольованого підпошуку, а хост реєструється через best-effort callback.
+    api = FakeApi()
+    registered = []
+    url = ("https://myhelp.com.ua/places/easy-english/services/"
+           "znyzhka-dlia-uchasnykiv-boiovykh-dii")
+    item = RawItem(source_id=None, platform="website", key="k",
+                   text="Знижка 10% для УБД", url=url, links=[],
+                   site_name="MY Help", locality="Вінниця",
+                   title="Знижка для Easy English | MY Help")
+    h = ActiveHarvester(api, {"website": FakeFetcher([item])}, GateExtractor(),
+                        rate_limiter=None, fetch_budget=5,
+                        register_directory_host=lambda host: registered.append(host))
+    h._process_page(_cand(url=url), [item], cats=None, known=set(), summary=_summary())
+    assert api.offers == []                                          # офер придушено
+    assert h.take_directory_businesses() == [("easy english", "Вінниця")]
+    assert h.take_directory_businesses() == []                       # черга очищена
+    assert registered == ["myhelp.com.ua"]                           # хост зареєстровано
+
+
+def test_directory_page_register_callback_never_raises_into_harvest():
+    # Реєстрація хоста — best-effort: падіння колбека не має валити харвест.
+    api = FakeApi()
+    url = ("https://myhelp.com.ua/places/easy-english/services/"
+           "znyzhka-dlia-uchasnykiv-boiovykh-dii")
+    item = RawItem(source_id=None, platform="website", key="k",
+                   text="Знижка 10% для УБД", url=url, links=[],
+                   site_name="MY Help", locality="Вінниця",
+                   title="Знижка для Easy English | MY Help")
+    def boom(host):
+        raise RuntimeError("registry down")
+    h = ActiveHarvester(api, {"website": FakeFetcher([item])}, GateExtractor(),
+                        rate_limiter=None, fetch_budget=5,
+                        register_directory_host=boom)
+    h._process_page(_cand(url=url), [item], cats=None, known=set(), summary=_summary())
+    assert api.offers == []
+    assert h.take_directory_businesses() == [("easy english", "Вінниця")]
+
+
+def test_directory_gate_default_register_is_noop():
+    # register_directory_host=None (дефолт) не має ламати наявних викликів.
+    api = FakeApi()
+    url = ("https://myhelp.com.ua/places/easy-english/services/"
+           "znyzhka-dlia-uchasnykiv-boiovykh-dii")
+    item = RawItem(source_id=None, platform="website", key="k",
+                   text="Знижка 10% для УБД", url=url, links=[],
+                   site_name="MY Help", locality="Вінниця",
+                   title="Знижка для Easy English | MY Help")
+    h = ActiveHarvester(api, {"website": FakeFetcher([item])}, GateExtractor(),
+                        rate_limiter=None, fetch_budget=5)
+    h._process_page(_cand(url=url), [item], cats=None, known=set(), summary=_summary())
+    assert api.offers == []
+    assert h.take_directory_businesses() == [("easy english", "Вінниця")]
+
+
+def test_non_directory_page_still_emits_offer():
+    # Регресія: звичайна (не-каталог) сторінка й далі емітить офер як раніше —
+    # каталог-гейт не має чіпати основний шлях.
+    api = FakeApi()
+    h = ActiveHarvester(api, {"website": FakeFetcher([_item("Знижка 20% для УБД у нас",
+                                                            site_name="Cafe")])},
+                        GateExtractor(), rate_limiter=None, fetch_budget=5)
+    h.harvest([_cand()], cats=None, known=set(), summary=_summary())
+    assert len(api.offers) == 1
+    assert h.take_directory_businesses() == []
+
+
 def test_empty_pass_armed_website_candidate_skipped_in_active_harvest(tmp_path):
     # A domain that returned 0 offers last pass (skip_left armed via record) must be skipped
     # by the ACTIVE harvest too — not just the passive path — regardless of feed source.

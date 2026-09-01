@@ -409,6 +409,20 @@ def test_site_tagline_capped_and_whitespace_normalized():
     assert out is not None and len(out) <= 160 and "  " not in out
 
 
+def test_fetch_puts_title_on_items():
+    # Сирий <title> має потрапляти на RawItem окремо від site_name (яке
+    # пріоритетно бере og:site_name) — is_directory_page читає саме сирий
+    # заголовок з роздільником "сутність | бренд".
+    html = ('<html><head><meta property="og:site_name" content="MY Help">'
+            '<title>Знижка для Easy English | MY Help</title></head><body>'
+            '<article><p>Знижка 10% для УБД у нас сьогодні завжди.</p></article>'
+            '</body></html>')
+    f = _fetcher_returning(html)
+    items, _ = f.fetch({"id": 1, "url_or_handle": "https://myhelp.com.ua/x"}, None)
+    assert items and all(i.title == "Знижка для Easy English | MY Help" for i in items)
+    assert items[0].site_name == "MY Help"     # og:site_name лишається пріоритетним для site_name
+
+
 def test_fetch_puts_site_tagline_on_items():
     import httpx
     from crawler.fetchers.website import WebsiteFetcher

@@ -151,6 +151,30 @@ def test_judge_reject_offer_swallows_409():
     client.judge_reject_offer(9, "junk")  # не мусить кидати виняток
 
 
+def test_register_directory_host_posts_host():
+    captured = []
+    def handle(request: httpx.Request) -> httpx.Response:
+        captured.append(request)
+        if request.url.path == "/api/internal/directory-hosts" and request.method == "POST":
+            return httpx.Response(200, json={"registered": True})
+        return httpx.Response(404, json={"code": "not_found", "detail": "x"})
+    client = ApiClient("http://api", "secret", 10.0, transport=httpx.MockTransport(handle))
+    client.register_directory_host("myhelp.com.ua")
+    assert captured[0].url.path == "/api/internal/directory-hosts"
+    assert captured[0].headers["X-API-Key"] == "secret"
+    body = json.loads(captured[0].content)
+    assert body == {"host": "myhelp.com.ua"}
+
+
+def test_register_directory_host_best_effort_on_failure():
+    # мережевий збій не повинен зупиняти harvest-цикл краулера (best-effort)
+    def handle(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("connection failed", request=request)
+
+    client = ApiClient("http://api", "secret", 10.0, transport=httpx.MockTransport(handle))
+    client.register_directory_host("myhelp.com.ua")  # не мусить кидати виняток
+
+
 def test_auto_block_host_posts_host():
     captured = []
     def handle(request: httpx.Request) -> httpx.Response:

@@ -143,6 +143,9 @@ class _RawSettings(BaseSettings):
     rejudge_enabled: bool = True         # Задача 5 (judge-requeue-sweep): доганяльний прохід судді
     rejudge_interval_seconds: int = 3600  # 1h; кожен тік = окремий RejudgeSweep.run()
     rejudge_budget: int = 30              # макс. pending-unjudged офферів за один sweep
+    subsearch_enabled: bool = True        # ізольований підпошук бізнесу з каталог-сторінок
+    subsearch_search_budget: int = 15     # макс. пошуків/прохід (R3: DDG-незалежний бюджет)
+    subsearch_fetch_budget: int = 20      # fetch_budget ізольованого ActiveHarvester
 
 
 @dataclass
@@ -281,6 +284,9 @@ class Config:
     rejudge_enabled: bool = True
     rejudge_interval_seconds: int = 3600
     rejudge_budget: int = 30
+    subsearch_enabled: bool = True
+    subsearch_search_budget: int = 15
+    subsearch_fetch_budget: int = 20
 
 
 def _parse_accounts(platform: str, raw: str) -> list[BotCredential]:
@@ -441,6 +447,9 @@ def from_settings(s: _RawSettings) -> Config:
         rejudge_enabled=s.rejudge_enabled,
         rejudge_interval_seconds=s.rejudge_interval_seconds,
         rejudge_budget=s.rejudge_budget,
+        subsearch_enabled=s.subsearch_enabled,
+        subsearch_search_budget=s.subsearch_search_budget,
+        subsearch_fetch_budget=s.subsearch_fetch_budget,
     )
 
 

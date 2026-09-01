@@ -170,6 +170,18 @@ def _extract_logo_alt(tree) -> str | None:
     return None
 
 
+def _extract_title(tree) -> str | None:
+    """Сирий текст <title> (на відміну від _extract_site_name — без og:site_name
+    пріоритету): каталог-детектору потрібен саме сирий заголовок з роздільником
+    ` | ` (сутність | бренд), а не назва бренду."""
+    node = tree.css_first("title")
+    if node is not None:
+        txt = node.text(strip=True)
+        if txt:
+            return txt
+    return None
+
+
 def _extract_site_name(tree) -> str | None:
     node = tree.css_first('meta[property="og:site_name"]')
     if node is not None and node.attributes.get("content"):
@@ -384,6 +396,7 @@ class WebsiteFetcher:
             logo_alt = _extract_logo_alt(tree)
             site_name = _extract_site_name(tree)
             site_tagline = _extract_site_tagline(tree)
+            title = _extract_title(tree)
             locality = _extract_locality(tree)
             has_offer = _has_offer_schema(tree)
             is_article = (_has_article_schema(tree) or _has_article_og(tree)
@@ -415,6 +428,7 @@ class WebsiteFetcher:
                                      key=key, text=text, url=url, links=links,
                                      image_url=image, logo_url=logo, logo_alt=logo_alt,
                                      site_name=site_name, site_tagline=site_tagline,
+                                     title=title,
                                      locality=locality, has_offer_schema=has_offer,
                                      is_article=is_article,
                                      has_business_schema=has_business,

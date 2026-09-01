@@ -22,6 +22,7 @@ class RawItem:
     logo_alt: str | None = None
     site_name: str | None = None
     site_tagline: str | None = None
+    title: str | None = None       # сирий <title> сторінки (для is_directory_page)
     locality: str | None = None
     has_offer_schema: bool = False
     is_article: bool = False

@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.crud import blocked_host as blocked_host_crud
+from app.crud import directory_host as directory_host_crud
 from app.crud import query_term as query_term_crud
 from app.crud import bot_account as bot_account_crud
 from app.crud import category as category_crud
@@ -195,3 +196,18 @@ def list_protected_query_terms(db: Session = Depends(get_db)):
 @router.post("/blocked-hosts", response_model=BlockedHostOut)
 def auto_block_host(data: AutoBlockCreate, db: Session = Depends(get_db)):
     return blocked_host_crud.auto_block(db, data.host, data.sample_url)
+
+
+class DirectoryHostIn(BaseModel):
+    host: str
+
+
+class DirectoryHostOut(BaseModel):
+    registered: bool
+
+
+@router.post("/directory-hosts", response_model=DirectoryHostOut)
+def register_directory_host(data: DirectoryHostIn, db: Session = Depends(get_db)):
+    """Реєструє хост-каталог (Task 6 CRUD виконує idempotent-реєстрацію + одноразовий
+    sweep наявних crawler+pending оферів цього хоста)."""
+    return DirectoryHostOut(registered=directory_host_crud.register(db, data.host))
