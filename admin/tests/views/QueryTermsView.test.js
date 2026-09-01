@@ -14,10 +14,15 @@ vi.mock("@/api/queryTerms", () => ({
   manualAdd: vi.fn(() => Promise.resolve({})),
   protect: vi.fn(() => Promise.resolve({})),
   unprotect: vi.fn(() => Promise.resolve({})),
+  bulk: vi.fn(() => Promise.resolve({ done: [1, 2], failed: [] })),
 }));
 vi.mock("element-plus", async (importOriginal) => {
   const actual = await importOriginal();
-  return { ...actual, ElMessage: { success: vi.fn(), error: vi.fn() } };
+  return {
+    ...actual,
+    ElMessage: { success: vi.fn(), error: vi.fn(), warning: vi.fn() },
+    ElMessageBox: { confirm: vi.fn(() => Promise.resolve()) },
+  };
 });
 import * as terms from "@/api/queryTerms";
 
@@ -46,7 +51,9 @@ describe("QueryTermsView", () => {
     wrapper.vm.status = "rejected";
     await wrapper.vm.load();
     await flushPromises();
-    const btn = wrapper.findAll("button").find((b) => b.text().includes("Повернути в кандидати"));
+    const btn = wrapper.findAll("button")
+      .filter((b) => !b.element.closest(".bulkbar"))
+      .find((b) => b.text().includes("Повернути в кандидати"));
     expect(btn).toBeTruthy();
     await btn.trigger("click");
     await flushPromises();
@@ -62,7 +69,9 @@ describe("QueryTermsView", () => {
     wrapper.vm.status = "approved";
     await wrapper.vm.load();
     await flushPromises();
-    const btn = wrapper.findAll("button").find((b) => b.text().includes("Повернути в кандидати"));
+    const btn = wrapper.findAll("button")
+      .filter((b) => !b.element.closest(".bulkbar"))
+      .find((b) => b.text().includes("Повернути в кандидати"));
     expect(btn).toBeTruthy();
     await btn.trigger("click");
     await flushPromises();
@@ -131,5 +140,71 @@ describe("QueryTermsView", () => {
     await flushPromises();
     expect(terms.unprotect).toHaveBeenCalledWith(4);
     expect(terms.list).toHaveBeenCalledTimes(3);
+  });
+
+  // --- масові дії ---
+  const bulkLabels = (wrapper) =>
+    wrapper.find(".bulkbar").findAll("button").map((b) => b.text());
+
+  it("pending tab shows bulk approve + reject buttons", async () => {
+    const wrapper = mount(QueryTermsView, { global: { plugins: [ElementPlus] } });
+    await flushPromises();
+    const labels = bulkLabels(wrapper);
+    expect(labels).toContain("Затвердити вибрані");
+    expect(labels).toContain("Відхилити вибрані");
+    expect(labels).toContain("Закріпити вибрані");
+    expect(labels).toContain("Відкріпити вибрані");
+  });
+
+  it("approved/rejected tabs show a bulk «Повернути в кандидати» (no bulk approve)", async () => {
+    terms.list.mockResolvedValue([
+      { id: 7, term: "евакуатор", z: 1.2, support: 5, status: "approved" },
+    ]);
+    const wrapper = mount(QueryTermsView, { global: { plugins: [ElementPlus] } });
+    wrapper.vm.status = "approved";
+    await wrapper.vm.load();
+    await flushPromises();
+    const labels = bulkLabels(wrapper);
+    expect(labels).toContain("Повернути в кандидати");
+    expect(labels).not.toContain("Затвердити вибрані");
+  });
+
+  it("bulk buttons are disabled with an empty selection", async () => {
+    const wrapper = mount(QueryTermsView, { global: { plugins: [ElementPlus] } });
+    await flushPromises();
+    const disabled = wrapper.find(".bulkbar").findAll("button")
+      .every((b) => b.attributes("disabled") !== undefined);
+    expect(disabled).toBe(true);
+  });
+
+  it("runBulk posts selected ids + action and reloads", async () => {
+    const wrapper = mount(QueryTermsView, { global: { plugins: [ElementPlus] } });
+    await flushPromises();
+    wrapper.vm.selected = [{ id: 1 }, { id: 2 }];
+    await wrapper.vm.runBulk("approve");
+    await flushPromises();
+    expect(terms.bulk).toHaveBeenCalledWith([1, 2], "approve");
+    expect(terms.list).toHaveBeenCalledTimes(2);   // mount + post-bulk reload
+  });
+
+  it("runBulk with an empty selection is a no-op", async () => {
+    const wrapper = mount(QueryTermsView, { global: { plugins: [ElementPlus] } });
+    await flushPromises();
+    wrapper.vm.selected = [];
+    await wrapper.vm.runBulk("reject", "confirm?");
+    await flushPromises();
+    expect(terms.bulk).not.toHaveBeenCalled();
+  });
+
+  it("clicking bulk «Затвердити вибрані» sends the approve action", async () => {
+    const wrapper = mount(QueryTermsView, { global: { plugins: [ElementPlus] } });
+    await flushPromises();
+    wrapper.vm.selected = [{ id: 1 }];
+    await flushPromises();
+    const btn = wrapper.find(".bulkbar").findAll("button")
+      .find((b) => b.text() === "Затвердити вибрані");
+    await btn.trigger("click");
+    await flushPromises();
+    expect(terms.bulk).toHaveBeenCalledWith([1], "approve");
   });
 });
