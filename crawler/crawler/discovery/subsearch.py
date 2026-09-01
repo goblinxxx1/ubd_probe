@@ -94,5 +94,5 @@ class SubSearch:
                 cand = SourceCandidate(type="website",
                                        url_or_handle=f"https://{host}", name=name)
                 self._harvester.harvest([cand], cats, known, summary)
-            except Exception as exc:  # noqa: BLE001 — one business must not sink the rest
+            except Exception as exc:  # noqa: BLE001 — одна невдача бізнесу не має валити решту
                 log.warning("subsearch item failed for %r: %s", name, exc)

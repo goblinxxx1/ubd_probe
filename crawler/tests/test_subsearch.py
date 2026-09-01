@@ -135,3 +135,24 @@ def test_subsearch_isolates_per_item_failure():
                               cats=None, known=set(), summary={"offers": 0, "errors": 0},
                               budget=15)
     assert hv.crawled == []
+
+
+def test_subsearch_run_isolates_harvester_failure():
+    """Перевіряє, що harvest() виключення НЕ розповсюджується."""
+    search = _search_returning("biz-a.com.ua")   # resolves fine
+
+    class _RaisingThenOk:
+        def __init__(self):
+            self.calls = 0
+        def harvest(self, candidates, cats, known, summary, known_hosts=None):
+            self.calls += 1
+            if self.calls == 1:
+                raise RuntimeError("harvest boom")
+            return summary
+
+    hv = _RaisingThenOk()
+    ss = SubSearch(search, hv)
+    # two DIFFERENT business names so both reach resolve+harvest
+    ss.run([("business alpha name", "Київ"), ("business beta name", "Львів")],
+           cats=None, known=set(), summary={"offers": 0, "errors": 0}, budget=15)
+    assert hv.calls == 2      # first raised but was caught; second still attempted
