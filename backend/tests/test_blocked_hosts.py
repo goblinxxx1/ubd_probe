@@ -1,9 +1,10 @@
+from app.crud import blocked_host as bh_crud
 from app.models import BlockedHost
 from app.models.enums import BlockedHostStatus
 
 
 def test_blocked_host_model_defaults(db_session):
-    obj = BlockedHost(host="nv.example", media_ratio=0.9, aggregator_ratio=0.1, support=4)
+    obj = BlockedHost(host="nv.example")
     db_session.add(obj)
     db_session.commit()
     db_session.refresh(obj)
@@ -12,52 +13,35 @@ def test_blocked_host_model_defaults(db_session):
     assert obj.created_at is not None
 
 
-from app.crud import blocked_host as bh_crud
-from app.schemas.blocked_host import HostCandidateCreate
-
-
-def _cand(host="nv.example"):
-    return HostCandidateCreate(host=host, media_ratio=0.9, aggregator_ratio=0.1,
-                               support=4, sample_urls=["https://nv.example/a"])
-
-
-def test_upsert_is_idempotent_on_host(db_session):
-    a = bh_crud.upsert_candidate(db_session, _cand())
-    b = bh_crud.upsert_candidate(db_session, _cand())
-    assert a.id == b.id
-    assert len(bh_crud.list_hosts(db_session)) == 1
-
-
-def test_approve_puts_host_in_approved_list(db_session):
-    c = bh_crud.upsert_candidate(db_session, _cand("media.example"))
-    bh_crud.approve(db_session, c.id, reviewed_by=1)
+def test_add_manual_blocks_host_into_approved_list(db_session):
+    obj = bh_crud.add_manual(db_session, "https://www.Media.example/news", reviewed_by=1)
+    assert obj.host == "media.example"                    # scheme/path/www stripped
+    assert obj.status == BlockedHostStatus.approved
     assert "media.example" in bh_crud.list_approved_hosts(db_session)
 
 
-def test_reject_excludes_from_approved(db_session):
-    c = bh_crud.upsert_candidate(db_session, _cand("ok.example"))
-    bh_crud.reject(db_session, c.id, reviewed_by=1)
+def test_unblock_removes_from_approved_and_can_reblock(db_session):
+    obj = bh_crud.add_manual(db_session, "ok.example", reviewed_by=1)
+    bh_crud.reject(db_session, obj.id, reviewed_by=1)     # unblock = reject
     assert "ok.example" not in bh_crud.list_approved_hosts(db_session)
-    # re-submitting a rejected host does not resurrect it to pending
-    bh_crud.upsert_candidate(db_session, _cand("ok.example"))
-    assert bh_crud.get(db_session, c.id).status.value == "rejected"
+    again = bh_crud.add_manual(db_session, "ok.example", reviewed_by=1)   # re-block
+    assert again.id == obj.id                             # same row, no duplicate
+    assert "ok.example" in bh_crud.list_approved_hosts(db_session)
+    assert len(bh_crud.list_hosts(db_session)) == 1
 
 
 def test_auto_block_creates_approved_system_row(db_session):
-    from app.crud import blocked_host as bh
-    from app.models.enums import BlockedHostStatus
-    obj = bh.auto_block(db_session, "Fraza.UA")
+    obj = bh_crud.auto_block(db_session, "Fraza.UA")
     assert obj.host == "fraza.ua"
     assert obj.status == BlockedHostStatus.approved
     assert obj.reviewed_by is None
-    assert "fraza.ua" in bh.list_approved_hosts(db_session)
+    assert "fraza.ua" in bh_crud.list_approved_hosts(db_session)
 
 
 def test_auto_block_is_idempotent(db_session):
-    from app.crud import blocked_host as bh
-    bh.auto_block(db_session, "znaj.ua")
-    bh.auto_block(db_session, "znaj.ua")
-    approved = bh.list_approved_hosts(db_session)
+    bh_crud.auto_block(db_session, "znaj.ua")
+    bh_crud.auto_block(db_session, "znaj.ua")
+    approved = bh_crud.list_approved_hosts(db_session)
     assert approved.count("znaj.ua") == 1
 
 

@@ -156,10 +156,6 @@ def test_attribution_hardening_defaults():
     assert s.attribution_hardening_enabled is True
     assert s.blocked_hosts_fetch_enabled is True
     assert s.aggregator_min_outbound == 3
-    assert s.host_miner_min_support == 3
-    assert s.host_miner_media_min == 0.5
-    assert s.host_miner_aggregator_min == 0.5
-    assert s.host_miner_max_candidates == 50
 
 
 def test_site_query_defaults(monkeypatch, tmp_path):

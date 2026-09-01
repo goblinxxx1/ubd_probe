@@ -93,11 +93,6 @@ class ApiClient:
         r.raise_for_status()
         return r.json()
 
-    def submit_host_candidate(self, payload: dict) -> dict:
-        r = self._client.post("/api/internal/host-candidates", json=payload)
-        r.raise_for_status()
-        return r.json()
-
     def list_blocked_hosts(self) -> list[str]:
         r = self._client.get("/api/internal/blocked-hosts")
         r.raise_for_status()

@@ -1,9 +1,8 @@
 <script setup>
 import { ref, onMounted } from "vue";
 import { ElMessage } from "element-plus";
-import * as hosts from "@/api/hostCandidates";
-import { SUGGESTION_STATUSES } from "@/constants/enums";
-import { enumLabel, isHttpUrl } from "@/utils/format";
+import * as blocklist from "@/api/blocklist";
+import { isHttpUrl } from "@/utils/format";
 import { extractError } from "@/utils/errors";
 import { useClientPagination } from "@/composables/useClientPagination";
 import ResponsiveTable from "@/components/ResponsiveTable.vue";
@@ -11,21 +10,17 @@ import ResponsiveTable from "@/components/ResponsiveTable.vue";
 const items = ref([]);
 const { page, size, total, pageItems, setPage } = useClientPagination(items, 20);
 const loading = ref(false);
-const status = ref("pending");
 const newHost = ref("");
 
 const columns = [
   { prop: "host", label: "Хост" },
-  { label: "Медіа", slot: "media" },
-  { label: "Агрегатор", slot: "aggr" },
-  { prop: "support", label: "Support" },
   { label: "Приклади", slot: "samples" },
 ];
 
 async function load() {
   loading.value = true;
   try {
-    items.value = await hosts.list({ status: status.value });
+    items.value = await blocklist.list();
   } catch (e) {
     ElMessage.error(extractError(e));
   } finally {
@@ -34,19 +29,10 @@ async function load() {
 }
 onMounted(load);
 
-async function onApprove(id) {
+async function onUnblock(id) {
   try {
-    await hosts.approve(id);
-    ElMessage.success("Заблоковано (додано у медіа/агрегатор-список)");
-    await load();
-  } catch (e) {
-    ElMessage.error(extractError(e));
-  }
-}
-async function onReject(id) {
-  try {
-    await hosts.reject(id);
-    ElMessage.success("Відхилено");
+    await blocklist.unblock(id);
+    ElMessage.success("Розблоковано (прибрано з блоклиста)");
     await load();
   } catch (e) {
     ElMessage.error(extractError(e));
@@ -57,23 +43,22 @@ async function onAdd() {
   const host = newHost.value.trim();
   if (!host) return;
   try {
-    await hosts.create(host);
+    await blocklist.create(host);
     ElMessage.success("Хост заблоковано");
     newHost.value = "";
-    status.value = "approved";   // jump to the approved list so the new host is visible
     await load();
   } catch (e) {
     ElMessage.error(extractError(e));
   }
 }
 
-defineExpose({ items, pageItems, page, total, setPage, load, onApprove, onReject, onAdd, status, newHost });
+defineExpose({ items, pageItems, page, total, size, setPage, load, onUnblock, onAdd, newHost });
 </script>
 
 <template>
-  <div class="host-candidates-view">
+  <div class="blocklist-view">
     <div class="header">
-      <h2>Кандидати в медіа/агрегатор-блоклист</h2>
+      <h2>Медіа-блоклист</h2>
       <div class="controls">
         <el-input
           v-model="newHost"
@@ -83,9 +68,6 @@ defineExpose({ items, pageItems, page, total, setPage, load, onApprove, onReject
           @keyup.enter="onAdd"
         />
         <el-button type="danger" @click="onAdd">Заблокувати хост</el-button>
-        <el-select v-model="status" style="width: 160px" @change="load">
-          <el-option v-for="s in SUGGESTION_STATUSES" :key="s.value" :label="s.label" :value="s.value" />
-        </el-select>
       </div>
     </div>
 
@@ -97,9 +79,7 @@ defineExpose({ items, pageItems, page, total, setPage, load, onApprove, onReject
       @current-change="setPage"
     />
 
-    <ResponsiveTable :columns="columns" :rows="pageItems" :loading="loading" :actions-width="220">
-      <template #col-media="{ row }">{{ (row.media_ratio * 100).toFixed(0) }}%</template>
-      <template #col-aggr="{ row }">{{ (row.aggregator_ratio * 100).toFixed(0) }}%</template>
+    <ResponsiveTable :columns="columns" :rows="pageItems" :loading="loading" :actions-width="160">
       <template #col-samples="{ row }">
         <div v-for="u in row.sample_urls || []" :key="u">
           <el-link v-if="isHttpUrl(u)" :href="u" type="primary" target="_blank" rel="noopener noreferrer">{{ u }}</el-link>
@@ -107,11 +87,7 @@ defineExpose({ items, pageItems, page, total, setPage, load, onApprove, onReject
         </div>
       </template>
       <template #actions="{ row }">
-        <template v-if="row.status === 'pending'">
-          <el-button size="small" type="success" @click="onApprove(row.id)">Заблокувати</el-button>
-          <el-button size="small" type="danger" @click="onReject(row.id)">Відхилити</el-button>
-        </template>
-        <span v-else>{{ enumLabel(SUGGESTION_STATUSES, row.status) }}</span>
+        <el-button size="small" type="warning" @click="onUnblock(row.id)">Розблокувати</el-button>
       </template>
     </ResponsiveTable>
 
