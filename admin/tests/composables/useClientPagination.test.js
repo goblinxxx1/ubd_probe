@@ -6,13 +6,24 @@ describe("useClientPagination", () => {
   it("slices the source into pages", () => {
     const src = ref(Array.from({ length: 45 }, (_, i) => i));
     const { size, total, pageItems, setPage } = useClientPagination(src, 20);
-    expect(size).toBe(20);
+    expect(size.value).toBe(20);
     expect(total.value).toBe(45);
     expect(pageItems.value).toEqual(src.value.slice(0, 20));
     setPage(2);
     expect(pageItems.value).toEqual(src.value.slice(20, 40));
     setPage(3);
     expect(pageItems.value).toEqual(src.value.slice(40, 45));
+  });
+
+  it("setSize changes the page size and snaps back to page 1", () => {
+    const src = ref(Array.from({ length: 120 }, (_, i) => i));
+    const { size, page, pageItems, setPage, setSize } = useClientPagination(src, 20);
+    setPage(3);
+    expect(page.value).toBe(3);
+    setSize(100);
+    expect(size.value).toBe(100);
+    expect(page.value).toBe(1);                       // snaps back
+    expect(pageItems.value).toEqual(src.value.slice(0, 100));  // one page holds 100 now
   });
 
   it("resets to page 1 when the source is replaced (reload/filter change)", async () => {

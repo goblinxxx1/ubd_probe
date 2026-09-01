@@ -10,7 +10,7 @@ import { useClientPagination } from "@/composables/useClientPagination";
 import ResponsiveTable from "@/components/ResponsiveTable.vue";
 
 const items = ref([]);
-const { page, size, total, pageItems, setPage } = useClientPagination(items, 20);
+const { page, size, total, pageItems, setPage, setSize } = useClientPagination(items, 50);
 const loading = ref(false);
 const status = ref("pending");
 const newTerm = ref("");
@@ -123,7 +123,7 @@ async function onUnprotect(id) {
   }
 }
 
-defineExpose({ items, pageItems, page, total, setPage, load, newTerm, selected, runBulk,
+defineExpose({ items, pageItems, page, size, total, setPage, setSize, load, newTerm, selected, runBulk,
   onApprove, onReject, onUnreject, onToPending, onManualAdd, onProtect, onUnprotect, status });
 </script>
 
@@ -169,11 +169,13 @@ defineExpose({ items, pageItems, page, total, setPage, load, newTerm, selected, 
     </div>
 
     <el-pagination
-      layout="prev, pager, next"
+      layout="sizes, prev, pager, next"
       :total="total"
       :page-size="size"
+      :page-sizes="[20, 50, 100, 200, 500]"
       :current-page="page"
       @current-change="setPage"
+      @size-change="setSize"
     />
 
     <ResponsiveTable :columns="columns" :rows="pageItems" :loading="loading" :actions-width="320"
@@ -202,11 +204,13 @@ defineExpose({ items, pageItems, page, total, setPage, load, newTerm, selected, 
     </ResponsiveTable>
 
     <el-pagination
-      layout="prev, pager, next"
+      layout="sizes, prev, pager, next"
       :total="total"
       :page-size="size"
+      :page-sizes="[20, 50, 100, 200, 500]"
       :current-page="page"
       @current-change="setPage"
+      @size-change="setSize"
     />
   </div>
 </template>
