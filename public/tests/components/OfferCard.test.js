@@ -185,6 +185,19 @@ describe("OfferCard", () => {
     expect(w.html()).not.toContain("<svg");   // rendered via <img src>, never inlined
   });
 
+  it("falls back to the placeholder when the image fails to load (broken/blocked remote URL)", async () => {
+    const w = mountCard({
+      id: 40, type: "discount", discount_type: "free", title: "T", provider: "P", description: "d",
+      logo_url: "https://estro.ua/blocked-403.svg",
+      target_categories: [], offer_categories: [], locations: [],
+    });
+    const img = w.get("img.card__photo");
+    expect(img.attributes("src")).toBe("https://estro.ua/blocked-403.svg"); // starts with the logo
+    await img.trigger("error");                                             // remote load fails (403/404/bad URL)
+    const src = w.get("img.card__photo").attributes("src");
+    expect(src.startsWith("data:image/svg+xml,")).toBe(true);              // degraded to placeholder, not a broken icon
+  });
+
   it("falls back to the hero photo when there is no logo", () => {
     const w = mountCard({
       id: 31, type: "discount", title: "T", provider: "P", description: "d",

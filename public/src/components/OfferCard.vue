@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from "vue";
+import { computed, ref, watch } from "vue";
 import { placeholderDataUri } from "@/utils/placeholder";
 import { discountText } from "@/utils/format";
 import OfferBadge from "@/components/OfferBadge.vue";
@@ -7,6 +7,15 @@ import OfferBadge from "@/components/OfferBadge.vue";
 const props = defineProps({ offer: { type: Object, required: true } });
 // One image per card: prefer the brand logo, fall back to the hero photo, then placeholder.
 const image = computed(() => props.offer.logo_url || props.offer.image_url || placeholderDataUri(props.offer));
+const placeholder = computed(() => placeholderDataUri(props.offer));
+// Що реально в <img src>. Стартуємо з бажаної картинки; якщо вона не вантажиться
+// (мертвий/403/404/зламаний зовнішній URL логотипа), @error відкочує на placeholder —
+// інакше браузер показує іконку «бите зображення». Скидаємо, коли змінюється офер.
+const displaySrc = ref(image.value);
+watch(image, (v) => { displaySrc.value = v; });
+function onImageError() {
+  if (displaySrc.value !== placeholder.value) displaySrc.value = placeholder.value;  // guard від циклу
+}
 const discounts = computed(() => props.offer.discounts || []);
 const showList = computed(() => discounts.value.length > 1);
 const sourceLinks = computed(() =>
@@ -23,7 +32,7 @@ const meta = computed(() => (props.offer.locations || []).join(" · "));
   <div class="card">
     <div class="card__top">
       <router-link class="card__provider" :to="{ name: 'offer', params: { id: offer.id } }">{{ offer.provider }}</router-link>
-      <img class="card__photo" :src="image" :alt="offer.provider" />
+      <img class="card__photo" :src="displaySrc" :alt="offer.provider" @error="onImageError" />
     </div>
 
     <div class="card__discount">
