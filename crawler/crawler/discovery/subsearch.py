@@ -8,6 +8,7 @@ from urllib.parse import urlsplit
 from crawler.discovery.blocklist import is_blocked_host
 from crawler.discovery.host_quality import (_DIR_CONTAINER, DIRECTORY_HOST_SEEDS,
                                              is_low_value_host, is_news_host)
+from crawler.models import SourceCandidate
 from crawler.util.hosts import bare_host, is_foreign_host, is_ru_by_geo
 
 log = logging.getLogger(__name__)
@@ -65,3 +66,33 @@ def resolve_business_site(name, city, search) -> str | None:
         if not _rejected_host(h):
             return h
     return None
+
+
+class SubSearch:
+    """Окрема фаза: resolve → ізольований harvest. Ізольований harvester має
+    domain_registry=None + aggregator_store=None, тож нічого не пише в стан
+    основного краулу; «нема офера → нічого» виходить само (нічого не сабмітиться)."""
+
+    def __init__(self, search, harvester):
+        self._search = search
+        self._harvester = harvester
+
+    def run(self, businesses, cats, known, summary, budget) -> None:
+        seen, searches = set(), 0
+        for name, city in businesses:
+            key = (name or "").strip().lower()
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            if searches >= budget:
+                break
+            searches += 1
+            try:
+                host = resolve_business_site(name, city, self._search)
+                if not host:
+                    continue
+                cand = SourceCandidate(type="website",
+                                       url_or_handle=f"https://{host}", name=name)
+                self._harvester.harvest([cand], cats, known, summary)
+            except Exception as exc:  # noqa: BLE001 — one business must not sink the rest
+                log.warning("subsearch item failed for %r: %s", name, exc)

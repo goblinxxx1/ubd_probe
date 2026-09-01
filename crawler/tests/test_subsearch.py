@@ -83,3 +83,55 @@ def test_resolve_returns_none_when_search_raises():
         raise RuntimeError("network down")
     # довга унікальна назва + місто щоб R1 не скоротив-схемив до пошуку
     assert resolve_business_site("vinnytsia language school", "Вінниця", search) is None
+
+
+from crawler.discovery.subsearch import SubSearch
+
+
+class _FakeHarvester:
+    def __init__(self): self.crawled = []
+    def harvest(self, candidates, cats, known, summary, known_hosts=None):
+        self.crawled += [c.url_or_handle for c in candidates]
+        return summary
+
+
+def test_subsearch_resolves_and_crawls_via_isolated_harvester():
+    search = _search_returning("vinnytsia-language-school.com.ua")
+    hv = _FakeHarvester()
+    ss = SubSearch(search, hv)
+    summary = {"offers": 0, "errors": 0}
+    ss.run([("vinnytsia language school", "Вінниця")], cats=None, known=set(),
+           summary=summary, budget=15)
+    assert hv.crawled == ["https://vinnytsia-language-school.com.ua"]
+
+
+def test_subsearch_dedupes_same_name_within_pass():
+    search = _search_returning("biz.com.ua")
+    hv = _FakeHarvester()
+    ss = SubSearch(search, hv)
+    ss.run([("some unique business name", None), ("some unique business name", None)],
+           cats=None, known=set(), summary={"offers": 0, "errors": 0}, budget=15)
+    assert len(hv.crawled) == 1
+
+
+def test_subsearch_budget_caps_number_of_searches():
+    calls = {"n": 0}
+    def search(kw):
+        calls["n"] += 1
+        return [_SC("https://biz-" + str(calls["n"]) + ".com.ua")]
+    hv = _FakeHarvester()
+    SubSearch(search, hv).run(
+        [(f"unique business number {i}", None) for i in range(10)],
+        cats=None, known=set(), summary={"offers": 0, "errors": 0}, budget=3)
+    assert calls["n"] == 3
+
+
+def test_subsearch_isolates_per_item_failure():
+    def search(kw):
+        raise RuntimeError("network down")
+    hv = _FakeHarvester()
+    # must not raise
+    SubSearch(search, hv).run([("unique business name here", "Київ")],
+                              cats=None, known=set(), summary={"offers": 0, "errors": 0},
+                              budget=15)
+    assert hv.crawled == []
