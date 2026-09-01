@@ -17,7 +17,7 @@ from app.crud import suggested_source as suggestion_crud
 from app.deps import get_db, require_api_key
 from app.models import OfferCategory
 from app.models.enums import CreatedBy, OfferStatus
-from app.schemas.blocked_host import AutoBlockCreate, BlockedHostOut, HostCandidateCreate
+from app.schemas.blocked_host import AutoBlockCreate, BlockedHostOut
 from app.schemas.query_term import QueryTermsSubmit
 from app.schemas.bot_account import BotAccountOut, BotAccountStateUpdate
 from app.schemas.category import CategoryCreate, CategoryOut
@@ -159,11 +159,6 @@ def list_rejected_offers(since: datetime | None = None, db: Session = Depends(ge
         if host:
             out.append(RejectedOfferOut(host=host, rejected_at=o.updated_at))
     return out
-
-
-@router.post("/host-candidates", response_model=BlockedHostOut)
-def submit_host_candidate(data: HostCandidateCreate, db: Session = Depends(get_db)):
-    return blocked_host_crud.upsert_candidate(db, data)
 
 
 @router.get("/blocked-hosts", response_model=list[str])

@@ -5,14 +5,6 @@ from pydantic import BaseModel, ConfigDict
 from app.models.enums import BlockedHostStatus
 
 
-class HostCandidateCreate(BaseModel):
-    host: str
-    media_ratio: float = 0.0
-    aggregator_ratio: float = 0.0
-    support: int = 0
-    sample_urls: list[str] | None = None
-
-
 class BlockedHostCreate(BaseModel):
     host: str
 

@@ -198,15 +198,11 @@ def add_blocked_host(data: BlockedHostCreate, db: Session = Depends(get_db),
     return blocked_host_crud.add_manual(db, data.host, admin.id)
 
 
-@router.post("/host-candidates/{host_id}/approve", response_model=BlockedHostOut)
-def approve_host_candidate(host_id: int, db: Session = Depends(get_db),
-                           admin=Depends(get_current_admin)):
-    return blocked_host_crud.approve(db, host_id, admin.id)
-
-
 @router.post("/host-candidates/{host_id}/reject", response_model=BlockedHostOut)
 def reject_host_candidate(host_id: int, db: Session = Depends(get_db),
                           admin=Depends(get_current_admin)):
+    """Розблокувати: approved → rejected знімає хост зі списку, що віддається краулеру
+    (`list_approved_hosts`). `_review` не гейтить за статусом, тож працює з будь-якого."""
     return blocked_host_crud.reject(db, host_id, admin.id)
 
 
