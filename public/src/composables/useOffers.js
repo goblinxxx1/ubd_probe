@@ -10,23 +10,25 @@ export function useOffers() {
   const route = useRoute();
   const items = ref([]);
   const total = ref(0);
-  const loading = ref(false);
+  const loading = ref(false);        // initial / reset load
+  const loadingMore = ref(false);    // appending load ("Завантажити ще")
   const error = ref(null);
-  const page = computed(() => Number(route.query.page) || 1);
+  const page = computed(() => Number(route.query.page) || 1);   // base page for the numbered pager
+  const loadedPage = ref(page.value);
+  const hasMore = computed(() => items.value.length < total.value);
 
-  function paramsFromQuery(query) {
-    const params = { page: page.value, size: SIZE };
-    for (const key of FILTER_KEYS) {
-      if (query[key]) params[key] = query[key];
-    }
+  function paramsForPage(p) {
+    const params = { page: p, size: SIZE };
+    for (const key of FILTER_KEYS) if (route.query[key]) params[key] = route.query[key];
     return params;
   }
 
   async function load() {
     loading.value = true;
     error.value = null;
+    loadedPage.value = page.value;
     try {
-      const data = await offersApi.list(paramsFromQuery(route.query));
+      const data = await offersApi.list(paramsForPage(page.value));
       items.value = data.items;
       total.value = data.total;
     } catch (e) {
@@ -38,7 +40,24 @@ export function useOffers() {
     }
   }
 
+  async function loadMore() {
+    if (loadingMore.value || !hasMore.value) return;
+    loadingMore.value = true;
+    error.value = null;
+    try {
+      const next = loadedPage.value + 1;
+      const data = await offersApi.list(paramsForPage(next));
+      items.value = [...items.value, ...data.items];
+      total.value = data.total;
+      loadedPage.value = next;
+    } catch (e) {
+      error.value = extractError(e);
+    } finally {
+      loadingMore.value = false;
+    }
+  }
+
   watch(() => route.query, load, { immediate: true });
 
-  return { items, total, loading, error, size: SIZE, page, load };
+  return { items, total, loading, loadingMore, error, size: SIZE, page, hasMore, load, loadMore };
 }

@@ -5,7 +5,8 @@ import { h } from "vue";
 import { useOffers } from "@/composables/useOffers";
 
 vi.mock("@/api/offers", () => ({
-  list: vi.fn(() => Promise.resolve({ items: [{ id: 1 }], total: 1, page: 1, size: 12 })),
+  list: vi.fn((params) =>
+    Promise.resolve({ items: [{ id: params.page }], total: 3, page: params.page, size: 12 })),
 }));
 import * as offers from "@/api/offers";
 
@@ -59,5 +60,32 @@ describe("useOffers", () => {
     const { wrapper } = await mountAt({});
     expect(wrapper.vm.error).toBe("boom");
     expect(wrapper.vm.items).toEqual([]);
+  });
+
+  it("appends the next page on loadMore and advances hasMore", async () => {
+    const { wrapper } = await mountAt({});
+    expect(wrapper.vm.items).toEqual([{ id: 1 }]);
+    expect(wrapper.vm.hasMore).toBe(true);
+    await wrapper.vm.loadMore();
+    await flushPromises();
+    expect(offers.list).toHaveBeenLastCalledWith({ page: 2, size: 12 });
+    expect(wrapper.vm.items).toEqual([{ id: 1 }, { id: 2 }]);
+  });
+
+  it("stops offering more once every item is loaded", async () => {
+    const { wrapper } = await mountAt({});
+    await wrapper.vm.loadMore();   // page 2
+    await wrapper.vm.loadMore();   // page 3 -> 3 items == total
+    await flushPromises();
+    expect(wrapper.vm.items.map((i) => i.id)).toEqual([1, 2, 3]);
+    expect(wrapper.vm.hasMore).toBe(false);
+  });
+
+  it("resets to the base page when filters change", async () => {
+    const { wrapper, router } = await mountAt({});
+    await wrapper.vm.loadMore();
+    await router.push({ path: "/", query: { q: "кава" } });
+    await flushPromises();
+    expect(wrapper.vm.items).toEqual([{ id: 1 }]);   // fresh page 1, not appended
   });
 });
