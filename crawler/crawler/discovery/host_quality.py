@@ -10,6 +10,7 @@ IDN-ccTLD ловляться без ручної курації. Мінімал�
 для чужих gTLD, що структурно не вирізняються (reddit/steam/...); розширювати його
 має самонавчальний блокліст, а не цей файл."""
 
+from urllib.parse import urlsplit
 from crawler.util.hosts import bare_host
 
 # Інституційні TLD/друга-мітка — ніколи не бізнес зі знижкою для УБД.
@@ -61,3 +62,35 @@ def is_news_host(value: str | None) -> bool:
     if labels[-1] in _MEDIA_TLDS:
         return True
     return any(tok in label for label in labels for tok in _NEWS_TOKENS)
+
+
+# Каталоги/директорії знижок: сторінка описує ІНШИЙ бізнес, не власника домену.
+# Старт — вручну підтверджений сид; розширюється лише за доказом на реальних даних.
+DIRECTORY_HOST_SEEDS = frozenset({"myhelp.com.ua"})
+
+# Сегмент-«контейнер лістинг-запису» + наявність під-сегмента бізнесу.
+_DIR_CONTAINER = {"places", "place", "company", "companies", "firm", "profile",
+                  "catalog", "business", "org"}
+
+
+def _is_listing_entry_path(url: str | None) -> bool:
+    """URL-шлях виду /{container}/<бізнес>/... — запис каталогу про конкретний бізнес."""
+    try:
+        parts = [p for p in urlsplit(url or "").path.split("/") if p]
+    except ValueError:
+        return False
+    for i, seg in enumerate(parts):
+        if seg.lower() in _DIR_CONTAINER and i + 1 < len(parts):
+            return True     # container followed by a business slug
+    return False
+
+
+def is_directory_page(url: str | None, title: str | None) -> bool:
+    """True, якщо сторінка — запис каталогу/директорії (не first-party офер): host у
+    сид-списку АБО listing-entry URL-патерн, І title має ` | ` (сутність | бренд)."""
+    host = bare_host(url)
+    if not title or " | " not in title:
+        return False
+    if host in DIRECTORY_HOST_SEEDS:
+        return True
+    return _is_listing_entry_path(url)

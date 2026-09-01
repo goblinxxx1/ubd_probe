@@ -1,4 +1,4 @@
-from crawler.discovery.host_quality import is_low_value_host, is_news_host
+from crawler.discovery.host_quality import is_low_value_host, is_news_host, is_directory_page, DIRECTORY_HOST_SEEDS
 
 
 def test_news_hosts_flagged():
@@ -68,3 +68,29 @@ def test_media_gate_does_not_block_cinemas_or_business():
     assert is_news_host("https://planetakino.ua/discounts") is False
     assert is_news_host("uaserials.com") is False       # .com — caught by seed, not this gate
     assert is_news_host("shop.ua") is False
+
+
+_MYHELP = ("https://myhelp.com.ua/places/vinnytsia-language-school/services/"
+           "znyzhka-dlia-uchasnykiv-boiovykh-dii-197164d0")
+
+
+def test_directory_page_myhelp_seed_host_and_title():
+    assert is_directory_page(_MYHELP, "Знижка ... для ... Vinnytsia Language School | MY Help")
+
+
+def test_directory_page_url_pattern_non_seed_host():
+    # non-seed host but clear listing-entry path + brand title
+    url = "https://katalog-znyzhok.ua/company/kavarnya-lviv/offers/minus-15"
+    assert is_directory_page(url, "Кав'ярня Львів | Каталог знижок")
+
+
+def test_directory_page_false_on_first_party_business():
+    # a real business's own discount page: no listing path, no brand-suffix title
+    assert not is_directory_page("https://kavarnya-lviv.com.ua/aktsiyi",
+                                 "Акції — Кав'ярня Львів")
+
+
+def test_directory_page_false_when_title_has_no_brand_separator():
+    # seed host but title without ' | ' → still treat as directory via seed host?
+    # NO: require BOTH signals, so a bare seed-host page with no brand title is not matched here
+    assert not is_directory_page(_MYHELP, "Vinnytsia Language School")
