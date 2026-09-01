@@ -1,18 +1,17 @@
 <script setup>
-import { computed, ref, onMounted } from "vue";
+import { computed, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useOffers } from "@/composables/useOffers";
-import { useDictionaries } from "@/composables/useDictionaries";
+import { useFacets } from "@/composables/useFacets";
 import OfferFilters from "@/components/OfferFilters.vue";
 import OfferGrid from "@/components/OfferGrid.vue";
+import LoadMore from "@/components/LoadMore.vue";
 import Pagination from "@/components/Pagination.vue";
 
 const route = useRoute();
 const router = useRouter();
-const { items, total, loading, error, size, page } = useOffers();
-const { targetCategories, offerCategories, locations, load: loadDicts } = useDictionaries();
-
-onMounted(loadDicts);
+const { items, total, loading, loadingMore, error, size, page, hasMore, loadMore } = useOffers();
+const { targetCategories, offerCategories, types, locations } = useFacets();
 
 const filtersOpen = ref(false);   // mobile drawer
 
@@ -63,6 +62,7 @@ defineExpose({ onApply, onPage, filtersOpen });
           :model-value="currentFilters"
           :target-categories="targetCategories"
           :offer-categories="offerCategories"
+          :types="types"
           :locations="locations"
           @apply="onApply"
         />
@@ -70,6 +70,7 @@ defineExpose({ onApply, onPage, filtersOpen });
 
       <main class="offers__main">
         <OfferGrid :offers="items" :loading="loading" :error="error" />
+        <LoadMore :has-more="hasMore" :loading="loadingMore" :shown="items.length" :total="total" @load="loadMore" />
         <Pagination :total="total" :size="size" :page="page" @change="onPage" />
       </main>
     </div>
