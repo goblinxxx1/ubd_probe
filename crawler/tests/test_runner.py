@@ -195,6 +195,8 @@ class _RecordingHarvester:
     def __init__(self): self.candidates = None; self.known_hosts = None
     def harvest(self, candidates, cats, known, summary, known_hosts=None):
         self.candidates = list(candidates); self.known_hosts = set(known_hosts or set())
+    def take_directory_businesses(self):
+        return []  # fake: always empty (new drain gate added in runner)
 
 
 class _StubFeed:

@@ -55,9 +55,21 @@ def test_run_active_skips_subsearch_under_backoff():
     main_hv._directory_businesses = [("easy english", "Вінниця")]
     r.run_active(ddg_allowed=False)
     assert subsearch.ran_with is None                            # skipped under backoff
+    assert main_hv._directory_businesses == []                   # but queue was drained
 
 
 def test_run_active_skips_subsearch_when_no_directory_businesses():
     r, main_hv, subsearch = make_runner_with_subsearch()
     r.run_active(ddg_allowed=True)
     assert subsearch.ran_with is None                            # nothing to search
+
+
+def test_run_active_drains_queue_when_no_subsearch_provider():
+    """Verify queue is drained even when subsearch provider is None."""
+    api = FakeApi()
+    main_hv = FakeHarvester([("lang courses", "Київ")])
+    r = Runner(api, {}, extractor=None, rate_limiter=None,
+               harvester=main_hv, subsearch=None,  # no subsearch provider
+               subsearch_search_budget=15)
+    r.run_active(ddg_allowed=True)
+    assert main_hv._directory_businesses == []                   # queue drained despite no provider

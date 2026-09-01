@@ -318,12 +318,11 @@ class Runner:
                 stop = self._harvester.harvest(candidates, cats, known, summary,
                                                known_hosts=known_hosts)
                 self._mark_consumed_search_phrases(candidates, stop)
-            # R3: ізольований підпошук — лише коли DDG доступний (під бекофом пропускається
-            # ЦІЛКОМ, як і DDG due-walk вище) і лише якщо основний харвест реально зібрав
-            # каталог-бізнеси на цьому проході.
-            if ddg_allowed and self._subsearch is not None and self._harvester is not None:
+            # R3: Підпошук: осушуємо чергу директорних бізнесів ЗАВЖДИ (щоб не росла безмежно
+            # під backoff чи без провайдера), але сам пошук робимо лише коли DDG дозволено.
+            if self._harvester is not None:
                 businesses = self._harvester.take_directory_businesses()
-                if businesses:
+                if businesses and ddg_allowed and self._subsearch is not None:
                     self._subsearch.run(businesses, cats, known, summary,
                                         budget=self._subsearch_budget)
         except Exception as exc:  # noqa: BLE001 — discovery must not crash the pass
