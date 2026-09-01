@@ -30,7 +30,8 @@ class Runner:
                  passive_schedule=None, now=time.time, revisit_cooldown_seconds=0,
                  reject_ingestor=None, first_crawl_budget=0,
                  passive_workers=1, executor_factory=None,
-                 relevance_gate=None, bred_terms=None):
+                 relevance_gate=None, bred_terms=None,
+                 subsearch=None, subsearch_search_budget=15):
         self._api = api_client
         self._fetchers = fetchers
         self._extractor = extractor
@@ -64,6 +65,12 @@ class Runner:
         # Задача 5B: спільна множина reward-breeding термів (наповнює SearchPass.breed_sink
         # у wiring; тут лише прапор, чи є куди зливати — flush() відбувається на learn-тіку).
         self._bred_terms = bred_terms if bred_terms is not None else set()
+        # R3 (Задача 9): ізольований підпошук бізнесу з каталог-сторінок — окремий
+        # SubSearch + власний ActiveHarvester (domain_registry/aggregator_store=None у
+        # wiring), тож жодного стану основного краулу не чіпає. Гейт на DDG-доступність
+        # у run_active — під бекофом фаза пропускається повністю.
+        self._subsearch = subsearch
+        self._subsearch_budget = subsearch_search_budget
 
     def _fetch_for(self, source: dict, last_seen_key):
         fetcher = self._fetchers.get(source["type"])
@@ -311,6 +318,14 @@ class Runner:
                 stop = self._harvester.harvest(candidates, cats, known, summary,
                                                known_hosts=known_hosts)
                 self._mark_consumed_search_phrases(candidates, stop)
+            # R3: ізольований підпошук — лише коли DDG доступний (під бекофом пропускається
+            # ЦІЛКОМ, як і DDG due-walk вище) і лише якщо основний харвест реально зібрав
+            # каталог-бізнеси на цьому проході.
+            if ddg_allowed and self._subsearch is not None and self._harvester is not None:
+                businesses = self._harvester.take_directory_businesses()
+                if businesses:
+                    self._subsearch.run(businesses, cats, known, summary,
+                                        budget=self._subsearch_budget)
         except Exception as exc:  # noqa: BLE001 — discovery must not crash the pass
             summary["errors"] += 1
             log.warning("active discovery / brand-feed harvest failed: %s", exc)

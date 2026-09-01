@@ -18,6 +18,7 @@ from crawler.discovery.osm_feed import OsmDomainFeed, OsmEnumerator
 from crawler.discovery.providers import build_search_plans
 from crawler.discovery import query_grid, query_lexicon
 from crawler.discovery.search_pass import SearchPass
+from crawler.discovery.subsearch import SubSearch
 from crawler.discovery.query_grid import QueryGrid, build_grid
 from crawler.discovery.robots import RobotsPolicy
 from crawler.discovery.search_state import SearchState
@@ -295,7 +296,36 @@ def build_runner(config) -> Runner:
                                     editorial_gate_enabled=config.editorial_gate_enabled,
                                     source_hint_enabled=config.source_hint_enabled,
                                     active_workers=config.active_workers,
-                                    relevance_gate=relevance_gate)
+                                    relevance_gate=relevance_gate,
+                                    register_directory_host=api.register_directory_host)
+
+    # Задача 9 (R3): ізольований підпошук бізнесу з каталог-сторінок (myhelp-тип) —
+    # ОКРЕМИЙ ActiveHarvester з domain_registry=None + aggregator_store=None, тож
+    # нічого не пише в стан основного краулу. Побудований лише коли є живий провайдер
+    # для site:-запитів (search_pass), інакше шукати нема чим.
+    subsearch = None
+    if config.subsearch_enabled and search_pass is not None:
+        site_discovery = search_pass.provider_for_site_query()
+        if site_discovery is not None:
+            def _subsearch_provider(keyword, _disc=site_discovery):
+                # SubSearch чекає callable(keyword) -> list[SourceCandidate]; наявний
+                # провайдер site: дає ActiveDiscovery.run(keywords, known, pages) —
+                # обгортаємо одним ключовим словом; known=set() навмисно (ізольований
+                # підпошук не звіряється з джерелами основного краулу).
+                return _disc.run([keyword], set())
+            iso_harvester = ActiveHarvester(
+                api, fetchers, extractor, rate_limiter,
+                fetch_budget=config.subsearch_fetch_budget,
+                walker=walker, domain_rate_limiter=domain_rl,
+                domain_registry=None, aggregator_store=None,   # ISOLATION
+                geo_block_store=geo_block_store,
+                lang_block_store=lang_block_store,
+                editorial_gate_enabled=config.editorial_gate_enabled,
+                source_hint_enabled=config.source_hint_enabled,
+                hardening_enabled=config.attribution_hardening_enabled,
+                relevance_gate=relevance_gate)
+            subsearch = SubSearch(_subsearch_provider, iso_harvester)
+
     return Runner(api, fetchers, extractor, rate_limiter,
                   discovery=discovery, search_pass=search_pass, harvester=harvester,
                   brand_feed=brand_feed, freshness_ttl_days=config.freshness_ttl_days,
@@ -314,4 +344,6 @@ def build_runner(config) -> Runner:
                   first_crawl_budget=config.first_crawl_budget,
                   passive_workers=config.passive_workers,
                   relevance_gate=relevance_gate,
-                  bred_terms=bred_terms)
+                  bred_terms=bred_terms,
+                  subsearch=subsearch,
+                  subsearch_search_budget=config.subsearch_search_budget)
