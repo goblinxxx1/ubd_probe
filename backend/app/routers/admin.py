@@ -16,7 +16,9 @@ from app.models.enums import (BlockedHostStatus, CreatedBy, OfferStatus, OfferTy
                                QueryTermStatus, SuggestionStatus)
 from app.schemas.admin_user import AdminUserCreate, AdminUserOut
 from app.schemas.blocked_host import BlockedHostCreate, BlockedHostOut
-from app.schemas.query_term import QueryTermManualAdd, QueryTermOut
+from app.schemas.query_term import (QueryTermBulkAction, QueryTermBulkFail,
+                                     QueryTermBulkIn, QueryTermBulkOut,
+                                     QueryTermManualAdd, QueryTermOut)
 from app.schemas.category import CategoryCreate, CategoryOut, CategoryUpdate
 from app.schemas.common import Page
 from app.schemas.offer import OfferAdminOut, OfferCreate, OfferOut, OfferUpdate
@@ -212,6 +214,33 @@ def reject_host_candidate(host_id: int, db: Session = Depends(get_db),
 def list_query_terms(status: QueryTermStatus | None = None,
                      db: Session = Depends(get_db), _=Depends(get_current_admin)):
     return query_term_crud.list_terms(db, status)
+
+
+@router.post("/query-terms/bulk", response_model=QueryTermBulkOut)
+def bulk_query_terms(data: QueryTermBulkIn, db: Session = Depends(get_db),
+                     admin=Depends(get_current_admin)):
+    """Масові дії над термінами (дзеркало рядкових). Per-id ізоляція помилок —
+    одна помилка не валить решту (як /offers/bulk-reject)."""
+    def _apply(tid: int):
+        a = data.action
+        if a == QueryTermBulkAction.approve:
+            return query_term_crud.approve(db, tid, admin.id)
+        if a == QueryTermBulkAction.reject:
+            return query_term_crud.reject(db, tid, admin.id)
+        if a == QueryTermBulkAction.to_pending:
+            return query_term_crud.to_pending(db, tid)
+        if a == QueryTermBulkAction.protect:
+            return query_term_crud.set_protected(db, tid, True)
+        return query_term_crud.set_protected(db, tid, False)  # unprotect
+
+    done, failed = [], []
+    for tid in data.ids:
+        try:
+            _apply(tid)
+            done.append(tid)
+        except Exception as exc:  # noqa: BLE001 — isolate per id, report the rest
+            failed.append(QueryTermBulkFail(id=tid, error=str(getattr(exc, "detail", exc))))
+    return QueryTermBulkOut(done=done, failed=failed)
 
 
 @router.post("/query-terms/{term_id}/approve", response_model=QueryTermOut)

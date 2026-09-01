@@ -84,6 +84,81 @@ def test_manual_add_protected_term_is_returned_and_flagged(client, db_session):
     assert "ручний терм" in appr
 
 
+def _seed(client, *terms):
+    client.post("/api/internal/query-terms", headers=_KEY, json={"candidates": [
+        {"term": t, "z": 1.0, "support": 3} for t in terms]})
+
+
+def test_bulk_approve_and_reject(client, db_session):
+    _seed(client, "терм-а", "терм-б", "терм-в")
+    token = _admin_token(db_session)
+    h = {"Authorization": f"Bearer {token}"}
+    ids = {r["term"]: r["id"] for r in client.get(
+        "/api/admin/query-terms?status=pending", headers=h).json()}
+
+    ap = client.post("/api/admin/query-terms/bulk", headers=h,
+                     json={"ids": [ids["терм-а"], ids["терм-б"]], "action": "approve"})
+    assert ap.status_code == 200
+    assert set(ap.json()["done"]) == {ids["терм-а"], ids["терм-б"]}
+    assert ap.json()["failed"] == []
+    assert sorted(client.get("/api/internal/query-terms/approved", headers=_KEY).json()) == \
+        ["терм-а", "терм-б"]
+
+    rj = client.post("/api/admin/query-terms/bulk", headers=h,
+                     json={"ids": [ids["терм-в"]], "action": "reject"})
+    assert rj.status_code == 200 and rj.json()["done"] == [ids["терм-в"]]
+    assert client.get("/api/internal/query-terms/rejected", headers=_KEY).json() == ["терм-в"]
+
+
+def test_bulk_partial_failure_isolates_bad_id(client, db_session):
+    _seed(client, "живий")
+    token = _admin_token(db_session)
+    h = {"Authorization": f"Bearer {token}"}
+    good = client.get("/api/admin/query-terms?status=pending", headers=h).json()[0]["id"]
+
+    res = client.post("/api/admin/query-terms/bulk", headers=h,
+                      json={"ids": [good, 999999], "action": "protect"})
+    assert res.status_code == 200
+    body = res.json()
+    assert body["done"] == [good]
+    assert [f["id"] for f in body["failed"]] == [999999]
+    # the good one still applied despite the sibling failure
+    assert client.get("/api/internal/query-terms/protected", headers=_KEY).json() == ["живий"]
+
+
+def test_bulk_to_pending_and_unprotect(client, db_session):
+    _seed(client, "повертаю")
+    token = _admin_token(db_session)
+    h = {"Authorization": f"Bearer {token}"}
+    tid = client.get("/api/admin/query-terms?status=pending", headers=h).json()[0]["id"]
+    client.post("/api/admin/query-terms/bulk", headers=h,
+                json={"ids": [tid], "action": "approve"})
+    client.post("/api/admin/query-terms/bulk", headers=h,
+                json={"ids": [tid], "action": "protect"})
+
+    tp = client.post("/api/admin/query-terms/bulk", headers=h,
+                     json={"ids": [tid], "action": "to_pending"})
+    assert tp.status_code == 200 and tp.json()["done"] == [tid]
+    assert client.get("/api/internal/query-terms/approved", headers=_KEY).json() == []
+
+    up = client.post("/api/admin/query-terms/bulk", headers=h,
+                     json={"ids": [tid], "action": "unprotect"})
+    assert up.status_code == 200 and up.json()["done"] == [tid]
+    assert client.get("/api/internal/query-terms/protected", headers=_KEY).json() == []
+
+
+def test_bulk_requires_auth_and_nonempty_ids(client, db_session):
+    assert client.post("/api/admin/query-terms/bulk").status_code == 401
+    token = _admin_token(db_session)
+    h = {"Authorization": f"Bearer {token}"}
+    # empty ids → 422 (Field min_length=1)
+    assert client.post("/api/admin/query-terms/bulk", headers=h,
+                       json={"ids": [], "action": "approve"}).status_code == 422
+    # bad action → 422
+    assert client.post("/api/admin/query-terms/bulk", headers=h,
+                       json={"ids": [1], "action": "delete"}).status_code == 422
+
+
 def test_protect_unprotect_toggle(client, db_session):
     """protect/unprotect перемикає прапорець, не чіпаючи approve/reject."""
     client.post("/api/internal/query-terms", headers=_KEY, json={"candidates": [

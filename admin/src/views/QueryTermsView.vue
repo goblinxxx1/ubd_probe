@@ -5,6 +5,7 @@ import * as terms from "@/api/queryTerms";
 import { SUGGESTION_STATUSES } from "@/constants/enums";
 import { enumLabel } from "@/utils/format";
 import { extractError } from "@/utils/errors";
+import { confirmAction } from "@/utils/confirm";
 import { useClientPagination } from "@/composables/useClientPagination";
 import ResponsiveTable from "@/components/ResponsiveTable.vue";
 
@@ -13,6 +14,7 @@ const { page, size, total, pageItems, setPage } = useClientPagination(items, 20)
 const loading = ref(false);
 const status = ref("pending");
 const newTerm = ref("");
+const selected = ref([]);
 
 const columns = [
   { prop: "term", label: "Термін" },
@@ -22,6 +24,7 @@ const columns = [
 
 async function load() {
   loading.value = true;
+  selected.value = [];            // drop stale selection on reload / tab switch
   try {
     items.value = await terms.list({ status: status.value });
   } catch (e) {
@@ -31,6 +34,26 @@ async function load() {
   }
 }
 onMounted(load);
+
+// Масові дії — дзеркало рядкових. `confirm` (текст) вимагає підтвердження на
+// незворотні-по-суті переходи (reject, повернення з гріду).
+async function runBulk(action, confirm = null) {
+  if (!selected.value.length) return;
+  if (confirm) {
+    try { await confirmAction(confirm); } catch { return; }
+  }
+  try {
+    const res = await terms.bulk(selected.value.map((r) => r.id), action);
+    if (res.failed?.length) {
+      ElMessage.warning(`Готово: ${res.done.length}, помилок: ${res.failed.length}`);
+    } else {
+      ElMessage.success(`Готово: ${res.done.length}`);
+    }
+    await load();
+  } catch (e) {
+    ElMessage.error(extractError(e));
+  }
+}
 
 async function onApprove(id) {
   try {
@@ -100,7 +123,7 @@ async function onUnprotect(id) {
   }
 }
 
-defineExpose({ items, pageItems, page, total, setPage, load, newTerm,
+defineExpose({ items, pageItems, page, total, setPage, load, newTerm, selected, runBulk,
   onApprove, onReject, onUnreject, onToPending, onManualAdd, onProtect, onUnprotect, status });
 </script>
 
@@ -123,6 +146,28 @@ defineExpose({ items, pageItems, page, total, setPage, load, newTerm,
       </div>
     </div>
 
+    <div class="bulkbar">
+      <span class="sel-count">Вибрано: {{ selected.length }}</span>
+      <template v-if="status === 'pending'">
+        <el-button size="small" type="success" plain :disabled="!selected.length"
+                   @click="runBulk('approve')">Затвердити вибрані</el-button>
+        <el-button size="small" type="danger" plain :disabled="!selected.length"
+                   @click="runBulk('reject', `Відхилити вибрані терміни (${selected.length})?`)">
+          Відхилити вибрані</el-button>
+      </template>
+      <el-button v-else-if="status === 'approved'" size="small" plain :disabled="!selected.length"
+                 @click="runBulk('to_pending', `Повернути вибрані в кандидати (${selected.length})? Їх приберуть з пошукового гріду.`)">
+        Повернути в кандидати</el-button>
+      <el-button v-else-if="status === 'rejected'" size="small" plain :disabled="!selected.length"
+                 @click="runBulk('to_pending', `Повернути вибрані в кандидати (${selected.length})?`)">
+        Повернути в кандидати</el-button>
+      <el-divider direction="vertical" />
+      <el-button size="small" type="warning" plain :disabled="!selected.length"
+                 @click="runBulk('protect')">Закріпити вибрані</el-button>
+      <el-button size="small" plain :disabled="!selected.length"
+                 @click="runBulk('unprotect')">Відкріпити вибрані</el-button>
+    </div>
+
     <el-pagination
       layout="prev, pager, next"
       :total="total"
@@ -131,7 +176,8 @@ defineExpose({ items, pageItems, page, total, setPage, load, newTerm,
       @current-change="setPage"
     />
 
-    <ResponsiveTable :columns="columns" :rows="pageItems" :loading="loading" :actions-width="320">
+    <ResponsiveTable :columns="columns" :rows="pageItems" :loading="loading" :actions-width="320"
+                     selectable @selection-change="selected = $event">
       <template #col-protected="{ row }">
         <el-tag v-if="row.protected" type="warning" size="small">Закріплено</el-tag>
         <span v-else class="muted">—</span>
@@ -168,5 +214,7 @@ defineExpose({ items, pageItems, page, total, setPage, load, newTerm,
 <style scoped lang="less">
 .header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
 .controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.bulkbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
+.sel-count { color: var(--el-text-color-secondary); font-size: 13px; margin-right: 4px; }
 .muted { color: var(--el-text-color-secondary); }
 </style>

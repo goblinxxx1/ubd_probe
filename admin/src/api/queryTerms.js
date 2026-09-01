@@ -9,3 +9,6 @@ export const toPending = (id) => client.post(`/admin/query-terms/${id}/to-pendin
 export const manualAdd = (term) => client.post("/admin/query-terms", { term }).then((r) => r.data);
 export const protect = (id) => client.post(`/admin/query-terms/${id}/protect`).then((r) => r.data);
 export const unprotect = (id) => client.post(`/admin/query-terms/${id}/unprotect`).then((r) => r.data);
+// Масові дії (дзеркало рядкових): action ∈ approve|reject|to_pending|protect|unprotect
+export const bulk = (ids, action) =>
+  client.post("/admin/query-terms/bulk", { ids, action }).then((r) => r.data);
