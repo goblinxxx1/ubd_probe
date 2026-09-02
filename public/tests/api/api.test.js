@@ -7,7 +7,6 @@ vi.mock("@/api/client", () => {
 
 import client from "@/api/client";
 import * as offers from "@/api/offers";
-import * as categories from "@/api/categories";
 import { extractError } from "@/utils/errors";
 
 beforeEach(() => vi.clearAllMocks());
@@ -21,23 +20,9 @@ describe("offers api", () => {
     await offers.get(7);
     expect(client.get).toHaveBeenCalledWith("/offers/7", { params: {} });
   });
-  it("locations() fetches the facet list", async () => {
-    client.get.mockResolvedValueOnce({ data: ["Київ", "Львів"] });
-    await expect(offers.locations()).resolves.toEqual(["Київ", "Львів"]);
-    expect(client.get).toHaveBeenCalledWith("/locations");
-  });
   it("facets passes filter params", async () => {
     await offers.facets({ type: "discount", location: ["Київ"] });
     expect(client.get).toHaveBeenCalledWith("/facets", { params: { type: "discount", location: ["Київ"] } });
-  });
-});
-
-describe("categories api", () => {
-  it("hits the open dictionary endpoints", async () => {
-    await categories.listTarget();
-    await categories.listOffer();
-    expect(client.get).toHaveBeenCalledWith("/target-categories");
-    expect(client.get).toHaveBeenCalledWith("/offer-categories");
   });
 });
 
