@@ -50,4 +50,19 @@ describe("useFacets", () => {
     await flushPromises();
     expect(wrapper.vm.targetCategories[0].name).toBe("УБД");   // unchanged, not cleared
   });
+
+  it("discards a stale in-flight facets response when the query changes", async () => {
+    const { wrapper, router } = await mountAt({});   // initial snapshot: УБД
+    let resolveSlow;
+    const slow = new Promise((r) => { resolveSlow = r; });
+    offers.facets.mockReturnValueOnce(slow);         // this refetch hangs
+    await router.push({ path: "/", query: { location: "Київ" } });
+    await flushPromises();
+    // a newer refetch resolves first (default mock -> УБД); then the stale one resolves
+    await router.push({ path: "/", query: { location: "Львів" } });
+    await flushPromises();
+    resolveSlow({ target_categories: [{ id: 9, name: "СТАРЕ", count: 1 }], offer_categories: [], types: [], locations: [] });
+    await flushPromises();
+    expect(wrapper.vm.targetCategories[0].name).toBe("УБД");   // stale response discarded, not applied
+  });
 });

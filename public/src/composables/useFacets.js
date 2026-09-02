@@ -10,6 +10,9 @@ export function useFacets() {
   const offerCategories = ref([]);
   const types = ref([]);
   const locations = ref([]);
+  // Монотонний лічильник запитів: за швидких змін фільтра застосовуємо лише
+  // найновіший знімок, щоб застаріла відповідь не перекрила свіжу.
+  let requestId = 0;
 
   function paramsFromQuery(query) {
     const params = {};
@@ -18,15 +21,17 @@ export function useFacets() {
   }
 
   async function load() {
+    const rid = ++requestId;
     try {
       // Контекстні лічильники залежать від активних фільтрів — перезавантажуємо на кожну зміну.
       const data = await fetchFacets(paramsFromQuery(route.query));
+      if (rid !== requestId) return;   // новіший запит переміг — відкидаємо застарілу відповідь
       targetCategories.value = data.target_categories;
       offerCategories.value = data.offer_categories;
       types.value = data.types;
       locations.value = data.locations;
     } catch {
-      // Фасети — неcritical прикраса фільтрів: лишаємо останній знімок (без блимання), повторимо на наступній зміні.
+      // Фасети — некритична прикраса фільтрів: лишаємо останній знімок (без блимання), повторимо на наступній зміні.
     }
   }
 
