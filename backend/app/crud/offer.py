@@ -18,6 +18,11 @@ from app.schemas.offer import OfferCreate, OfferUpdate
 log = logging.getLogger(__name__)
 
 
+def _not_expired():
+    # soft-expiry: НЕ протерміновані офери — "діє до" сьогодні включно, або без дати (завжди показуємо).
+    return (Offer.valid_until.is_(None)) | (Offer.valid_until >= date.today())
+
+
 def _host_blocked(h: str, approved: set[str]) -> bool:
     return bool(h) and any(h == b or h.endswith("." + b) for b in approved)
 
@@ -394,9 +399,7 @@ def list_offers(db: Session, *, status: OfferStatus | None = None,
     if status is not None:
         q = q.filter(Offer.status == status)
     if hide_expired:
-        # soft-expiry: drop offers whose "діє до" date has passed (valid through it,
-        # inclusive). NULL valid_until = no end date, always shown.
-        q = q.filter((Offer.valid_until.is_(None)) | (Offer.valid_until >= date.today()))
+        q = q.filter(_not_expired())
     if types:
         q = q.filter(Offer.type.in_(types))
     if locations:
@@ -618,7 +621,7 @@ def list_distinct_locations(db: Session, status: OfferStatus = OfferStatus.publi
     rows = (db.query(OfferLocation.name)
             .join(Offer, Offer.id == OfferLocation.offer_id)
             .filter(Offer.status == status)
-            .filter((Offer.valid_until.is_(None)) | (Offer.valid_until >= date.today()))
+            .filter(_not_expired())
             .distinct().order_by(OfferLocation.name).all())
     return [r[0] for r in rows]
 
@@ -628,7 +631,7 @@ def _facet_base(db: Session, *, types=None, target_category_ids=None,
     """Опубліковані, непротерміновані офери, звужені переданими фасетами (усі AND).
     Викликач передає None для фасету, чиї власні лічильники рахує (дизʼюнктивність)."""
     q = db.query(Offer).filter(Offer.status == OfferStatus.published)
-    q = q.filter((Offer.valid_until.is_(None)) | (Offer.valid_until >= date.today()))
+    q = q.filter(_not_expired())
     if types:
         q = q.filter(Offer.type.in_(types))
     if target_category_ids:
