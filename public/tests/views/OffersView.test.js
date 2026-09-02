@@ -5,11 +5,7 @@ import OffersView from "@/views/OffersView.vue";
 
 vi.mock("@/api/offers", () => ({
   list: vi.fn(() => Promise.resolve({ items: [{ id: 1, type: "event", title: "T", provider: "P", target_categories: [] }], total: 1, page: 1, size: 12 })),
-  locations: vi.fn(() => Promise.resolve([])),
-}));
-vi.mock("@/api/categories", () => ({
-  listTarget: vi.fn(() => Promise.resolve([])),
-  listOffer: vi.fn(() => Promise.resolve([])),
+  facets: vi.fn(() => Promise.resolve({ target_categories: [], offer_categories: [], types: [], locations: [] })),
 }));
 import * as offers from "@/api/offers";
 
@@ -83,5 +79,14 @@ describe("OffersView", () => {
     wrapper.vm.onPage(2);
     await flushPromises();
     expect(router.currentRoute.value.query.page).toBe("2");
+  });
+
+  it("renders the load-more control in the main column", async () => {
+    const router = makeRouter();
+    router.push("/");
+    await router.isReady();
+    const w = mount(OffersView, { global: { plugins: [router] } });
+    await flushPromises();
+    expect(w.getComponent({ name: "LoadMore" }).exists()).toBe(true);
   });
 });

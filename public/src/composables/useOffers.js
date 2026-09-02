@@ -10,35 +10,64 @@ export function useOffers() {
   const route = useRoute();
   const items = ref([]);
   const total = ref(0);
-  const loading = ref(false);
+  const loading = ref(false);        // початкове/скидне завантаження
+  const loadingMore = ref(false);    // довантаження (кнопка «Завантажити ще»)
   const error = ref(null);
-  const page = computed(() => Number(route.query.page) || 1);
+  const page = computed(() => Number(route.query.page) || 1);   // базова сторінка для нумерованого пейджера
+  const loadedPage = ref(page.value);
+  const hasMore = computed(() => items.value.length < total.value);
 
-  function paramsFromQuery(query) {
-    const params = { page: page.value, size: SIZE };
-    for (const key of FILTER_KEYS) {
-      if (query[key]) params[key] = query[key];
-    }
+  // Монотонний лічильник запитів: скидання (load) робить застарілі відповіді
+  // (зокрема довгий loadMore) неактуальними, щоб вони не домішувалися в новий список.
+  let requestId = 0;
+
+  function paramsForPage(p) {
+    const params = { page: p, size: SIZE };
+    for (const key of FILTER_KEYS) if (route.query[key]) params[key] = route.query[key];
     return params;
   }
 
   async function load() {
+    const rid = ++requestId;
     loading.value = true;
     error.value = null;
+    loadedPage.value = page.value;
     try {
-      const data = await offersApi.list(paramsFromQuery(route.query));
+      const data = await offersApi.list(paramsForPage(page.value));
+      if (rid !== requestId) return;   // новіший запит переміг — відкидаємо
       items.value = data.items;
       total.value = data.total;
     } catch (e) {
+      if (rid !== requestId) return;
       error.value = extractError(e);
       items.value = [];
       total.value = 0;
     } finally {
-      loading.value = false;
+      if (rid === requestId) loading.value = false;
+    }
+  }
+
+  async function loadMore() {
+    if (loadingMore.value || !hasMore.value) return;
+    loadingMore.value = true;
+    error.value = null;
+    const rid = requestId;   // підпорядкований: фіксуємо id, але НЕ інкрементуємо
+    const next = loadedPage.value + 1;
+    try {
+      const data = await offersApi.list(paramsForPage(next));
+      if (rid !== requestId) return;   // між запитом і відповіддю стався скид — відкидаємо
+      items.value = [...items.value, ...data.items];
+      total.value = data.total;
+      loadedPage.value = next;
+    } catch (e) {
+      if (rid !== requestId) return;
+      error.value = extractError(e);
+    } finally {
+      loadingMore.value = false;
     }
   }
 
   watch(() => route.query, load, { immediate: true });
 
-  return { items, total, loading, error, size: SIZE, page, load };
+  return { items, total, loading, loadingMore, error, size: SIZE, page, hasMore, load, loadMore };
 }

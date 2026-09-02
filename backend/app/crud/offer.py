@@ -1,6 +1,7 @@
 import logging
 from datetime import date, datetime, timedelta
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.errors import conflict, not_found, validation_error
@@ -8,6 +9,7 @@ from app.core.urlnorm import canonicalize_target_url
 from app.crud.blocked_host import bare_host, list_approved_hosts
 from app.crud import directory_host as directory_host_crud
 from app.models import Offer, OfferCategory, OfferDiscount, OfferLocation, TargetCategory
+from app.models.categories import offer_offer_categories, offer_target_categories
 from app.models.enums import CreatedBy, DiscountType, OfferStatus, OfferType, VALUE_DISCOUNT_TYPES
 from app.core.config import settings
 from app.crud.dedup import normalize_tokens, discount_magnitudes, is_duplicate_promo, is_hub_page
@@ -619,3 +621,84 @@ def list_distinct_locations(db: Session, status: OfferStatus = OfferStatus.publi
             .filter((Offer.valid_until.is_(None)) | (Offer.valid_until >= date.today()))
             .distinct().order_by(OfferLocation.name).all())
     return [r[0] for r in rows]
+
+
+def _facet_base(db: Session, *, types=None, target_category_ids=None,
+                offer_category_ids=None, locations=None, search=None):
+    """Опубліковані, непротерміновані офери, звужені переданими фасетами (усі AND).
+    Викликач передає None для фасету, чиї власні лічильники рахує (дизʼюнктивність)."""
+    q = db.query(Offer).filter(Offer.status == OfferStatus.published)
+    q = q.filter((Offer.valid_until.is_(None)) | (Offer.valid_until >= date.today()))
+    if types:
+        q = q.filter(Offer.type.in_(types))
+    if target_category_ids:
+        q = q.filter(Offer.target_categories.any(TargetCategory.id.in_(target_category_ids)))
+    if offer_category_ids:
+        q = q.filter(Offer.offer_categories.any(OfferCategory.id.in_(offer_category_ids)))
+    if locations:
+        q = q.filter(Offer.locations.any(OfferLocation.name.in_(locations)))
+    if search:
+        like = f"%{search}%"
+        q = q.filter((Offer.title.ilike(like)) | (Offer.description.ilike(like)) | (Offer.provider.ilike(like)))
+    return q
+
+
+def _merge_selected_categories(db, model, rows, selected_ids):
+    # rows: list[(id, name, count)]. Довантажуємо вибрані id, яких нема у згрупованому
+    # результаті, з count=0 — щоб позначений чекбокс ніколи не зникав. Сортуємо за назвою.
+    merged = {r[0]: [r[1], r[2]] for r in rows}
+    for cid in selected_ids or []:
+        if cid not in merged:
+            obj = db.get(model, cid)
+            if obj is not None:
+                merged[cid] = [obj.name, 0]
+    out = [(cid, name, cnt) for cid, (name, cnt) in merged.items()]
+    out.sort(key=lambda r: r[1])
+    return out
+
+
+def facet_target_categories(db, *, types=None, offer_category_ids=None, locations=None,
+                            search=None, selected_ids=None):
+    base = _facet_base(db, types=types, offer_category_ids=offer_category_ids,
+                       locations=locations, search=search)
+    rows = (base.join(offer_target_categories, offer_target_categories.c.offer_id == Offer.id)
+                .join(TargetCategory, TargetCategory.id == offer_target_categories.c.target_category_id)
+                .with_entities(TargetCategory.id, TargetCategory.name, func.count(func.distinct(Offer.id)))
+                .group_by(TargetCategory.id, TargetCategory.name).all())
+    return _merge_selected_categories(db, TargetCategory, rows, selected_ids)
+
+
+def facet_offer_categories(db, *, types=None, target_category_ids=None, locations=None,
+                           search=None, selected_ids=None):
+    base = _facet_base(db, types=types, target_category_ids=target_category_ids,
+                       locations=locations, search=search)
+    rows = (base.join(offer_offer_categories, offer_offer_categories.c.offer_id == Offer.id)
+                .join(OfferCategory, OfferCategory.id == offer_offer_categories.c.offer_category_id)
+                .with_entities(OfferCategory.id, OfferCategory.name, func.count(func.distinct(Offer.id)))
+                .group_by(OfferCategory.id, OfferCategory.name).all())
+    return _merge_selected_categories(db, OfferCategory, rows, selected_ids)
+
+
+def facet_types(db, *, target_category_ids=None, offer_category_ids=None, locations=None,
+                search=None, selected=None):
+    base = _facet_base(db, target_category_ids=target_category_ids,
+                       offer_category_ids=offer_category_ids, locations=locations, search=search)
+    rows = base.with_entities(Offer.type, func.count(Offer.id)).group_by(Offer.type).all()
+    counts = {t: n for t, n in rows}
+    for t in selected or []:
+        counts.setdefault(t, 0)
+    # стабільний порядок за визначенням enum OfferType
+    return [(t, counts[t]) for t in OfferType if t in counts]
+
+
+def facet_locations(db, *, types=None, target_category_ids=None, offer_category_ids=None,
+                    search=None, selected=None):
+    base = _facet_base(db, types=types, target_category_ids=target_category_ids,
+                       offer_category_ids=offer_category_ids, search=search)
+    rows = (base.join(OfferLocation, OfferLocation.offer_id == Offer.id)
+                .with_entities(OfferLocation.name, func.count(func.distinct(Offer.id)))
+                .group_by(OfferLocation.name).all())
+    counts = {name: n for name, n in rows}
+    for name in selected or []:
+        counts.setdefault(name, 0)
+    return sorted(counts.items(), key=lambda r: r[0])

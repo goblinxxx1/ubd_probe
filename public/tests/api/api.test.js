@@ -26,6 +26,10 @@ describe("offers api", () => {
     await expect(offers.locations()).resolves.toEqual(["Київ", "Львів"]);
     expect(client.get).toHaveBeenCalledWith("/locations");
   });
+  it("facets passes filter params", async () => {
+    await offers.facets({ type: "discount", location: ["Київ"] });
+    expect(client.get).toHaveBeenCalledWith("/facets", { params: { type: "discount", location: ["Київ"] } });
+  });
 });
 
 describe("categories api", () => {

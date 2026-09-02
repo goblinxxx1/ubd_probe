@@ -6,9 +6,10 @@ function mountFilters(modelValue = {}) {
   return mount(OfferFilters, {
     props: {
       modelValue,
-      targetCategories: [{ id: 1, name: "УБД" }, { id: 2, name: "Ветерани" }],
-      offerCategories: [{ id: 5, name: "Розваги" }],
-      locations: ["Київ", "Львів", "Одеса"],
+      targetCategories: [{ id: 1, name: "УБД", count: 5 }, { id: 2, name: "Ветерани", count: 2 }],
+      offerCategories: [{ id: 5, name: "Розваги", count: 3 }],
+      types: [{ value: "discount", count: 7 }, { value: "event", count: 1 }],
+      locations: [{ name: "Київ", count: 4 }, { name: "Львів", count: 2 }, { name: "Одеса", count: 1 }],
     },
   });
 }
@@ -65,5 +66,24 @@ describe("OfferFilters (sidebar)", () => {
     const w = mountFilters({ type: ["discount"] });
     w.vm.reset();
     expect(w.emitted().apply[0][0]).toEqual({});
+  });
+
+  it("shows the contextual count beside each option", () => {
+    const w = mountFilters({});
+    const firstRow = w.get(".filters__opt");
+    expect(firstRow.get(".filters__cnt").text()).toBe("5");
+  });
+
+  it("renders only the type options supplied in props", () => {
+    const w = mount(OfferFilters, {
+      props: {
+        modelValue: {},
+        targetCategories: [], offerCategories: [], locations: [],
+        types: [{ value: "discount", count: 7 }],   // event contextually absent
+      },
+    });
+    const labels = w.findAll(".filters__group").map((g) => g.text());
+    expect(labels.join(" ")).toContain("Знижка");
+    expect(labels.join(" ")).not.toContain("Подія");
   });
 });
