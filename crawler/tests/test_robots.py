@@ -5,9 +5,10 @@ from crawler.discovery.robots import ParsedRobots, RobotsPolicy
 
 
 class FakeResp:
-    def __init__(self, text, status=200):
+    def __init__(self, text, status=200, headers=None):
         self.text = text
         self.status_code = status
+        self.headers = headers if headers is not None else {"content-type": "text/plain"}
 
     def raise_for_status(self):
         if self.status_code >= 400:
@@ -15,15 +16,16 @@ class FakeResp:
 
 
 class FakeClient:
-    def __init__(self, text="", status=200, boom=False):
+    def __init__(self, text="", status=200, boom=False, headers=None):
         self._text, self._status, self._boom = text, status, boom
+        self._headers = headers
         self.calls = 0
 
     def get(self, url, **kw):
         self.calls += 1
         if self._boom:
             raise RuntimeError("network down")
-        return FakeResp(self._text, self._status)
+        return FakeResp(self._text, self._status, self._headers)
 
 
 class NoWait:
@@ -74,6 +76,32 @@ def test_stale_entry_refetches(tmp_path):
     RobotsPolicy(client2, NoWait(), path, ttl_seconds=100,
                  clock=lambda: clk["now"]).get("shop.ua")
     assert client2.calls == 1
+
+
+def test_oversized_body_discarded(tmp_path):
+    """Сервер віддав на /robots.txt величезну HTML-сторінку (soft-200). Ліміт розміру
+    відкидає її → allow-all, і в кеш НЕ пишеться гігантський блоб (корінь роздуття 391МБ)."""
+    path = str(tmp_path / "r.json")
+    huge = "User-agent: *\nDisallow: /\n" + "#" * (600 * 1024)   # >512KB
+    client = FakeClient(text=huge, headers={"content-type": "text/html"})
+    pol = RobotsPolicy(client, NoWait(), path, ttl_seconds=1000)
+    r = pol.get("shop.ua")
+    assert r.can_fetch("https://shop.ua/anything") is True   # discarded → allow-all
+    saved = json.loads(open(path, encoding="utf-8").read())
+    assert saved["shop.ua"]["text"] == ""                    # blob not persisted
+
+
+def test_non_text_content_type_discarded(tmp_path):
+    """Сервер віддав бінарник (напр. .exe, application/octet-stream) на /robots.txt.
+    Не-текстовий content-type відкидається без збереження (case install.medal.tv=144МБ)."""
+    path = str(tmp_path / "r.json")
+    client = FakeClient(text="MZ\x00\x00binary-installer",
+                        headers={"content-type": "application/octet-stream"})
+    pol = RobotsPolicy(client, NoWait(), path, ttl_seconds=1000)
+    r = pol.get("install.medal.tv")
+    assert r.can_fetch("https://install.medal.tv/x") is True
+    saved = json.loads(open(path, encoding="utf-8").read())
+    assert saved["install.medal.tv"]["text"] == ""
 
 
 def test_fetch_failure_allows_all(tmp_path):

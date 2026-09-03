@@ -13,6 +13,30 @@ log = logging.getLogger(__name__)
 
 ROBOTS_UA = "UBDCrawler"
 
+# Legitimate robots.txt are tiny (bytes to tens of KB). A larger body means the server
+# returned a soft-200 blob instead — an HTML page, an SPA shell, even a binary installer
+# — which must NOT be cached verbatim (a single 144MB .exe once ballooned the cache to
+# 391MB, re-serialized on every fetch). Anything over the cap, or not served as text/*,
+# is discarded → allow-all, the same safe default as a failed fetch.
+_MAX_ROBOTS_BYTES = 512 * 1024
+
+
+def _sanitize(resp) -> str:
+    """Keep the body only if it is a plausible robots.txt: served as text/* (or with no
+    content-type) AND within the size cap. Otherwise return "" (allow-all). Guards the
+    cache against soft-200 HTML pages and binary payloads served at /robots.txt."""
+    headers = getattr(resp, "headers", None) or {}
+    ctype = (headers.get("content-type") or "").split(";", 1)[0].strip().lower()
+    if ctype and not ctype.startswith("text/"):
+        return ""
+    clen = headers.get("content-length")
+    if clen and str(clen).isdigit() and int(clen) > _MAX_ROBOTS_BYTES:
+        return ""
+    text = resp.text or ""
+    if len(text.encode("utf-8", "ignore")) > _MAX_ROBOTS_BYTES:
+        return ""
+    return text
+
 
 class ParsedRobots:
     """Thin wrapper over a parsed RobotFileParser. An empty/failed parse allows everything."""
@@ -91,7 +115,7 @@ class RobotsPolicy:
             self._rl.wait(domain)
             resp = self._client.get(url, follow_redirects=True)
             resp.raise_for_status()
-            return resp.text or ""
+            return _sanitize(resp)
         except Exception as exc:  # noqa: BLE001 — allow-all on any failure
             log.warning("robots fetch failed for %s: %s", domain, exc)
             return ""
