@@ -40,6 +40,7 @@ function logout() {
         <router-link :to="{ name: 'suggested-sources' }" @click="drawerOpen = false">Запропоновані джерела</router-link>
         <router-link :to="{ name: 'blocklist' }" @click="drawerOpen = false">Медіа-блоклист</router-link>
         <router-link :to="{ name: 'query-terms' }" @click="drawerOpen = false">Терміни пошуку</router-link>
+        <router-link :to="{ name: 'crawler-health' }" @click="drawerOpen = false">Здоров'я краулера</router-link>
         <router-link v-if="isSuperAdmin" :to="{ name: 'categories' }" @click="drawerOpen = false">Категорії</router-link>
         <router-link v-if="isSuperAdmin" :to="{ name: 'users' }" @click="drawerOpen = false">Адміни</router-link>
       </nav>

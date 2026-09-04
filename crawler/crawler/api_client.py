@@ -62,6 +62,11 @@ class ApiClient:
         r.raise_for_status()
         return r.json()
 
+    def report_crawler_health(self, snapshot: dict) -> dict:
+        r = self._client.post("/api/internal/crawler-health", json=snapshot)
+        r.raise_for_status()
+        return r.json()
+
     def submit_suggestion(self, payload: dict) -> dict:
         r = self._client.post("/api/internal/suggested-sources", json=payload)
         r.raise_for_status()

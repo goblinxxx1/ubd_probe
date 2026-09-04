@@ -201,6 +201,24 @@ class Runner:
                  counts.get("scanned", 0), counts.get("kept", 0),
                  counts.get("rejected", 0), counts.get("skipped", 0))
 
+    def report_health_tick(self, config) -> None:
+        """Best-effort: compute a health snapshot from the persisted SearchState and push it
+        to the backend for the admin monitoring panel. Never kills the loop/tick."""
+        if not config.active_discovery:
+            return
+        import time
+        from crawler.discovery.health import build_snapshot
+        from crawler.discovery.search_state import SearchState
+        try:
+            state = SearchState.load(config.search_state_path)
+            snap = build_snapshot(state, config.search_backends, time.time())
+            self._api.report_crawler_health(snap)
+        except Exception as exc:  # noqa: BLE001 — health report must not kill the loop
+            log.warning("health report tick failed: %s", exc)
+            return
+        log.info("health: reported (backends=%d, phrases tracked=%d)",
+                 len(snap["backends"]), snap["phrases"]["tracked"])
+
     def search_available(self) -> bool:
         """Whether ANY search provider (DDG or SearXNG) is currently healthy — used by the
         scheduler to decide degraded-vs-full active pass. True when there's no search pass

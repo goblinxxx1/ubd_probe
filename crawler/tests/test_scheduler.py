@@ -126,6 +126,33 @@ def test_run_loop_no_learn_when_interval_zero():
     assert learned == []           # interval 0 disables the tick
 
 
+def test_run_loop_report_fires_on_first_iteration():
+    r, reported = _Runner(), []
+    run_loop(r, lambda: _State(False), _Passive(), sleep=lambda _s: None,
+             iterations=1, report=lambda: reported.append(1),
+             report_interval_seconds=1000, now=lambda: 0.0, **_kw())
+    assert reported == [1]
+
+
+def test_run_loop_no_report_when_interval_zero():
+    r, reported = _Runner(), []
+    run_loop(r, lambda: _State(False), _Passive(), sleep=lambda _s: None,
+             iterations=2, report=lambda: reported.append(1),
+             report_interval_seconds=0, now=lambda: 0.0, **_kw())
+    assert reported == []
+
+
+def test_run_loop_report_never_kills_loop():
+    r = _Runner()
+
+    def boom():
+        raise RuntimeError("report blew up")
+
+    run_loop(r, lambda: _State(False), _Passive(), sleep=lambda _s: None,
+             iterations=1, report=boom, report_interval_seconds=1, now=lambda: 0.0, **_kw())
+    assert r.calls == ["active"]   # the crawl pass still ran despite report failure
+
+
 def test_run_loop_survives_pass_error():
     class Boom:
         def run_active(self, ddg_allowed=True):

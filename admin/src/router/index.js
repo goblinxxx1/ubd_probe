@@ -9,6 +9,7 @@ import SourcesView from "@/views/SourcesView.vue";
 import SuggestedSourcesView from "@/views/SuggestedSourcesView.vue";
 import BlocklistView from "@/views/BlocklistView.vue";
 import QueryTermsView from "@/views/QueryTermsView.vue";
+import CrawlerHealthView from "@/views/CrawlerHealthView.vue";
 import CategoriesView from "@/views/CategoriesView.vue";
 import AdminUsersView from "@/views/AdminUsersView.vue";
 
@@ -26,6 +27,7 @@ const routes = [
       { path: "suggested-sources", name: "suggested-sources", component: SuggestedSourcesView },
       { path: "blocklist", name: "blocklist", component: BlocklistView },
       { path: "query-terms", name: "query-terms", component: QueryTermsView },
+      { path: "crawler-health", name: "crawler-health", component: CrawlerHealthView },
       { path: "categories", name: "categories", meta: { superAdmin: true }, component: CategoriesView },
       { path: "users", name: "users", meta: { superAdmin: true }, component: AdminUsersView },
     ],

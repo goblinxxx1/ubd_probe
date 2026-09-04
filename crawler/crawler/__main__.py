@@ -42,6 +42,9 @@ def main(argv=None) -> int:
         def _rejudge():
             runner.rejudge_tick(config)   # Задача 5: доганяльний прохід судді по pending-unjudged
 
+        def _report():
+            runner.report_health_tick(config)   # push health snapshot → admin monitoring panel
+
         log.info("scheduler: adaptive loop — active while DDG free, passive in backoff windows")
         run_loop(runner, _load_state, passive,
                  active_delay=config.active_loop_delay_seconds,
@@ -52,6 +55,8 @@ def main(argv=None) -> int:
                  refresh_interval_seconds=config.query_terms_refresh_interval_seconds,
                  rejudge=_rejudge,
                  rejudge_interval_seconds=config.rejudge_interval_seconds,
+                 report=_report,
+                 report_interval_seconds=config.health_report_interval_seconds,
                  search_available=runner.search_available)
         return 0
 

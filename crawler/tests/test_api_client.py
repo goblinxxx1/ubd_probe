@@ -35,6 +35,21 @@ def test_list_sources_sends_api_key():
     assert captured[0].headers["X-API-Key"] == "secret"
 
 
+def test_report_crawler_health_posts_snapshot():
+    captured = []
+
+    def handle(request):
+        captured.append(request)
+        return httpx.Response(200, json={"ok": True})
+
+    client = ApiClient("http://api", "secret", 10.0,
+                       transport=httpx.MockTransport(handle))
+    client.report_crawler_health({"global_backoff_s": 5})
+    assert captured[-1].url.path == "/api/internal/crawler-health"
+    assert captured[-1].headers["X-API-Key"] == "secret"
+    assert json.loads(captured[-1].content)["global_backoff_s"] == 5
+
+
 def test_submit_offer_posts_payload():
     captured = []
     client = ApiClient("http://api", "secret", 10.0,
