@@ -7,6 +7,7 @@ from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
 
 import httpx
 from ddgs import DDGS
+from ddgs.exceptions import RatelimitException, TimeoutException
 
 from crawler.discovery.active import ActiveDiscovery
 from crawler.discovery.search_state import SearchState
@@ -26,6 +27,17 @@ def _normalize_url(url: str) -> str | None:
                        if not k.lower().startswith("utm_")])
     path = p.path.rstrip("/")
     return urlunsplit((p.scheme.lower(), p.netloc.lower(), path, query, ""))
+
+
+def _is_empty_result(exc: Exception) -> bool:
+    """True when ddgs signalled a genuinely empty (but healthy) backend response rather
+    than a throttle/timeout/HTTP failure. ddgs raises ``DDGSException('No results found.')``
+    only when every engine answered without error yet the ranked result set was empty
+    (ddgs.py: ``err or "No results found."`` with ``err`` falsy). Rate limits and timeouts
+    are their own subclasses and carry their own messages, so they never match here."""
+    if isinstance(exc, (RatelimitException, TimeoutException)):
+        return False
+    return str(exc).strip() == "No results found."
 
 
 _IG_RESERVED = ("/p/", "/reel/", "/reels/", "/explore/", "/stories/")
@@ -103,6 +115,13 @@ class RotatingDdgProvider:
                 results = self._ddgs_factory().text(keyword, max_results=self._n,
                                                     backend=backend, page=page)
             except Exception as exc:  # noqa: BLE001 — search is best-effort
+                if _is_empty_result(exc):
+                    # Backend answered fine, query just has zero hits (e.g. mojeek's tiny
+                    # index vs a UA phrase). NOT a block: keep the backend healthy and let
+                    # the keyword fall through to the next one.
+                    log.debug("ddg backend %s empty for %r", backend, keyword)
+                    self._state.record_success(backend)
+                    continue
                 log.warning("ddg backend %s failed for %r: %s", backend, keyword, exc)
                 self._state.record_block(backend, self._base, self._cap, self._jitter, self._rand,
                                          quarantine_threshold=self._q_threshold,
