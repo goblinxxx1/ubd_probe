@@ -43,7 +43,8 @@ def run_loop(runner, state_loader, passive_schedule, *, active_delay, backoff_ma
              hard_factor, sleep=time.sleep, iterations=None,
              learn=None, learn_interval_seconds=0, now=time.monotonic,
              search_available=None, refresh=None, refresh_interval_seconds=0,
-             rejudge=None, rejudge_interval_seconds=0):
+             rejudge=None, rejudge_interval_seconds=0,
+             report=None, report_interval_seconds=0):
     """Drive step() forever (or `iterations` times in tests), reloading search state each
     pass so a freshly-persisted next_allowed_at is always seen. A failing pass is logged
     and skipped — it must never kill the loop.
@@ -60,6 +61,7 @@ def run_loop(runner, state_loader, passive_schedule, *, active_delay, backoff_ma
     last_learn = None
     last_refresh = None
     last_rejudge = None
+    last_report = None
     while iterations is None or n < iterations:
         if learn is not None and learn_interval_seconds > 0:
             t = now()
@@ -85,6 +87,14 @@ def run_loop(runner, state_loader, passive_schedule, *, active_delay, backoff_ma
                     rejudge()
                 except Exception as exc:  # noqa: BLE001 — rejudge must not kill the loop
                     log.warning("scheduler rejudge tick failed: %s", exc)
+        if report is not None and report_interval_seconds > 0:
+            t = now()
+            if last_report is None or (t - last_report) >= report_interval_seconds:
+                last_report = t
+                try:
+                    report()
+                except Exception as exc:  # noqa: BLE001 — health report must not kill the loop
+                    log.warning("scheduler report tick failed: %s", exc)
         try:
             state = state_loader()
             secs = step(runner, state, passive_schedule, active_delay=active_delay,

@@ -16,6 +16,7 @@ import * as sources from "@/api/sources";
 import * as suggested from "@/api/suggestedSources";
 import * as categories from "@/api/categories";
 import * as users from "@/api/users";
+import * as crawlerHealth from "@/api/crawlerHealth";
 
 beforeEach(() => vi.clearAllMocks());
 
@@ -50,6 +51,13 @@ describe("categories api", () => {
   it("createOffer posts to admin offer-categories", async () => {
     await categories.createOffer({ name: "X", slug: "x" });
     expect(client.post).toHaveBeenCalledWith("/admin/offer-categories", { name: "X", slug: "x" });
+  });
+});
+
+describe("crawler health api", () => {
+  it("get hits the admin crawler-health endpoint", async () => {
+    await crawlerHealth.get();
+    expect(client.get).toHaveBeenCalledWith("/admin/crawler-health");
   });
 });
 

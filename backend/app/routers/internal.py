@@ -1,11 +1,12 @@
 from datetime import datetime
 from urllib.parse import urlsplit
 
-from fastapi import APIRouter, Depends, Response, status as http_status
+from fastapi import APIRouter, Body, Depends, Response, status as http_status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.crud import blocked_host as blocked_host_crud
+from app.crud import crawler_health as crawler_health_crud
 from app.crud import directory_host as directory_host_crud
 from app.crud import query_term as query_term_crud
 from app.crud import bot_account as bot_account_crud
@@ -169,6 +170,13 @@ def list_blocked_hosts(db: Session = Depends(get_db)):
 @router.post("/query-terms")
 def submit_query_terms(data: QueryTermsSubmit, db: Session = Depends(get_db)):
     return {"upserted": query_term_crud.upsert_candidates(db, data.candidates)}
+
+
+@router.post("/crawler-health")
+def report_crawler_health(snapshot: dict = Body(...), db: Session = Depends(get_db)):
+    """Crawler pushes its latest self-computed health snapshot (opaque to the backend)."""
+    crawler_health_crud.upsert_snapshot(db, snapshot)
+    return {"ok": True}
 
 
 @router.get("/query-terms/approved", response_model=list[str])

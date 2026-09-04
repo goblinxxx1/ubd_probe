@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.crud import admin_user as admin_user_crud
 from app.crud import blocked_host as blocked_host_crud
+from app.crud import crawler_health as crawler_health_crud
 from app.crud import query_term as query_term_crud
 from app.crud import category as category_crud
 from app.crud import offer as offer_crud
@@ -21,6 +22,7 @@ from app.schemas.query_term import (QueryTermBulkAction, QueryTermBulkFail,
                                      QueryTermManualAdd, QueryTermOut)
 from app.schemas.category import CategoryCreate, CategoryOut, CategoryUpdate
 from app.schemas.common import Page
+from app.schemas.crawler_health import CrawlerHealthOut
 from app.schemas.offer import OfferAdminOut, OfferCreate, OfferOut, OfferUpdate
 from app.schemas.source import SourceCreate, SourceOut, SourceUpdate
 from app.schemas.suggested_source import SuggestedSourceOut
@@ -50,6 +52,12 @@ def _make_category_routes(path: str, model):
 
 for _path, _model in _CATEGORY_MODELS.items():
     _make_category_routes(_path, _model)
+
+
+@router.get("/crawler-health", response_model=CrawlerHealthOut | None)
+def get_crawler_health(db: Session = Depends(get_db), _=Depends(get_current_admin)):
+    """Latest crawler health snapshot for the monitoring panel (None until first report)."""
+    return crawler_health_crud.get_latest(db)
 
 
 @router.post("/sources", response_model=SourceOut)

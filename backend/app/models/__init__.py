@@ -13,10 +13,11 @@ from app.models.offer_location import OfferLocation
 from app.models.source import Source
 from app.models.source_crawl_state import SourceCrawlState
 from app.models.suggested_source import SuggestedSource
+from app.models.crawler_health import CrawlerHealth
 
 __all__ = [
     "AdminUser", "Source", "Offer", "OfferLink", "OfferDiscount", "OfferLocation", "TargetCategory",
     "OfferCategory", "SuggestedSource", "SourceCrawlState", "BotAccount", "BlockedHost",
-    "DirectoryHost", "QueryTerm",
+    "DirectoryHost", "QueryTerm", "CrawlerHealth",
     "offer_target_categories", "offer_offer_categories",
 ]

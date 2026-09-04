@@ -21,6 +21,7 @@ function makeRouter() {
       { path: "/suggested-sources", name: "suggested-sources", component: stub },
       { path: "/blocklist", name: "blocklist", component: stub },
       { path: "/query-terms", name: "query-terms", component: stub },
+      { path: "/crawler-health", name: "crawler-health", component: stub },
       { path: "/login", name: "login", component: stub },
     ],
   });
