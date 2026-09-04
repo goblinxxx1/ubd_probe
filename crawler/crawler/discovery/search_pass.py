@@ -94,13 +94,20 @@ class SearchPass:
             attribution[p] = p
             attribution[self._state._key(p, pages[p])] = p
         new_by_phrase: dict[str, int] = {p: 0 for p in batch}
+        # Phrases whose search channel genuinely responded across ANY plan this pass.
+        # A censored phrase (block/backoff/error on every plan) is a missing observation,
+        # not a zero, so it is excluded from productivity accounting below. A discovery
+        # that does not report served phrases (older/fake) defaults to the whole batch.
+        served: set[str] = set()
         any_success = False
         for plan in self._plans:
             if not plan.available():
                 continue
             pins = self._pins if plan.include_pins else []
             keywords = merge_queries(batch, pins)
-            searched = plan.discovery.run(keywords, known, pages)
+            disc = plan.discovery
+            searched = disc.run(keywords, known, pages)
+            served |= getattr(disc, "last_served_phrases", set(batch))
             for c in searched:
                 suffix = (c.discovery_note.split(": ", 1)[1]
                           if c.discovery_note and ": " in c.discovery_note else None)
@@ -120,11 +127,14 @@ class SearchPass:
         # advance the grid cursor AND each phrase's page cursor only on a covered batch
         if any_success:
             for p in batch:
-                self._state.record_page_result(p, pages[p], new_by_phrase[p], self._page_cap)
+                if p in served:            # censored phrase: never saw a page → don't advance it
+                    self._state.record_page_result(p, pages[p], new_by_phrase[p], self._page_cap)
             # Fix 2: батч-запис — ОДИН _save() на прохід замість одного на фразу
             # (record_yield) чи одного на кандидата (note_host), що раніше давало
             # O(batch)/O(candidates) перезаписів файлу стану за прохід.
-            self._state.record_yields(new_by_phrase, alpha=self._alpha)          # NEW: productivity
+            # Censored phrases excluded: a missing observation must not decay EWMA/dry_streak.
+            self._state.record_yields({p: new_by_phrase[p] for p in batch if p in served},
+                                      alpha=self._alpha)                          # NEW: productivity
             self._state.note_hosts([bare_host(c.url_or_handle) for c in out])    # NEW: recapture freq
             if self._breed_sink is not None:
                 # Задача 5B (ADD-половина): продуктивна фраза (>=promote_min нових

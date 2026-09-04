@@ -98,6 +98,46 @@ def test_in_backoff_returns_empty_without_inner(tmp_path):
     assert calls == []
 
 
+class _Inner:
+    """Inner provider that exposes a controllable per-call last_served, like the real ones."""
+    def __init__(self, served, results=None):
+        self.served = served
+        self.results = results if results is not None else []
+        self.last_served = None
+        self.calls = 0
+
+    def __call__(self, kw, page=1):
+        self.calls += 1
+        self.last_served = self.served
+        return list(self.results)
+
+
+def test_cache_propagates_last_served_from_inner(tmp_path):
+    inner = _Inner(served=False)
+    cache, _ = _cache(tmp_path, Clock(), inner)
+    cache("kw")
+    assert cache.last_served is False        # censored inner → censored cache
+
+
+def test_cache_hit_is_served(tmp_path):
+    inner = _Inner(served=True, results=_cand())
+    cache, _ = _cache(tmp_path, Clock(), inner)
+    cache("kw")                              # miss → stores
+    inner.served = False                     # channel goes down afterwards
+    cache("kw")                              # HIT → inner not consulted
+    assert inner.calls == 1
+    assert cache.last_served is True         # cached data IS a served observation
+
+
+def test_backoff_shortcircuit_is_censored(tmp_path):
+    inner = _Inner(served=True, results=_cand())
+    cache, st = _cache(tmp_path, Clock(), inner)
+    st.set_global_backoff(3600.0)
+    assert cache("kw") == []
+    assert inner.calls == 0
+    assert cache.last_served is False        # nothing served under backoff
+
+
 def test_degraded_empty_not_cached(tmp_path):
     calls = []
 

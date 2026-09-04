@@ -466,6 +466,63 @@ def test_run_batch_state_matches_manual_per_item_application(tmp_path):
     assert st_batch._data["host_freq"] == st_manual._data["host_freq"]
 
 
+class _ServedDisc:
+    """Discovery that serves only some phrases and reports last_served_phrases (like the
+    real ActiveDiscovery). Phrases not in `served` are censored this pass."""
+    def __init__(self, results_by_kw, served):
+        self._by = results_by_kw
+        self._served = set(served)
+        self.last_served_phrases: set[str] = set()
+    def run(self, keywords, known, pages=None):
+        self.last_served_phrases = {k for k in keywords if k in self._served}
+        out = []
+        for kw in keywords:
+            for c in self._by.get(kw, []):
+                c.discovery_note = f"ddg: {kw}"
+                out.append(c)
+        return out
+
+
+def _served_plan(disc):
+    from crawler.discovery.providers import SearchProviderPlan
+    return SearchProviderPlan(name="ddg", discovery=disc, include_pins=False,
+                              succeeded=(lambda: True), available=(lambda: True))
+
+
+def test_censored_phrase_is_not_penalized(tmp_path):
+    """A censored phrase (engine blocked, no genuine response) must NOT accrue a dry
+    observation — it is a missing sample, not a zero. A served phrase in the same batch
+    still records normally."""
+    grid = QueryGrid(["A", "B"])
+    clock = [0.0]
+    state = SearchState(str(tmp_path / "s.json"), clock=lambda: clock[0])
+    disc = _ServedDisc(results_by_kw={"A": [_yield_cand("shopA", "https://a.ua")]},
+                       served={"A"})              # A served (productive); B censored
+    sp = SearchPass([_served_plan(disc)], state, grid, block_size=2, ttl_seconds=100.0,
+                    page_cap=1)
+    for _ in range(6):
+        clock[0] += 10.0
+        sp.run(known=set())
+    stats = state._data.get("phrase_stats", {})
+    assert stats.get("a") is not None and stats["a"]["tries"] == 6   # served → recorded
+    assert stats.get("b") is None                                    # censored → untouched
+    # B never got a dry_streak, so its effective TTL stays at base (not backed off)
+    assert state.effective_ttl("B", 100.0, cold_tries=3) == 100.0
+
+
+def test_censored_phrase_page_cursor_not_advanced(tmp_path):
+    """A censored phrase's SERP page cursor must not move — we never saw that page."""
+    grid = QueryGrid(["A", "B"])
+    state = SearchState(str(tmp_path / "s.json"), clock=lambda: 1000.0)
+    disc = _ServedDisc(results_by_kw={"A": [_yield_cand("shopA", "https://a.ua")]},
+                       served={"A"})
+    sp = SearchPass([_served_plan(disc)], state, grid, block_size=2, ttl_seconds=100.0,
+                    page_cap=3)
+    sp.run(known=set())
+    assert state.current_page("A") == 2      # A productive → climbed to page 2
+    assert state.current_page("B") == 1      # B censored → stayed at page 1
+
+
 def test_set_protected_terms_updates_live_without_rebuild(tmp_path):
     """Задача 5C: адмін захищає термін ПІД ЧАС роботи краулера (без рестарту) —
     set_protected_terms підмінює множину так само, як set_grid підмінює грід."""
