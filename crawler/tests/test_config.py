@@ -56,7 +56,7 @@ def test_rejudge_config_env_override(monkeypatch, tmp_path):
 def test_search_antithrottle_defaults(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)      # no .env -> defaults apply
     cfg = load_config()
-    assert cfg.search_backends == ["startpage", "duckduckgo", "yahoo", "brave", "mojeek"]
+    assert cfg.search_backends == ["startpage", "duckduckgo", "yahoo", "brave"]
     assert cfg.search_state_path == "/data/search_state.json"
     assert cfg.search_cache_ttl_hours == 168
     assert cfg.search_min_delay == 45.0

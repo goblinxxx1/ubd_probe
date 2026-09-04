@@ -13,6 +13,10 @@ class ActiveDiscovery:
 
     def run(self, keywords: list[str], known: set[str],
             pages: dict[str, int] | None = None) -> list[SourceCandidate]:
+        # Phrases whose search channel genuinely responded this pass (results OR a real
+        # empty). A phrase left out was censored (block/backoff/error/budget-skipped);
+        # consumers skip productivity accounting for it — a missing observation, not a zero.
+        self.last_served_phrases: set[str] = set()
         if self._provider is None:
             return []
         pages = pages or {}
@@ -28,6 +32,8 @@ class ActiveDiscovery:
             except Exception as exc:  # noqa: BLE001 — search is best-effort
                 log.warning("active search failed for %r: %s", kw, exc)
                 continue
+            if getattr(self._provider, "last_served", True):
+                self.last_served_phrases.add(kw)
             for c in results:
                 ref = normalize_ref(c.type, c.url_or_handle)
                 if ref in known or (c.type, ref) in seen:

@@ -50,6 +50,30 @@ def test_pageno_forwarded_only_when_gt1():
     assert seen[-1]["pageno"] == 2
 
 
+def test_last_served_true_on_http_success_even_empty():
+    p = SearxngProvider("http://searxng:8080",
+                        client_factory=lambda: _Client({"results": []}), sleep=lambda _s: None)
+    assert p("kw") == []
+    assert p.last_served is True             # HTTP 200 with an (empty) result set = served
+
+
+def test_last_served_false_on_failure():
+    p = SearxngProvider("http://searxng:8080", client_factory=lambda: _Client(boom=True),
+                        sleep=lambda _s: None)
+    assert p("kw") == []
+    assert p.last_served is False            # HTTP/transport failure = censored
+
+
+def test_last_served_false_when_cooled():
+    clock = _Clock()
+    p = SearxngProvider("http://searxng:8080", client_factory=lambda: _Client(boom=True),
+                        sleep=lambda _s: None, clock=clock, fail_threshold=1, cooldown_base=100.0)
+    p("kw")                                   # fails → trips its own cooldown
+    assert p.available() is False
+    p("kw")                                   # skipped while cooled
+    assert p.last_served is False
+
+
 def test_failure_cools_after_threshold():
     clock = _Clock()
     p = SearxngProvider("http://searxng:8080", client_factory=lambda: _Client(boom=True),

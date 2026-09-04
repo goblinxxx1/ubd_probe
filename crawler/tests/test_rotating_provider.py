@@ -121,6 +121,45 @@ def test_ratelimit_still_cools_backend(tmp_path):
     assert st.is_healthy("google") is False          # real block → cooled
 
 
+def test_last_served_true_on_results(tmp_path):
+    log = []
+    factory = lambda: RecordingDDGS([{"title": "S", "href": "https://a.example/x"}], log)
+    p, _ = _provider(tmp_path, Clock(), factory)
+    p("kw")
+    assert p.last_served is True            # a backend answered with results
+
+
+def test_last_served_true_on_genuine_empty(tmp_path):
+    """Both attempts hit a healthy-but-empty backend → the channel served (a real,
+    if empty, response), so the observation is NOT censored."""
+    class AllEmpty:
+        def text(self, query, max_results=7, backend=None, page=1):
+            raise DDGSException("No results found.")
+
+    p, _ = _provider(tmp_path, Clock(), lambda: AllEmpty())
+    assert p("kw") == []
+    assert p.last_served is True            # genuine empty is a served observation
+
+
+def test_last_served_false_when_all_censored(tmp_path):
+    """Every attempt is a real block (429) → no backend served → censored observation."""
+    class AllBlocked:
+        def text(self, query, max_results=7, backend=None, page=1):
+            raise RuntimeError("429")
+
+    p, _ = _provider(tmp_path, Clock(), lambda: AllBlocked())
+    assert p("kw") == []
+    assert p.last_served is False
+
+
+def test_last_served_false_under_global_backoff(tmp_path):
+    factory = lambda: RecordingDDGS([{"title": "S", "href": "https://a/x"}], [])
+    p, st = _provider(tmp_path, Clock(), factory)
+    st.set_global_backoff(3600.0)
+    assert p("kw") == []
+    assert p.last_served is False           # short-circuited, nothing served
+
+
 def test_all_cooled_sets_global_backoff_and_returns_empty(tmp_path):
     class Boom:
         def text(self, query, max_results=7, backend=None, page=1):

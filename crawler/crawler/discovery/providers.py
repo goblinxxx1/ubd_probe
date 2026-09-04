@@ -98,6 +98,11 @@ class RotatingDdgProvider:
         self._rand = rand
 
     def __call__(self, keyword: str, page: int = 1) -> list[SourceCandidate]:
+        # last_served: did ANY backend genuinely respond this call (real results OR a
+        # genuine empty)? False when every attempt was censored (block/backoff). Consumers
+        # skip productivity accounting for censored phrases (a missing observation, not a
+        # zero — see docs/superpowers/specs/2026-09-04-censoring-aware-discovery-design.md).
+        self.last_served = False
         self._state.clear_degraded()
         if self._state.in_global_backoff():
             self._state.mark_degraded()
@@ -120,6 +125,7 @@ class RotatingDdgProvider:
                     # index vs a UA phrase). NOT a block: keep the backend healthy and let
                     # the keyword fall through to the next one.
                     log.debug("ddg backend %s empty for %r", backend, keyword)
+                    self.last_served = True
                     self._state.record_success(backend)
                     continue
                 log.warning("ddg backend %s failed for %r: %s", backend, keyword, exc)
@@ -128,6 +134,7 @@ class RotatingDdgProvider:
                                          quarantine_seconds=self._q_seconds,
                                          reprobe_seconds=self._reprobe_seconds)
                 continue
+            self.last_served = True
             self._state.record_success(backend)
             return self._classify(results, backend, keyword)
         self._state.mark_degraded()
@@ -187,10 +194,13 @@ class SearchCache:
     def __call__(self, keyword: str, page: int = 1) -> list[SourceCandidate]:
         cached = self._state.cache_get(keyword, self._ttl, page)
         if cached is not None:
+            self.last_served = True        # cached data is a served observation
             return cached
         if self._state.in_global_backoff():
+            self.last_served = False       # short-circuit, nothing served
             return []
         results = self._inner(keyword, page)
+        self.last_served = getattr(self._inner, "last_served", True)
         if self._state.in_global_backoff():        # inner just tripped backoff — degraded empty
             return []
         if self._state.degraded_last_call():       # inner flagged degraded — don't cache the empty
@@ -221,6 +231,7 @@ class SearxngProvider:
         self._fails = 0
         self._cooldown_until = 0.0
         self._slice_ok = False
+        self.last_served = False
 
     def available(self) -> bool:
         return self._clock() >= self._cooldown_until
@@ -230,6 +241,7 @@ class SearxngProvider:
 
     def __call__(self, keyword: str, page: int = 1) -> list[SourceCandidate]:
         self._slice_ok = False
+        self.last_served = False           # censored unless the HTTP call succeeds below
         if self._clock() < self._cooldown_until:
             return []
         if self._delay:
@@ -255,6 +267,7 @@ class SearxngProvider:
         self._fails = 0
         self._cooldown_until = 0.0
         self._slice_ok = True
+        self.last_served = True            # HTTP 200 + parsed body = a served observation
         out: list[SourceCandidate] = []
         for r in (data.get("results") or [])[:self._n]:
             classified = classify_candidate(r.get("url", ""))
