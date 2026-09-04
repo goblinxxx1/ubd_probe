@@ -1,3 +1,5 @@
+from ddgs.exceptions import DDGSException, RatelimitException
+
 from crawler.discovery.providers import RotatingDdgProvider
 from crawler.discovery.search_state import SearchState
 
@@ -67,6 +69,56 @@ def test_blocked_backend_falls_through_to_next(tmp_path):
     assert cands[0].url_or_handle == "https://a.example/x"
     assert st.is_healthy("google") is False         # google cooled
     assert st.is_healthy("startpage") is True
+
+
+def test_no_results_does_not_cool_backend(tmp_path):
+    """ddgs raises DDGSException('No results found.') when a backend responds fine but
+    the query genuinely has zero hits (mojeek's tiny index vs a UA query). That is NOT a
+    block: the backend stays healthy and the query falls through to the next backend."""
+    log = []
+
+    class EmptyThenHit:
+        def text(self, query, max_results=7, backend=None, page=1):
+            log.append(backend)
+            if backend == "google":
+                raise DDGSException("No results found.")
+            return [{"title": "S", "href": "https://a.example/x"}]
+
+    p, st = _provider(tmp_path, Clock(), lambda: EmptyThenHit())
+    cands = p("kw")
+    assert log == ["google", "startpage"]           # google empty → fell through
+    assert cands[0].url_or_handle == "https://a.example/x"
+    assert st.is_healthy("google") is True          # NOT cooled — it answered, just empty
+    assert st.degraded_last_call() is False          # a served result is not degraded
+
+
+def test_all_empty_leaves_backends_healthy(tmp_path):
+    """Every attempted backend legitimately empty → query yields [] and is flagged degraded
+    (so the empty is not cached), but no healthy backend is cooled or quarantined."""
+    class AllEmpty:
+        def text(self, query, max_results=7, backend=None, page=1):
+            raise DDGSException("No results found.")
+
+    p, st = _provider(tmp_path, Clock(), lambda: AllEmpty(),
+                      quarantine_threshold=2, quarantine_hours=24.0, reprobe_hours=6.0)
+    for _ in range(8):
+        assert p("kw") == []
+    assert st.is_healthy("google") is True
+    assert st.is_quarantined("google") is False
+    assert st.in_global_backoff() is False
+
+
+def test_ratelimit_still_cools_backend(tmp_path):
+    """A real throttle (RatelimitException) must still cool the backend as before."""
+    class Limited:
+        def text(self, query, max_results=7, backend=None, page=1):
+            if backend == "google":
+                raise RatelimitException("429 Too Many Requests")
+            return [{"title": "S", "href": "https://a.example/x"}]
+
+    p, st = _provider(tmp_path, Clock(), lambda: Limited())
+    p("kw")
+    assert st.is_healthy("google") is False          # real block → cooled
 
 
 def test_all_cooled_sets_global_backoff_and_returns_empty(tmp_path):
